@@ -1,0 +1,6 @@
+OpportunityID,CreatedDate,AccountName,Salesperson,Stage,Amount,Probability,ExpectedClose
+O1,2026-01-01,Alpha,Rep1,Closed Won,50000,1.0,2026-02-01
+O2,2026-01-02,Beta,Rep1,Proposal,30000,0.6,2026-02-15
+O3,2026-01-03,Gamma,Rep2,Closed Lost,20000,0.0,2026-02-10
+O4,2026-02-01,Delta,Rep2,Qualified,15000,0.3,2026-03-01
+O5,2026-02-02,Epsilon,Rep3,Negotiation,40000,0.7,2026-03-10

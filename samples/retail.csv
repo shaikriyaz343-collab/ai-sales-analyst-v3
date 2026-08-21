@@ -1,0 +1,7 @@
+OrderID,OrderDate,CustomerName,ProductName,Quantity,UnitPrice,TotalAmount,Region,Discount %,Return Status,PaymentMethod
+1,2026-01-01,A,Phone,1,700,700,North,0,No,Card
+2,2026-01-02,B,Shirt,2,50,100,South,10,No,UPI
+3,2026-02-01,A,Phone,2,700,1400,North,5,Returned,Card
+4,2026-02-02,C,Shoes,1,80,80,East,0,No,Cash
+5,2026-03-01,D,Laptop,1,1200,1200,West,15,No,Card
+6,2026-03-02,A,Phone,1,700,700,North,5,No,UPI

@@ -1,0 +1,5 @@
+ProjectID,Client,Service,Hours,Billings,Employee
+P1,A,Consulting,10,1000,E1
+P2,B,Support,20,1200,E2
+P3,C,Consulting,15,1800,E1
+P4,D,Training,8,640,E3

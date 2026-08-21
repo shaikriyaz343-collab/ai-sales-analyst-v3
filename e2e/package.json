@@ -1,0 +1,7 @@
+{
+  "name": "ai-business-analyst-browser-qa",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

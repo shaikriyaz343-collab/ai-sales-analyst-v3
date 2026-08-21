@@ -1,0 +1,5 @@
+SubscriptionID,CustomerName,Plan,StartDate,MRR,ChurnStatus
+S1,A,Pro,2026-01-01,100,Active
+S2,B,Basic,2026-01-03,50,Churned
+S3,C,Pro,2026-02-01,150,Active
+S4,D,Enterprise,2026-02-05,500,Active
