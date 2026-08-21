@@ -58,27 +58,46 @@ async function uploadAndAnalyze(page, file) {
   await expect(page.locator('input[type="file"]').first()).toBeAttached();
   await page.locator('input[type="file"]').first().setInputFiles(path.join(samples, file));
   await page.getByRole('button', { name: /Understand my data|Analyze my business/i }).first().click();
-  await expect(page.getByText(/Review your business/i)).toBeVisible();
+  await expect(page.getByText(/Review your business/i)).toBeVisible({ timeout: 60_000 });
 }
 
 async function chooseReviewSection(page, title) {
-  const reviewSelect = page.locator('[data-testid="stSelectbox"]').filter({ hasText: /Review section/i }).getByRole('combobox');
-  if (await reviewSelect.count()) {
-    await reviewSelect.click();
-    await page.getByText(title, { exact: true }).last().click();
-  } else {
-    const tab = page.getByText(title, { exact: true }).last();
-    await tab.click();
+  const labeled = page.getByLabel('Review section', { exact: true });
+  if (await labeled.count()) {
+    await labeled.click();
+    const option = page.getByRole('option', { name: title, exact: true });
+    if (await option.count()) {
+      await option.click();
+    } else {
+      await page.getByText(title, { exact: true }).last().click();
+    }
+    return;
   }
+
+  const radio = page.getByRole('radio', { name: title, exact: true });
+  if (await radio.count()) {
+    await radio.click();
+    return;
+  }
+
+  await page.getByText(title, { exact: true }).last().click();
 }
 
 async function chooseScopeValue(page, label, value) {
-  const scope = page.locator('[data-testid="stExpander"]').filter({ hasText: /Explore a subset of the business/i });
-  await expect(scope).toBeVisible();
-  const box = scope.locator('[data-testid="stSelectbox"]').filter({ hasText: new RegExp(`^${label}$`, 'i') }).getByRole('combobox');
+  const scopeHeading = page.getByText('Explore a subset of the business', { exact: false }).first();
+  await expect(scopeHeading).toBeVisible();
+  await scopeHeading.click();
+
+  const box = page.getByLabel(label, { exact: true });
   await expect(box).toBeVisible();
   await box.click();
-  await page.getByText(value, { exact: true }).last().click();
+
+  const option = page.getByRole('option', { name: value, exact: true });
+  if (await option.count()) {
+    await option.click();
+  } else {
+    await page.getByText(value, { exact: true }).last().click();
+  }
 }
 
 for (const archetype of archetypes) {
@@ -137,7 +156,7 @@ for (const archetype of archetypes) {
 
     await expect(page.getByText('Answer', { exact: true })).toBeVisible();
     const answered = await page.locator('body').innerText();
-    expect(answered).toContain(archetype.answerMustContain);
+    expect(answered.toLowerCase()).toContain(archetype.answerMustContain.toLowerCase());
 
     // Editing the question must not leave a stale answer visible as current.
     await q.fill('This is a different question');

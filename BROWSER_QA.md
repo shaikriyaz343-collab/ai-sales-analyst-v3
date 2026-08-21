@@ -1,31 +1,15 @@
-# Browser Acceptance QA
+# Browser Acceptance QA — Fixed
 
-The previous runtime checks are useful for code contracts, but they do not prove
-the user experience. This suite runs a real Chromium browser against the deployed
-Streamlit application.
+The first browser-QA workflow had two weaknesses:
+- it relied on a fixed 90-second wait instead of verifying the deployed app was actually healthy;
+- it did not fail with a clear message when APP_URL was missing.
 
-## What it checks
+This revision adds:
+- explicit APP_URL validation;
+- active Streamlit health polling for up to 10 minutes;
+- Node 24;
+- Playwright test discovery before execution;
+- reliable artifact collection;
+- less fragile Streamlit selectors.
 
-For all four representative business archetypes:
-
-- Upload the real sample file.
-- Start analysis.
-- Verify detected business type and full-file metrics.
-- Navigate through the Review Your Business sections.
-- Detect visible exceptions such as Traceback/ImportError/KeyError/StreamlitAPIException.
-- Apply a business-specific scope.
-- Verify the scope is reflected in the UI.
-- Reject misleading scoped concentration wording.
-- Ask a factual question and verify the expected entity/metric appears.
-- Change the question and verify the old answer is not presented as current.
-- Clear the question and verify the answer disappears.
-
-## Run against the deployed app
-
-Set a GitHub repository variable:
-
-`APP_URL = https://YOUR-APP.streamlit.app`
-
-The workflow runs automatically after pushes to `main` and can also be run manually.
-
-This is intentionally separate from the Python unit/runtime diagnostics.
+The test suite is still a real Chromium browser suite and is separate from Python runtime checks.
