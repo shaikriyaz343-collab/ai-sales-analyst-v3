@@ -8,18 +8,46 @@ on:
 jobs:
   browser-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate APP_URL
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "${APP_URL:-}" ]; then
+            echo "::error::Repository variable APP_URL is not configured."
+            echo "Set APP_URL to the deployed Streamlit URL, e.g. https://your-app.streamlit.app"
+            exit 1
+          fi
+          echo "Testing: ${APP_URL}"
+
       - name: Wait for Streamlit Cloud redeploy
-        run: sleep 90
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          set -e
+          for i in $(seq 1 40); do
+            echo "Health check ${i}/40..."
+            if curl -L --fail --silent --show-error --max-time 15 "${APP_URL}" \
+              | grep -q "AI Business Analyst"; then
+              echo "Application is reachable."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Streamlit application did not become healthy within 10 minutes."
+          exit 1
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
 
       - name: Install browser QA dependencies
         working-directory: e2e
@@ -29,17 +57,27 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium
 
+      - name: Verify Playwright test discovery
+        working-directory: e2e
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: npx playwright test --list
+
       - name: Run browser acceptance
         working-directory: e2e
         env:
           APP_URL: ${{ vars.APP_URL }}
-        run: npx playwright test
+        run: |
+          set -o pipefail
+          npx playwright test --reporter=list,html 2>&1 | tee browser-qa.log
 
-      - name: Upload browser artifacts
+      - name: Upload browser QA artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: browser-qa-results
+          if-no-files-found: warn
           path: |
-            e2e/test-results
-            e2e/playwright-report
+            e2e/test-results/**
+            e2e/playwright-report/**
+            e2e/browser-qa.log
