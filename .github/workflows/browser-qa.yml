@@ -79,20 +79,14 @@ jobs:
                 timeout: 120000
               });
 
-              console.log(`Initial page loaded: ${page.url()}`);
+              console.log('Waiting for the Streamlit file uploader...');
 
-              console.log(
-                'Waiting for the application UI: "Upload your business file"...'
-              );
-
-              await page.getByText('Upload your business file', {
-                exact: false
-              }).waitFor({
+              await page.locator('[data-testid="stFileUploader"]').waitFor({
                 state: 'visible',
-                timeout: 600000
+                timeout: 180000
               });
 
-              console.log('Application UI is ready.');
+              console.log('Streamlit file uploader is visible.');
               console.log(`Final page URL: ${page.url()}`);
 
             } catch (error) {
