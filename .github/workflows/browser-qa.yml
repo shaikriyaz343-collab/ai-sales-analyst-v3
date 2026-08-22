@@ -107,26 +107,27 @@ jobs:
               const appIframe = page.locator(
                 'iframe[title="streamlitApp"]'
               );
-
+              
               await appIframe.waitFor({
                 state: 'attached',
                 timeout: 60000
               });
-
+              
               console.log(
                 '\nStreamlit application iframe detected.'
               );
-
-              const appFrame = page
-                .frames()
-                .find(frame => frame.name() === 'streamlitApp');
-
+              
+              const appFrame = await appIframe.contentFrame();
+              
               if (!appFrame) {
                 throw new Error(
-                  'Could not access the streamlitApp iframe.'
+                  'Could not access the content of the streamlitApp iframe.'
                 );
               }
-
+              
+              console.log(
+                `Application frame URL: ${appFrame.url()}`
+              );
               console.log(
                 `Application frame URL: ${appFrame.url()}`
               );
