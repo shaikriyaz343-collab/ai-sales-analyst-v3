@@ -87,8 +87,7 @@ jobs:
               console.log(`Outer page loaded: ${page.url()}`);
 
               /*
-               * Give the Streamlit Cloud shell time to create
-               * the application iframe.
+               * Allow Streamlit Cloud to create the application iframe.
                */
               await page.waitForTimeout(10000);
 
@@ -101,54 +100,49 @@ jobs:
               }
 
               /*
-               * The actual Streamlit application is inside
-               * the iframe titled "streamlitApp".
+               * Find the actual Streamlit application Frame.
+               *
+               * We know from the previous diagnostics that the
+               * application frame URL contains /~/+/ .
                */
-              const appIframe = page.locator(
-                'iframe[title="streamlitApp"]'
-              );
-              
-              await appIframe.waitFor({
-                state: 'attached',
-                timeout: 60000
+              const appFrame = page.frame({
+                url: url => url.includes('/~/+/')
               });
-              
-              console.log(
-                '\nStreamlit application iframe detected.'
-              );
-              
-              const appFrame = await appIframe.contentFrame();
-              
+
               if (!appFrame) {
                 throw new Error(
-                  'Could not access the content of the streamlitApp iframe.'
+                  'Could not locate the actual Streamlit application frame.'
                 );
               }
-              
+
               console.log(
-                `Application frame URL: ${appFrame.url()}`
+                '\nStreamlit application frame detected.'
               );
+
               console.log(
                 `Application frame URL: ${appFrame.url()}`
               );
 
               /*
-               * Allow the Streamlit application itself time
-               * to finish rendering inside the iframe.
+               * Give the application time to finish loading.
                */
-              await appFrame.waitForLoadState('domcontentloaded', {
-                timeout: 60000
-              }).catch(() => {});
+              await appFrame
+                .waitForLoadState('domcontentloaded', {
+                  timeout: 60000
+                })
+                .catch(() => {});
 
               await appFrame.waitForTimeout(10000);
 
-              console.log('\n===== APPLICATION FRAME TEXT =====');
+              console.log(
+                '\n===== APPLICATION FRAME TEXT ====='
+              );
 
-              const body = appFrame.locator('body');
-
-              const bodyText = await body.innerText({
-                timeout: 30000
-              });
+              const bodyText = await appFrame
+                .locator('body')
+                .innerText({
+                  timeout: 30000
+                });
 
               console.log(
                 bodyText.slice(0, 15000)
@@ -265,8 +259,26 @@ jobs:
                 JSON.stringify(textareas, null, 2)
               );
 
+              console.log(
+                '\n===== APPLICATION LINKS ====='
+              );
+
+              const links = await appFrame
+                .locator('a')
+                .evaluateAll(elements =>
+                  elements.map(el => ({
+                    text: (el.innerText || '').trim(),
+                    href: el.getAttribute('href'),
+                    ariaLabel: el.getAttribute('aria-label')
+                  }))
+                );
+
+              console.log(
+                JSON.stringify(links, null, 2)
+              );
+
               /*
-               * Save the full rendered page.
+               * Save a browser screenshot.
                */
               await page.screenshot({
                 path: 'browser-readiness-diagnostic.png',
@@ -274,7 +286,7 @@ jobs:
               });
 
               console.log(
-                '\nDiagnostic screenshot saved.'
+                '\nDiagnostic screenshot saved: browser-readiness-diagnostic.png'
               );
 
             } catch (error) {
