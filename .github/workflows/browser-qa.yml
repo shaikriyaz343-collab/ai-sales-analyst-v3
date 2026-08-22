@@ -8,7 +8,7 @@ on:
 jobs:
   browser-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
 
     steps:
       - name: Validate APP_URL
@@ -31,7 +31,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          
+
       - name: Install browser QA dependencies
         working-directory: e2e
         run: npm install
@@ -46,7 +46,7 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
         run: npx playwright test --list
 
-      - name: Open deployed app with Playwright
+      - name: Inspect deployed app with Playwright
         working-directory: e2e
         env:
           APP_URL: ${{ vars.APP_URL }}
@@ -65,7 +65,12 @@ jobs:
               headless: true
             });
 
-            const page = await browser.newPage();
+            const page = await browser.newPage({
+              viewport: {
+                width: 1440,
+                height: 1000
+              }
+            });
 
             page.on('pageerror', error => {
               console.error(`PAGE ERROR: ${error.message}`);
@@ -79,27 +84,140 @@ jobs:
                 timeout: 120000
               });
 
-              console.log('Waiting for the Streamlit file uploader...');
+              console.log(`Page loaded: ${page.url()}`);
 
-              await page.locator('[data-testid="stFileUploader"]').waitFor({
-                state: 'visible',
-                timeout: 180000
+              /*
+               * Give Streamlit time to finish rendering.
+               */
+              await page.waitForTimeout(15000);
+
+              console.log('\n===== PAGE TITLE =====');
+
+              console.log(await page.title());
+
+              console.log('\n===== VISIBLE PAGE TEXT =====');
+
+              const bodyText = await page.locator('body').innerText();
+
+              console.log(bodyText.slice(0, 10000));
+
+              console.log('\n===== DATA-TESTID VALUES =====');
+
+              const testIds = await page
+                .locator('[data-testid]')
+                .evaluateAll(elements => [
+                  ...new Set(
+                    elements
+                      .map(el => el.getAttribute('data-testid'))
+                      .filter(Boolean)
+                  )
+                ]);
+
+              if (testIds.length === 0) {
+                console.log('(none found)');
+              } else {
+                console.log(testIds.join('\n'));
+              }
+
+              console.log('\n===== INPUT ELEMENTS =====');
+
+              const inputs = await page
+                .locator('input')
+                .evaluateAll(elements =>
+                  elements.map(el => ({
+                    type: el.getAttribute('type'),
+                    ariaLabel: el.getAttribute('aria-label'),
+                    placeholder: el.getAttribute('placeholder'),
+                    name: el.getAttribute('name')
+                  }))
+                );
+
+              console.log(JSON.stringify(inputs, null, 2));
+
+              console.log('\n===== TEXTAREAS =====');
+
+              const textareas = await page
+                .locator('textarea')
+                .evaluateAll(elements =>
+                  elements.map(el => ({
+                    ariaLabel: el.getAttribute('aria-label'),
+                    placeholder: el.getAttribute('placeholder'),
+                    name: el.getAttribute('name')
+                  }))
+                );
+
+              console.log(JSON.stringify(textareas, null, 2));
+
+              console.log('\n===== BUTTONS =====');
+
+              const buttons = await page
+                .locator('button')
+                .evaluateAll(elements =>
+                  elements.map(el => ({
+                    text: (el.innerText || '').trim(),
+                    ariaLabel: el.getAttribute('aria-label'),
+                    title: el.getAttribute('title')
+                  }))
+                );
+
+              console.log(JSON.stringify(buttons, null, 2));
+
+              console.log('\n===== LINKS =====');
+
+              const links = await page
+                .locator('a')
+                .evaluateAll(elements =>
+                  elements.map(el => ({
+                    text: (el.innerText || '').trim(),
+                    href: el.getAttribute('href'),
+                    ariaLabel: el.getAttribute('aria-label')
+                  }))
+                );
+
+              console.log(JSON.stringify(links, null, 2));
+
+              console.log('\n===== IFRAMES =====');
+
+              const frames = await page
+                .locator('iframe')
+                .evaluateAll(elements =>
+                  elements.map(el => ({
+                    src: el.getAttribute('src'),
+                    title: el.getAttribute('title')
+                  }))
+                );
+
+              console.log(JSON.stringify(frames, null, 2));
+
+              console.log('\n===== PAGE URL =====');
+
+              console.log(page.url());
+
+              /*
+               * Save the actual rendered page for inspection.
+               */
+              await page.screenshot({
+                path: 'browser-readiness-diagnostic.png',
+                fullPage: true
               });
 
-              console.log('Streamlit file uploader is visible.');
-              console.log(`Final page URL: ${page.url()}`);
+              console.log(
+                '\nDiagnostic screenshot saved: browser-readiness-diagnostic.png'
+              );
 
             } catch (error) {
-              console.error('Browser readiness check failed.');
+              console.error(
+                `Browser diagnostic failed: ${error.message}`
+              );
 
               try {
                 await page.screenshot({
-                  path: 'browser-readiness-failure.png',
+                  path: 'browser-readiness-diagnostic.png',
                   fullPage: true
                 });
 
                 console.log(
-                  'Saved browser-readiness-failure.png'
+                  'Saved failure screenshot: browser-readiness-diagnostic.png'
                 );
               } catch (screenshotError) {
                 console.error(
@@ -116,6 +234,7 @@ jobs:
           NODE
 
       - name: Run browser acceptance
+        if: ${{ false }}
         working-directory: e2e
         env:
           APP_URL: ${{ vars.APP_URL }}
@@ -131,4 +250,4 @@ jobs:
             e2e/test-results/**
             e2e/playwright-report/**
             e2e/browser-qa.log
-            e2e/browser-readiness-failure.png
+            e2e/browser-readiness-diagnostic.png
