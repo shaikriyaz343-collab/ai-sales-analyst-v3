@@ -16,51 +16,16 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
         run: |
           set -e
+
           if [ -z "${APP_URL:-}" ]; then
             echo "::error::Repository variable APP_URL is not configured."
             exit 1
           fi
+
           echo "Testing deployed app: ${APP_URL}"
 
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Wait for Streamlit Cloud health endpoint
-        env:
-          APP_URL: ${{ vars.APP_URL }}
-        run: |
-          set -e
-          BASE_URL="${APP_URL%/}"
-          HEALTH_URL="${BASE_URL}/_stcore/health"
-
-          echo "Checking: ${HEALTH_URL}"
-
-          for i in $(seq 1 40); do
-            echo "Health check ${i}/40..."
-
-            BODY="$(curl --fail --silent --show-error \
-              --connect-timeout 5 \
-              --max-time 8 \
-              --max-redirs 0 \
-              "${HEALTH_URL}" 2>/tmp/curl_error || true)"
-
-            CURL_STATUS=$?
-
-            if [ "${BODY}" = "ok" ] || printf '%s' "${BODY}" | grep -qi '^ok$'; then
-              echo "Streamlit health endpoint is healthy."
-              exit 0
-            fi
-
-            if [ -s /tmp/curl_error ]; then
-              echo "curl: $(cat /tmp/curl_error)"
-            fi
-
-            sleep 7
-          done
-
-          echo "::error::Streamlit health endpoint did not become healthy within 10 minutes."
-          echo "Check the Streamlit Cloud deployment separately before debugging browser tests."
-          exit 1
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -83,6 +48,81 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
         run: npx playwright test --list
 
+      - name: Open deployed app with Playwright
+        working-directory: e2e
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+
+          const appUrl = process.env.APP_URL;
+
+          if (!appUrl) {
+            throw new Error('APP_URL is not configured.');
+          }
+
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true
+            });
+
+            const page = await browser.newPage();
+
+            page.on('pageerror', error => {
+              console.error(`PAGE ERROR: ${error.message}`);
+            });
+
+            console.log(`Opening deployed application: ${appUrl}`);
+
+            try {
+              await page.goto(appUrl, {
+                waitUntil: 'domcontentloaded',
+                timeout: 120000
+              });
+
+              console.log(`Initial page loaded: ${page.url()}`);
+
+              console.log(
+                'Waiting for the application UI: "Upload your business file"...'
+              );
+
+              await page.getByText('Upload your business file', {
+                exact: false
+              }).waitFor({
+                state: 'visible',
+                timeout: 600000
+              });
+
+              console.log('Application UI is ready.');
+              console.log(`Final page URL: ${page.url()}`);
+
+            } catch (error) {
+              console.error('Browser readiness check failed.');
+
+              try {
+                await page.screenshot({
+                  path: 'browser-readiness-failure.png',
+                  fullPage: true
+                });
+
+                console.log(
+                  'Saved browser-readiness-failure.png'
+                );
+              } catch (screenshotError) {
+                console.error(
+                  `Could not save screenshot: ${screenshotError.message}`
+                );
+              }
+
+              throw error;
+
+            } finally {
+              await browser.close();
+            }
+          })();
+          NODE
+
       - name: Run browser acceptance
         working-directory: e2e
         env:
@@ -99,3 +139,4 @@ jobs:
             e2e/test-results/**
             e2e/playwright-report/**
             e2e/browser-qa.log
+            e2e/browser-readiness-failure.png
