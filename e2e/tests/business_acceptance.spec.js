@@ -1,4 +1,3 @@
-
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
@@ -12,7 +11,19 @@ const archetypes = [
     overviewMetric: '4,180',
     ask: 'Which product generated most revenue?',
     answerMustContain: 'Phone',
-    expectedSections: ['Overview', 'What Needs Your Attention', 'Performance', 'Products', 'Customers', 'Regions', 'Discounts', 'Returns', 'Payments', 'Ask Your Business Analyst', 'Executive Report'],
+    expectedSections: [
+      'Overview',
+      'What Needs Your Attention',
+      'Performance',
+      'Products',
+      'Customers',
+      'Regions',
+      'Discounts',
+      'Returns',
+      'Payments',
+      'Ask Your Business Analyst',
+      'Executive Report',
+    ],
     scopeLabel: 'Product',
     scopeValue: 'Laptop',
   },
@@ -22,7 +33,15 @@ const archetypes = [
     overviewMetric: '155,000',
     ask: 'What is our pipeline value?',
     answerMustContain: '155',
-    expectedSections: ['Overview', 'What Needs Your Attention', 'Performance', 'Pipeline', 'Sales Forecast', 'Ask Your Business Analyst', 'Executive Report'],
+    expectedSections: [
+      'Overview',
+      'What Needs Your Attention',
+      'Performance',
+      'Pipeline',
+      'Sales Forecast',
+      'Ask Your Business Analyst',
+      'Executive Report',
+    ],
     scopeLabel: 'Pipeline stage',
     scopeValue: 'Proposal',
   },
@@ -32,7 +51,16 @@ const archetypes = [
     overviewMetric: '800',
     ask: 'What is our MRR?',
     answerMustContain: '800',
-    expectedSections: ['Overview', 'What Needs Your Attention', 'Performance', 'Recurring Revenue', 'Retention', 'Churn', 'Ask Your Business Analyst', 'Executive Report'],
+    expectedSections: [
+      'Overview',
+      'What Needs Your Attention',
+      'Performance',
+      'Recurring Revenue',
+      'Retention',
+      'Churn',
+      'Ask Your Business Analyst',
+      'Executive Report',
+    ],
     scopeLabel: 'Plan',
     scopeValue: 'Basic',
   },
@@ -42,131 +70,376 @@ const archetypes = [
     overviewMetric: '4,640',
     ask: 'What are our billings?',
     answerMustContain: '4,640',
-    expectedSections: ['Overview', 'What Needs Your Attention', 'Performance', 'Services', 'Billings', 'Utilization', 'Ask Your Business Analyst', 'Executive Report'],
+    expectedSections: [
+      'Overview',
+      'What Needs Your Attention',
+      'Performance',
+      'Services',
+      'Billings',
+      'Utilization',
+      'Ask Your Business Analyst',
+      'Executive Report',
+    ],
     scopeLabel: 'Client',
     scopeValue: 'A',
   },
 ];
 
-async function assertNoAppError(page) {
-  const body = await page.locator('body').innerText();
-  expect(body).not.toMatch(/Traceback|ImportError|ModuleNotFoundError|KeyError:|StreamlitAPIException|No module named/i);
+const APP_IFRAME = 'iframe[title="streamlitApp"]';
+
+async function getApp(page) {
+  await page.goto('/', {
+    waitUntil: 'domcontentloaded',
+  });
+
+  await expect(page.locator(APP_IFRAME)).toBeAttached({
+    timeout: 120_000,
+  });
+
+  const app = page.frameLocator(APP_IFRAME);
+
+  // Real application readiness: the Streamlit file uploader exists inside
+  // the application iframe, not in the outer Streamlit Cloud shell.
+  await expect(
+    app.locator('input[type="file"]').first()
+  ).toBeAttached({
+    timeout: 120_000,
+  });
+
+  return app;
+}
+
+async function assertNoAppError(app) {
+  const body = await app.locator('body').innerText();
+
+  expect(body).not.toMatch(
+    /Traceback|ImportError|ModuleNotFoundError|KeyError:|StreamlitAPIException|No module named/i
+  );
 }
 
 async function uploadAndAnalyze(page, file) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('input[type="file"]').first()).toBeAttached();
-  await page.locator('input[type="file"]').first().setInputFiles(path.join(samples, file));
-  await page.getByRole('button', { name: /Understand my data|Analyze my business/i }).first().click();
-  await expect(page.getByText(/Review your business/i)).toBeVisible({ timeout: 60_000 });
+  const app = await getApp(page);
+
+  await app
+    .locator('input[type="file"]')
+    .first()
+    .setInputFiles(path.join(samples, file));
+
+  await app
+    .getByRole('button', {
+      name: /Understand my data/i,
+    })
+    .click();
+
+  await expect(
+    app.getByText(/Review your business/i)
+  ).toBeVisible({
+    timeout: 90_000,
+  });
+
+  return app;
 }
 
-async function chooseReviewSection(page, title) {
-  const labeled = page.getByLabel('Review section', { exact: true });
+async function chooseReviewSection(app, title) {
+  const labeled = app.getByLabel('Review section', {
+    exact: true,
+  });
+
   if (await labeled.count()) {
     await labeled.click();
-    const option = page.getByRole('option', { name: title, exact: true });
+
+    const option = app.getByRole('option', {
+      name: title,
+      exact: true,
+    });
+
     if (await option.count()) {
       await option.click();
     } else {
-      await page.getByText(title, { exact: true }).last().click();
+      await app.getByText(title, { exact: true }).last().click();
     }
+
     return;
   }
 
-  const radio = page.getByRole('radio', { name: title, exact: true });
+  const radio = app.getByRole('radio', {
+    name: title,
+    exact: true,
+  });
+
   if (await radio.count()) {
     await radio.click();
     return;
   }
 
-  await page.getByText(title, { exact: true }).last().click();
+  await app.getByText(title, { exact: true }).last().click();
 }
 
-async function chooseScopeValue(page, label, value) {
-  const scopeHeading = page.getByText('Explore a subset of the business', { exact: false }).first();
-  await expect(scopeHeading).toBeVisible();
-  await scopeHeading.click();
+async function openScope(app) {
+  const expander = app
+    .getByText('Explore a subset of the business', {
+      exact: false,
+    })
+    .first();
 
-  const box = page.getByLabel(label, { exact: true });
-  await expect(box).toBeVisible();
+  await expect(expander).toBeVisible({
+    timeout: 30_000,
+  });
+
+  await expander.click();
+}
+
+async function chooseScopeValue(app, label, value) {
+  const box = app.getByLabel(label, {
+    exact: true,
+  });
+
+  await expect(box).toBeVisible({
+    timeout: 30_000,
+  });
+
   await box.click();
 
-  const option = page.getByRole('option', { name: value, exact: true });
+  const option = app.getByRole('option', {
+    name: value,
+    exact: true,
+  });
+
   if (await option.count()) {
     await option.click();
   } else {
-    await page.getByText(value, { exact: true }).last().click();
+    await app.getByText(value, { exact: true }).last().click();
   }
+}
+
+async function applyScope(app) {
+  await expect(
+    app.getByText(/matching rows/i)
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const apply = app.getByRole('button', {
+    name: 'Apply view',
+    exact: true,
+  });
+
+  await expect(apply).toBeEnabled();
+  await apply.click();
+
+  await expect(
+    app.getByText(/Dashboard scope:/i)
+  ).toBeVisible({
+    timeout: 60_000,
+  });
+}
+
+async function resetScope(app) {
+  const reset = app.getByRole('button', {
+    name: 'Show full business',
+    exact: true,
+  });
+
+  await expect(reset).toBeVisible({
+    timeout: 30_000,
+  });
+
+  await reset.click();
+
+  await expect(
+    app.getByText(/Dashboard scope:/i)
+  ).not.toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+async function exercisePdf(page, app) {
+  await chooseReviewSection(app, 'Executive Report');
+
+  await expect(
+    app.getByText('Executive Report', { exact: true }).last()
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+
+  await app
+    .getByRole('button', {
+      name: 'Create Executive PDF',
+      exact: true,
+    })
+    .click();
+
+  const downloadButton = app.getByRole('button', {
+    name: 'Download Executive PDF',
+    exact: true,
+  });
+
+  await expect(downloadButton).toBeVisible({
+    timeout: 90_000,
+  });
+
+  await expect(downloadButton).toBeEnabled();
+
+  const downloadPromise = page.waitForEvent('download');
+  await downloadButton.click();
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toMatch(/_business_report\.pdf$/i);
 }
 
 for (const archetype of archetypes) {
   test(`${archetype.file} — end-to-end business acceptance`, async ({ page }) => {
-    await uploadAndAnalyze(page, archetype.file);
-    await assertNoAppError(page);
+    const app = await uploadAndAnalyze(page, archetype.file);
 
-    const body = await page.locator('body').innerText();
+    await assertNoAppError(app);
+
+    const body = await app.locator('body').innerText();
+
     expect(body).toContain(archetype.typeText);
+    expect(body.replace(/,/g, '')).toContain(
+      archetype.overviewMetric.replace(/,/g, '')
+    );
 
-    // Overview must show the expected full-file metric.
-    expect(body.replace(/,/g, '')).toContain(archetype.overviewMetric.replace(/,/g, ''));
-
-    // Review section must never display unrelated content.
+    // Business-specific review navigation.
     for (const section of archetype.expectedSections) {
-      await chooseReviewSection(page, section);
-      await page.waitForTimeout(300);
-      await assertNoAppError(page);
-      const visible = await page.locator('body').innerText();
+      await chooseReviewSection(app, section);
+      await page.waitForTimeout(500);
+      await assertNoAppError(app);
+
+      const visible = await app.locator('body').innerText();
 
       if (section === 'Ask Your Business Analyst') {
         expect(visible).toContain('Ask Your Business Analyst');
       } else if (section === 'Executive Report') {
         expect(visible).toContain('Executive Report');
       } else {
-        expect(visible).toMatch(new RegExp(section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+        expect(visible).toMatch(
+          new RegExp(
+            section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            'i'
+          )
+        );
       }
     }
 
-    // Scope must be a real business-view operation, not cosmetic UI.
-    await page.getByText('Overview', { exact: true }).last().click().catch(() => {});
-    const expander = page.getByText('Explore a subset of the business', { exact: false }).first();
-    await expander.click();
-    await chooseScopeValue(page, archetype.scopeLabel, archetype.scopeValue);
+    // Business-specific scope operation.
+    await chooseReviewSection(app, 'Overview');
+    await openScope(app);
+    await chooseScopeValue(
+      app,
+      archetype.scopeLabel,
+      archetype.scopeValue
+    );
+    await applyScope(app);
 
-    await expect(page.getByText(/matching rows/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Apply view', exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: 'Apply view', exact: true }).click();
+    await assertNoAppError(app);
 
-    await expect(page.getByText(/Dashboard scope:/i)).toBeVisible();
-    await assertNoAppError(page);
+    const scopedBody = await app.locator('body').innerText();
 
-    const scopedBody = await page.locator('body').innerText();
-
-    // A scoped finding must never falsely describe itself as the "uploaded sample".
-    expect(scopedBody).not.toMatch(/100\.0% of revenue in the uploaded sample/i);
-
-    // The app must make the selected scope visible.
     expect(scopedBody).toContain(archetype.scopeValue);
+    expect(scopedBody).not.toMatch(
+      /100\.0% of revenue in the uploaded sample/i
+    );
 
-    // Q&A must answer from verified data.
-    await chooseReviewSection(page, 'Ask Your Business Analyst');
-    const q = page.getByLabel('What would you like to know about your business?');
+    // Reset must return the dashboard to the full-file context.
+    await resetScope(app);
+    await assertNoAppError(app);
+
+    // Q&A from the full uploaded file.
+    await chooseReviewSection(app, 'Ask Your Business Analyst');
+
+    const q = app.getByLabel(
+      'What would you like to know about your business?',
+      { exact: true }
+    );
+
+    await expect(q).toBeVisible();
     await q.fill(archetype.ask);
-    await page.getByRole('button', { name: /Get Business Answer/i }).click();
 
-    await expect(page.getByText('Answer', { exact: true })).toBeVisible();
-    const answered = await page.locator('body').innerText();
-    expect(answered.toLowerCase()).toContain(archetype.answerMustContain.toLowerCase());
+    await app
+      .getByRole('button', {
+        name: /Get Business Answer/i,
+      })
+      .click();
 
-    // Editing the question must not leave a stale answer visible as current.
+    await expect(
+      app.getByText('Answer', { exact: true })
+    ).toBeVisible({
+      timeout: 90_000,
+    });
+
+    const answered = await app.locator('body').innerText();
+    expect(answered.toLowerCase()).toContain(
+      archetype.answerMustContain.toLowerCase()
+    );
+
+    // Editing the question must invalidate the previous answer.
     await q.fill('This is a different question');
-    await expect(page.getByText(/New question detected/i)).toBeVisible();
 
-    // Clear must actually clear the state.
-    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(
+      app.getByText(/New question detected/i)
+    ).toBeVisible();
+
+    // Clear must actually clear the Q&A state.
+    await app
+      .getByRole('button', {
+        name: 'Clear',
+        exact: true,
+      })
+      .click();
+
     await expect(q).toHaveValue('');
-    await expect(page.getByText('Answer', { exact: true })).not.toBeVisible();
+    await expect(
+      app.getByText('Answer', { exact: true })
+    ).not.toBeVisible();
 
-    await assertNoAppError(page);
+    await assertNoAppError(app);
+
+    // Executive report must render and generate a PDF.
+    await exercisePdf(page, app);
   });
 }
+
+// Retail-specific state/scope regression coverage.
+test('retail.csv — customer scope and zero-row combined scope', async ({ page }) => {
+  const app = await uploadAndAnalyze(page, 'retail.csv');
+
+  await chooseReviewSection(app, 'Overview');
+  await openScope(app);
+
+  // Customer-only scope.
+  await chooseScopeValue(app, 'Customer', 'A');
+  await applyScope(app);
+
+  let scopedBody = await app.locator('body').innerText();
+  expect(scopedBody).toContain('customer=A');
+  expect(scopedBody).toMatch(/Dashboard scope:/i);
+
+  await resetScope(app);
+  await openScope(app);
+
+  // Combined Product + Customer scope intentionally has zero rows:
+  // Laptop belongs to D, while A bought Phone/Shirt.
+  await chooseScopeValue(app, 'Product', 'Laptop');
+  await chooseScopeValue(app, 'Customer', 'A');
+
+  await expect(
+    app.getByText(/0 rows/i).first()
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const warning = app.getByText(
+    /This filter combination matches 0 rows/i
+  );
+
+  await expect(warning).toBeVisible();
+
+  const apply = app.getByRole('button', {
+    name: 'Apply view',
+    exact: true,
+  });
+
+  await expect(apply).toBeDisabled();
+  await assertNoAppError(app);
+});
