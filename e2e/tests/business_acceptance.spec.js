@@ -131,10 +131,28 @@ async function uploadAndAnalyze(page, file) {
     })
     .click();
 
+  // The application intentionally uses a two-stage analysis flow:
+  // 1) Understand my data -> infer/profile the business
+  // 2) Analyze my business -> build the full dashboard/report
   await expect(
-    app.getByText(/Review your business/i)
+    app.getByRole('button', {
+      name: /Analyze my business/i,
+    })
   ).toBeVisible({
-    timeout: 90_000,
+    timeout: 120_000,
+  });
+
+  await app
+    .getByRole('button', {
+      name: /Analyze my business/i,
+    })
+    .click();
+
+  // Post-analysis contract: the dashboard exposes the Business Brief.
+  await expect(
+    app.getByText(/Business Brief/i).first()
+  ).toBeVisible({
+    timeout: 120_000,
   });
 
   return app;
