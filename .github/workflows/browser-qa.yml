@@ -84,26 +84,80 @@ jobs:
                 timeout: 120000
               });
 
-              console.log(`Page loaded: ${page.url()}`);
+              console.log(`Outer page loaded: ${page.url()}`);
 
               /*
-               * Give Streamlit time to finish rendering.
+               * Give the Streamlit Cloud shell time to create
+               * the application iframe.
                */
-              await page.waitForTimeout(15000);
+              await page.waitForTimeout(10000);
 
-              console.log('\n===== PAGE TITLE =====');
+              console.log('\n===== ALL FRAMES =====');
 
-              console.log(await page.title());
+              for (const [index, frame] of page.frames().entries()) {
+                console.log(
+                  `[FRAME ${index}] name="${frame.name()}" url="${frame.url()}"`
+                );
+              }
 
-              console.log('\n===== VISIBLE PAGE TEXT =====');
+              /*
+               * The actual Streamlit application is inside
+               * the iframe titled "streamlitApp".
+               */
+              const appIframe = page.locator(
+                'iframe[title="streamlitApp"]'
+              );
 
-              const bodyText = await page.locator('body').innerText();
+              await appIframe.waitFor({
+                state: 'attached',
+                timeout: 60000
+              });
 
-              console.log(bodyText.slice(0, 10000));
+              console.log(
+                '\nStreamlit application iframe detected.'
+              );
 
-              console.log('\n===== DATA-TESTID VALUES =====');
+              const appFrame = page
+                .frames()
+                .find(frame => frame.name() === 'streamlitApp');
 
-              const testIds = await page
+              if (!appFrame) {
+                throw new Error(
+                  'Could not access the streamlitApp iframe.'
+                );
+              }
+
+              console.log(
+                `Application frame URL: ${appFrame.url()}`
+              );
+
+              /*
+               * Allow the Streamlit application itself time
+               * to finish rendering inside the iframe.
+               */
+              await appFrame.waitForLoadState('domcontentloaded', {
+                timeout: 60000
+              }).catch(() => {});
+
+              await appFrame.waitForTimeout(10000);
+
+              console.log('\n===== APPLICATION FRAME TEXT =====');
+
+              const body = appFrame.locator('body');
+
+              const bodyText = await body.innerText({
+                timeout: 30000
+              });
+
+              console.log(
+                bodyText.slice(0, 15000)
+              );
+
+              console.log(
+                '\n===== APPLICATION DATA-TESTID VALUES ====='
+              );
+
+              const testIds = await appFrame
                 .locator('[data-testid]')
                 .evaluateAll(elements => [
                   ...new Set(
@@ -119,38 +173,49 @@ jobs:
                 console.log(testIds.join('\n'));
               }
 
-              console.log('\n===== INPUT ELEMENTS =====');
+              console.log(
+                '\n===== APPLICATION INPUT ELEMENTS ====='
+              );
 
-              const inputs = await page
+              const inputs = await appFrame
                 .locator('input')
                 .evaluateAll(elements =>
                   elements.map(el => ({
                     type: el.getAttribute('type'),
                     ariaLabel: el.getAttribute('aria-label'),
                     placeholder: el.getAttribute('placeholder'),
-                    name: el.getAttribute('name')
+                    name: el.getAttribute('name'),
+                    accept: el.getAttribute('accept')
                   }))
                 );
 
-              console.log(JSON.stringify(inputs, null, 2));
+              console.log(
+                JSON.stringify(inputs, null, 2)
+              );
 
-              console.log('\n===== TEXTAREAS =====');
+              console.log(
+                '\n===== APPLICATION FILE INPUTS ====='
+              );
 
-              const textareas = await page
-                .locator('textarea')
+              const fileInputs = await appFrame
+                .locator('input[type="file"]')
                 .evaluateAll(elements =>
                   elements.map(el => ({
                     ariaLabel: el.getAttribute('aria-label'),
-                    placeholder: el.getAttribute('placeholder'),
+                    accept: el.getAttribute('accept'),
                     name: el.getAttribute('name')
                   }))
                 );
 
-              console.log(JSON.stringify(textareas, null, 2));
+              console.log(
+                JSON.stringify(fileInputs, null, 2)
+              );
 
-              console.log('\n===== BUTTONS =====');
+              console.log(
+                '\n===== APPLICATION BUTTONS ====='
+              );
 
-              const buttons = await page
+              const buttons = await appFrame
                 .locator('button')
                 .evaluateAll(elements =>
                   elements.map(el => ({
@@ -160,41 +225,47 @@ jobs:
                   }))
                 );
 
-              console.log(JSON.stringify(buttons, null, 2));
+              console.log(
+                JSON.stringify(buttons, null, 2)
+              );
 
-              console.log('\n===== LINKS =====');
+              console.log(
+                '\n===== APPLICATION SELECTS ====='
+              );
 
-              const links = await page
-                .locator('a')
+              const selects = await appFrame
+                .locator('select')
                 .evaluateAll(elements =>
                   elements.map(el => ({
-                    text: (el.innerText || '').trim(),
-                    href: el.getAttribute('href'),
-                    ariaLabel: el.getAttribute('aria-label')
+                    ariaLabel: el.getAttribute('aria-label'),
+                    name: el.getAttribute('name')
                   }))
                 );
 
-              console.log(JSON.stringify(links, null, 2));
+              console.log(
+                JSON.stringify(selects, null, 2)
+              );
 
-              console.log('\n===== IFRAMES =====');
+              console.log(
+                '\n===== APPLICATION TEXTAREAS ====='
+              );
 
-              const frames = await page
-                .locator('iframe')
+              const textareas = await appFrame
+                .locator('textarea')
                 .evaluateAll(elements =>
                   elements.map(el => ({
-                    src: el.getAttribute('src'),
-                    title: el.getAttribute('title')
+                    ariaLabel: el.getAttribute('aria-label'),
+                    placeholder: el.getAttribute('placeholder'),
+                    name: el.getAttribute('name')
                   }))
                 );
 
-              console.log(JSON.stringify(frames, null, 2));
-
-              console.log('\n===== PAGE URL =====');
-
-              console.log(page.url());
+              console.log(
+                JSON.stringify(textareas, null, 2)
+              );
 
               /*
-               * Save the actual rendered page for inspection.
+               * Save the full rendered page.
                */
               await page.screenshot({
                 path: 'browser-readiness-diagnostic.png',
@@ -202,7 +273,7 @@ jobs:
               });
 
               console.log(
-                '\nDiagnostic screenshot saved: browser-readiness-diagnostic.png'
+                '\nDiagnostic screenshot saved.'
               );
 
             } catch (error) {
@@ -217,7 +288,7 @@ jobs:
                 });
 
                 console.log(
-                  'Saved failure screenshot: browser-readiness-diagnostic.png'
+                  'Failure screenshot saved.'
                 );
               } catch (screenshotError) {
                 console.error(
