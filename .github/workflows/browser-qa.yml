@@ -11,39 +11,59 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Validate APP_URL
         env:
           APP_URL: ${{ vars.APP_URL }}
         run: |
+          set -e
           if [ -z "${APP_URL:-}" ]; then
             echo "::error::Repository variable APP_URL is not configured."
-            echo "Set APP_URL to the deployed Streamlit URL, e.g. https://your-app.streamlit.app"
             exit 1
           fi
-          echo "Testing: ${APP_URL}"
+          echo "Testing deployed app: ${APP_URL}"
 
-      - name: Wait for Streamlit Cloud redeploy
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Wait for Streamlit Cloud health endpoint
         env:
           APP_URL: ${{ vars.APP_URL }}
         run: |
           set -e
+          BASE_URL="${APP_URL%/}"
+          HEALTH_URL="${BASE_URL}/_stcore/health"
+
+          echo "Checking: ${HEALTH_URL}"
+
           for i in $(seq 1 40); do
             echo "Health check ${i}/40..."
-            if curl -L --fail --silent --show-error --max-time 15 "${APP_URL}" \
-              | grep -q "AI Business Analyst"; then
-              echo "Application is reachable."
+
+            BODY="$(curl --fail --silent --show-error \
+              --connect-timeout 5 \
+              --max-time 8 \
+              --max-redirs 0 \
+              "${HEALTH_URL}" 2>/tmp/curl_error || true)"
+
+            CURL_STATUS=$?
+
+            if [ "${BODY}" = "ok" ] || printf '%s' "${BODY}" | grep -qi '^ok$'; then
+              echo "Streamlit health endpoint is healthy."
               exit 0
             fi
-            sleep 15
+
+            if [ -s /tmp/curl_error ]; then
+              echo "curl: $(cat /tmp/curl_error)"
+            fi
+
+            sleep 7
           done
-          echo "::error::Streamlit application did not become healthy within 10 minutes."
+
+          echo "::error::Streamlit health endpoint did not become healthy within 10 minutes."
+          echo "Check the Streamlit Cloud deployment separately before debugging browser tests."
           exit 1
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -67,16 +87,14 @@ jobs:
         working-directory: e2e
         env:
           APP_URL: ${{ vars.APP_URL }}
-        run: |
-          set -o pipefail
-          npx playwright test --reporter=list,html 2>&1 | tee browser-qa.log
+        run: npx playwright test
 
       - name: Upload browser QA artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: browser-qa-results
-          if-no-files-found: warn
+          if-no-files-found: ignore
           path: |
             e2e/test-results/**
             e2e/playwright-report/**
