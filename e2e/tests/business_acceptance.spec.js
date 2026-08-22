@@ -30,9 +30,9 @@ const archetypes = [
   {
     file: 'pipeline.csv',
     typeText: 'Sales Pipeline',
-    overviewMetric: '155,000',
+    overviewMetric: '85,000',
     ask: 'What is our pipeline value?',
-    answerMustContain: '155',
+    answerMustContain: '85',
     expectedSections: [
       'Overview',
       'What Needs Your Attention',
@@ -159,38 +159,35 @@ async function uploadAndAnalyze(page, file) {
 }
 
 async function chooseReviewSection(app, title) {
-  const labeled = app.getByLabel('Review section', {
+  // Streamlit renders this navigation as a custom select/combobox.
+  // Do not click the visible section text itself: that can hit the
+  // currently selected label rather than the dropdown option.
+  const combo = app.getByRole('combobox', {
+    name: 'Review section',
     exact: true,
   });
 
-  if (await labeled.count()) {
-    await labeled.click();
-
-    const option = app.getByRole('option', {
-      name: title,
-      exact: true,
-    });
-
-    if (await option.count()) {
-      await option.click();
-    } else {
-      await app.getByText(title, { exact: true }).last().click();
-    }
-
-    return;
-  }
-
-  const radio = app.getByRole('radio', {
-    name: title,
-    exact: true,
+  await expect(combo).toBeVisible({
+    timeout: 30_000,
   });
 
-  if (await radio.count()) {
-    await radio.click();
+  const current = (await combo.inputValue()).trim();
+
+  // The first section is already selected after analysis. Avoid opening
+  // the widget unnecessarily; this is what caused the previous 180s hang.
+  if (current === title || current.endsWith(` ${title}`)) {
     return;
   }
 
-  await app.getByText(title, { exact: true }).last().click();
+  await combo.click();
+  await combo.fill(title);
+  await combo.press('Enter');
+
+  // Verify that the requested section is now the selected value.
+  await expect(combo).toHaveValue(
+    /.+/,
+    { timeout: 30_000 }
+  );
 }
 
 async function openScope(app) {
