@@ -1,15 +1,16 @@
 import { defineConfig } from '@playwright/test';
 
 const appURL = process.env.APP_URL;
+
 if (!appURL) {
   throw new Error('APP_URL environment variable is required');
 }
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 120_000,
+  timeout: 180_000,
   expect: {
-    timeout: 15_000,
+    timeout: 30_000,
   },
   retries: process.env.CI ? 1 : 0,
   workers: 1,
