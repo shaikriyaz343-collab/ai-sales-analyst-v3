@@ -1738,10 +1738,7 @@ if uploaded is not None:
     uploaded_bytes = uploaded.getvalue()
     uploaded_key = hashlib.sha256(uploaded_bytes).hexdigest()
 
-    if (
-        st.session_state.uploaded_file_key is not None
-        and uploaded_key != st.session_state.uploaded_file_key
-    ):
+    if uploaded_key != st.session_state.uploaded_file_key:
         for key in [
             "source_df",
             "normalized_df",
@@ -1785,46 +1782,47 @@ if uploaded is not None:
             "Click **Understand my data** to analyze this file."
         )
 
-    if st.button(
-        "🔎 Understand my data",
-        type="primary",
-    ):
-
-        with st.spinner(
-            "Understanding your file..."
+        if st.button(
+            "🔎 Understand my data",
+            type="primary",
         ):
-            (
-                raw_df,
-                normalized,
-                profile,
-                semantic,
-                quality,
-                business_type,
-                adaptive,
-                packs,
-                dashboard,
-            ) = _process_upload(
-                uploaded
-            )
 
-        st.session_state.source_df = raw_df
-        st.session_state.normalized_df = normalized
-        st.session_state.profile = profile
-        st.session_state.semantic_model = semantic
-        st.session_state.quality = quality
-        st.session_state.business_type = business_type
-        st.session_state.adaptive_analysis = adaptive
-        st.session_state.business_packs = packs
-        st.session_state.dashboard_plan = dashboard
-        st.session_state.report = None
-        st.session_state.ask_answer = None
-        st.session_state.ask_answered_question = ""
-        st.session_state.ask_history = []
-        st.session_state.pdf_file = None
-        st.session_state.active_dashboard_section = "overview"
-        st.session_state.review_section_nav = "overview"
-        st.session_state.pending_review_section = None
-        st.session_state.analysis_pending = False
+            with st.spinner(
+                "Understanding your file..."
+            ):
+                (
+                    raw_df,
+                    normalized,
+                    profile,
+                    semantic,
+                    quality,
+                    business_type,
+                    adaptive,
+                    packs,
+                    dashboard,
+                ) = _process_upload(
+                    uploaded
+                )
+
+            st.session_state.source_df = raw_df
+            st.session_state.normalized_df = normalized
+            st.session_state.profile = profile
+            st.session_state.semantic_model = semantic
+            st.session_state.quality = quality
+            st.session_state.business_type = business_type
+            st.session_state.adaptive_analysis = adaptive
+            st.session_state.business_packs = packs
+            st.session_state.dashboard_plan = dashboard
+            st.session_state.report = None
+            st.session_state.ask_answer = None
+            st.session_state.ask_answered_question = ""
+            st.session_state.ask_history = []
+            st.session_state.pdf_file = None
+            st.session_state.active_dashboard_section = "overview"
+            st.session_state.review_section_nav = "overview"
+            st.session_state.pending_review_section = None
+            st.session_state.analysis_pending = False
+            st.rerun()
 
 if st.session_state.profile is not None and not st.session_state.analysis_pending:
 
@@ -1853,40 +1851,42 @@ if st.session_state.profile is not None and not st.session_state.analysis_pendin
 
     if dataset_usable:
 
-        if st.button(
-            "🚀 Analyze my business",
-            type="primary",
-        ):
-
-            with st.spinner(
-                "Analyzing your business..."
+        if st.session_state.report is None:
+            if st.button(
+                "🚀 Analyze my business",
+                type="primary",
             ):
 
-                normalized = st.session_state.normalized_df
-                report = _build_report_context(
-                    normalized,
-                    st.session_state.business_type,
-                    st.session_state.profile,
-                    st.session_state.semantic_model,
-                    st.session_state.adaptive_analysis,
-                    st.session_state.business_packs,
-                    st.session_state.quality,
-                )
-                st.session_state.report = report
-                st.session_state.full_report = report
-                st.session_state.view_report = report
-                st.session_state.scope_active = False
-                st.session_state.scope_product = "All"
-                st.session_state.scope_customer = "All"
-                st.session_state.scope_dates = None
-                st.session_state.scope_filters = {}
-                st.session_state.ask_use_view_scope = False
+                with st.spinner(
+                    "Analyzing your business..."
+                ):
 
-            st.success(
-                st.session_state.dashboard_plan[
-                    "onboarding_message"
-                ]
-            )
+                    normalized = st.session_state.normalized_df
+                    report = _build_report_context(
+                        normalized,
+                        st.session_state.business_type,
+                        st.session_state.profile,
+                        st.session_state.semantic_model,
+                        st.session_state.adaptive_analysis,
+                        st.session_state.business_packs,
+                        st.session_state.quality,
+                    )
+                    st.session_state.report = report
+                    st.session_state.full_report = report
+                    st.session_state.view_report = report
+                    st.session_state.scope_active = False
+                    st.session_state.scope_product = "All"
+                    st.session_state.scope_customer = "All"
+                    st.session_state.scope_dates = None
+                    st.session_state.scope_filters = {}
+                    st.session_state.ask_use_view_scope = False
+
+                st.success(
+                    st.session_state.dashboard_plan[
+                        "onboarding_message"
+                    ]
+                )
+                st.rerun()
 
     else:
         st.error(

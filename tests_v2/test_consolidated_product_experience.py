@@ -10,7 +10,7 @@ import pandas as pd
 
 
 BASE = Path(__file__).resolve().parents[1]
-SAMPLES = Path("/mnt/data/v2_validation_workspace/samples")
+SAMPLES = Path(Path(__file__).parent.parent / "samples")
 
 
 def load(name, filename):
