@@ -48,6 +48,7 @@ ALLOWED_METRICS = {
     "quantity",
     "aov",
     "revenue_share",
+    "return_rate",
 }
 
 
@@ -114,8 +115,15 @@ def _metric_from_rows(rows: pd.DataFrame, metric: str) -> float | None:
             return None
         return float(rows["revenue"].sum()) / orders
 
-    if metric == "revenue_share":
-        return None
+    if metric == "return_rate":
+        if "return_status" not in rows.columns:
+            return None
+        total_orders = rows["order_id"].nunique()
+        if total_orders == 0:
+            return None
+        returned_mask = rows["return_status"].astype(str).str.lower().str.strip().isin(['returned', 'yes', 'true', '1'])
+        returned_orders = rows[returned_mask]["order_id"].nunique()
+        return (returned_orders / total_orders) * 100.0
 
     return None
 
@@ -132,6 +140,9 @@ def _format_metric(metric: str, value: float | None) -> str:
 
     if metric == "revenue_share":
         return f"{value:.2f}%"
+
+    if metric == "return_rate":
+        return f"{value:.1f}%"
 
     return f"{value:,.0f}"
 
@@ -184,6 +195,18 @@ def _default_metric(question: str) -> str:
         )
     ):
         return "revenue_share"
+
+    if any(
+        phrase in q
+        for phrase in (
+            "return rate",
+            "refund rate",
+            "returned",
+            "refunded",
+            "returns",
+        )
+    ):
+        return "return_rate"
 
     return "revenue"
 
@@ -752,6 +775,15 @@ def _merge_question_intent(
         )
     ):
         merged["metric"] = "revenue"
+    elif any(
+        phrase in q
+        for phrase in (
+            "return rate",
+            "refund rate",
+            "returns",
+        )
+    ):
+        merged["metric"] = "return_rate"
 
     # Strong comparison / explanation signals.
     if any(
@@ -1021,6 +1053,16 @@ def _group_metric(
 
         return revenue / orders.replace(0, pd.NA)
 
+    if metric == "return_rate":
+        if "return_status" not in rows.columns:
+            return pd.Series(dtype=float)
+            
+        orders = rows.groupby(group_col)["order_id"].nunique()
+        returned_mask = rows["return_status"].astype(str).str.lower().str.strip().isin(['returned', 'yes', 'true', '1'])
+        returned_orders = rows[returned_mask].groupby(group_col)["order_id"].nunique()
+        
+        return (returned_orders.reindex(orders.index, fill_value=0) / orders) * 100.0
+
     raise ValueError(
         f"Unsupported metric: {metric}"
     )
@@ -1188,6 +1230,7 @@ def _answer_rank(
         "quantity": "units sold",
         "orders": "orders",
         "aov": "average order value",
+        "return_rate": "return rate",
     }.get(
         metric,
         metric,
@@ -1199,13 +1242,15 @@ def _answer_rank(
         else "customer"
     )
 
+    rank_word = "lowest" if ascending else "highest"
+
     if top_n == 1:
 
         name = values.index[0]
         value = values.iloc[0]
 
         return (
-            f"The top {entity_label} by {metric_label} in "
+            f"The {entity_label} with the {rank_word} {metric_label} in "
             f"{period_label} was {name} at "
             f"{_format_metric(metric, value)}."
         )
@@ -1218,8 +1263,8 @@ def _answer_rank(
     ]
 
     return (
-        f"Top {top_n} {entity_label}s by {metric_label} in "
-        f"{period_label}: "
+        f"The {top_n} {entity_label}s with the {rank_word} {metric_label} in "
+        f"{period_label} were: "
         + "; ".join(pieces)
         + "."
     )
@@ -1825,6 +1870,12 @@ def execute_sales_plan(
     plan: dict[str, Any],
 ) -> str:
     """Execute an already-validated query plan without replanning."""
+    metric = plan.get("metric", "")
+    if metric == "return_rate":
+        rows = report.get("data")
+        if rows is None or "return_status" not in rows.columns:
+            return "Product return rate cannot be calculated from the uploaded file."
+            
     operation = plan.get("operation", "lookup")
 
     try:

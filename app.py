@@ -2291,24 +2291,14 @@ if (
     if current_section not in section_ids:
         current_section = section_ids[0]
 
-    if len(section_ids) <= 8:
-        selected_section = st.segmented_control(
-            "Review section",
-            options=section_ids,
-            selection_mode="single",
-            format_func=lambda sid: section_options[sid],
-            label_visibility="collapsed",
-            width="stretch",
-            index=section_ids.index(current_section),
-        )
-    else:
-        selected_section = st.selectbox(
-            "Review section",
-            options=section_ids,
-            index=section_ids.index(current_section),
-            format_func=lambda sid: section_options[sid],
-            label_visibility="collapsed",
-        )
+    selected_section = st.pills(
+        "Review section",
+        options=section_ids,
+        selection_mode="single",
+        format_func=lambda sid: section_options[sid],
+        default=current_section,
+        label_visibility="collapsed",
+    )
 
     selected_section = selected_section or current_section
     st.session_state.active_dashboard_section = selected_section

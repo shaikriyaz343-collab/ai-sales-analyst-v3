@@ -55,6 +55,7 @@ class QNAHardeningTests(unittest.TestCase):
             ],
             "quantity": [2, 20, 1, 3, 25],
             "revenue": [2000, 100, 800, 60, 125],
+            "return_status": ["No", "No", "Returned", "No", "No"],
         })
 
         cls.report = {
@@ -121,6 +122,32 @@ class QNAHardeningTests(unittest.TestCase):
             "verified query" in answer.lower()
             or "try asking" in answer.lower()
         )
+
+    def test_return_rate_calculated_correctly(self):
+        answer = query.answer_sales_question(
+            self.report,
+            "which product has the highest return rate?",
+        )
+        self.assertIn("Phone", answer)
+        self.assertIn("50.0%", answer)
+
+    def test_lowest_ranking_uses_natural_language(self):
+        answer = query.answer_sales_question(
+            self.report,
+            "which product was the lowest?",
+        )
+        self.assertIn("lowest", answer.lower())
+        self.assertNotIn("top", answer.lower())
+
+    def test_return_rate_missing_data_handled(self):
+        report_no_returns = {
+            "data": self.data.drop(columns=["return_status"])
+        }
+        answer = query.answer_sales_question(
+            report_no_returns,
+            "which products have the highest return rate?",
+        )
+        self.assertIn("cannot be calculated", answer)
 
 
 if __name__ == "__main__":

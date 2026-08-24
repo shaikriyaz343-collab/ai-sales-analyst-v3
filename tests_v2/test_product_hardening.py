@@ -188,11 +188,7 @@ class ProductHardeningTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn(
-            "selected_section = st.segmented_control(",
-            source,
-        )
-        self.assertIn(
-            "selected_section = st.selectbox(",
+            "selected_section = st.pills(",
             source,
         )
         self.assertNotIn(
