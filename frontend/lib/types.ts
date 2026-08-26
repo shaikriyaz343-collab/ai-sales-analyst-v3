@@ -1,0 +1,7 @@
+export type CapabilitySet = { workspaces: Workspace[]; analytics: string[]; modules: string[] };
+export type DatasetSummary = { dataset_id:string; file_name:string; file_type:string; row_count:number; column_count:number; columns:string[]; business_model:string|null; business_model_label:string|null; business_model_confidence:number; quality_issues:number; capabilities:CapabilitySet; supported_concepts:string[]; semantic?:{fields:string[]; concepts:string[]; metrics:string[]; dimensions:string[]}; };
+export type Workspace = "overview" | "explore" | "insights" | "ask" | "actions" | "reports";
+export type Evidence = { metric:string; value:number|null; comparison_value?:number|null; calculation:string; scope:string; source_fields:string[] };
+export type OverviewMetric = { id:string; label:string; value:number|null; display_value:string; delta_pct?:number|null; delta_label?:string|null; tone:"neutral"|"risk"|"positive"; evidence:Evidence };
+export type OverviewInsight = { id:string; severity:"high"|"medium"|"info"; title:string; summary:string; why_it_matters:string; recommendation:string; evidence:Evidence };
+export type OverviewResponse = { dataset_id:string; business_model:string|null; business_model_label:string|null; scope_label:string; headline:string; subheadline:string; metrics:OverviewMetric[]; what_changed:string[]; attention:OverviewInsight[]; opportunities:OverviewInsight[] };
