@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -13,6 +15,8 @@ class SemanticSummary(BaseModel):
 
 
 class CapabilitySet(BaseModel):
+    """Product workspaces and validated business-specific capabilities."""
+
     workspaces: list[str] = Field(default_factory=list)
     analytics: list[str] = Field(default_factory=list)
     modules: list[str] = Field(default_factory=list)
@@ -31,6 +35,7 @@ class DatasetSummary(BaseModel):
     quality_issues: int
     semantic: SemanticSummary = Field(default_factory=SemanticSummary)
     capabilities: CapabilitySet = Field(default_factory=CapabilitySet)
+    # Backward-compatible alias retained for existing clients/tests.
     supported_concepts: list[str] = Field(default_factory=list)
 
 
@@ -90,3 +95,31 @@ class OverviewResponse(BaseModel):
     what_changed: list[str] = Field(default_factory=list)
     attention: list[OverviewInsight] = Field(default_factory=list)
     opportunities: list[OverviewInsight] = Field(default_factory=list)
+
+
+class ExploreOption(BaseModel):
+    id: str
+    label: str
+
+
+class ExploreRow(BaseModel):
+    key: str
+    value: float
+    display_value: str
+    share_pct: float | None = None
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExploreResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    metric: str
+    metric_label: str
+    dimension: str
+    dimension_label: str
+    total_value: float | None
+    total_display_value: str
+    available_metrics: list[ExploreOption] = Field(default_factory=list)
+    available_dimensions: list[ExploreOption] = Field(default_factory=list)
+    rows: list[ExploreRow] = Field(default_factory=list)
