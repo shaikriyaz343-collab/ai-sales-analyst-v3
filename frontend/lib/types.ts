@@ -130,3 +130,12 @@ export type InsightsResponse = {
   summary: string;
   insights: InsightItem[];
 };
+
+
+export type AskEvidence = Evidence;
+export type AskFollowUp = { label: string; question: string };
+export type AskAnswer = { status: string; text: string; confidence: string; evidence?: AskEvidence | null };
+export type AskResponse = {
+  dataset_id: string; question: string; business_model: string | null; business_model_label: string | null;
+  answer: AskAnswer; follow_ups: AskFollowUp[]; explore_metric?: string | null; explore_dimension?: string | null; supported_summary?: string | null;
+};

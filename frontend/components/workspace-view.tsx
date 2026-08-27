@@ -4,14 +4,14 @@ import Link from "next/link";
 import { use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getExplore, getInsights, getOverview } from "../lib/api";
+import { askAnalyst, getExplore, getInsights, getOverview } from "../lib/api";
 import { useAppState } from "../lib/app-state";
-import type { ExploreResponse, InsightItem, InsightsResponse, OverviewInsight, OverviewMetric, OverviewResponse, Workspace } from "../lib/types";
+import type { AskResponse, ExploreResponse, InsightItem, InsightsResponse, OverviewInsight, OverviewMetric, OverviewResponse, Workspace } from "../lib/types";
 
 const titles: Record<Workspace,string>={overview:"Executive overview",explore:"Explore the business",insights:"What needs attention",ask:"Ask your analyst",actions:"Recommended actions",reports:"Executive reports"};
 function slug(value:string):Workspace|null{return ["overview","explore","insights","ask","actions","reports"].includes(value)?value as Workspace:null;}
 
-export default function WorkspaceView({params}:{params:Promise<{workspace:string}>}){const{state}=useAppState();const workspace=slug(use(params).workspace)??"overview";const dataset=state.dataset;if(!dataset)return <div className="empty-state"><span className="empty-icon">↑</span><h1>Upload your business data</h1><p>Start with a CSV or Excel file. The analyst will only expose analyses supported by validated fields.</p></div>;return <><div className="hero-row"><div><span className="eyebrow">{dataset.business_model_label??"Business dataset"}</span><h1>{titles[workspace]}</h1><p>Grounded in <strong>{dataset.file_name}</strong>. No fabricated numbers or unsupported metrics.</p></div><div className="confidence-card"><span>Data readiness</span><strong>{dataset.quality_issues===0?"Ready":`${dataset.quality_issues} issue${dataset.quality_issues===1?"":"s"}`}</strong><small>{Math.round(dataset.business_model_confidence*100)}% model confidence</small></div></div>{workspace==="overview"?<Overview datasetId={dataset.dataset_id}/>:workspace==="explore"?<Explore datasetId={dataset.dataset_id}/>:workspace==="insights"?<Insights datasetId={dataset.dataset_id}/>:<Placeholder workspace={workspace}/>}</>}
+export default function WorkspaceView({params}:{params:Promise<{workspace:string}>}){const{state}=useAppState();const workspace=slug(use(params).workspace)??"overview";const dataset=state.dataset;if(!dataset)return <div className="empty-state"><span className="empty-icon">↑</span><h1>Upload your business data</h1><p>Start with a CSV or Excel file. The analyst will only expose analyses supported by validated fields.</p></div>;return <><div className="hero-row"><div><span className="eyebrow">{dataset.business_model_label??"Business dataset"}</span><h1>{titles[workspace]}</h1><p>Grounded in <strong>{dataset.file_name}</strong>. No fabricated numbers or unsupported metrics.</p></div><div className="confidence-card"><span>Data readiness</span><strong>{dataset.quality_issues===0?"Ready":`${dataset.quality_issues} issue${dataset.quality_issues===1?"":"s"}`}</strong><small>{Math.round(dataset.business_model_confidence*100)}% model confidence</small></div></div>{workspace==="overview"?<Overview datasetId={dataset.dataset_id}/>:workspace==="explore"?<Explore datasetId={dataset.dataset_id}/>:workspace==="insights"?<Insights datasetId={dataset.dataset_id}/>:workspace==="ask"?<Ask datasetId={dataset.dataset_id}/>:<Placeholder workspace={workspace}/>}</>}
 
 function Overview({datasetId}:{datasetId:string}){const[data,setData]=useState<OverviewResponse|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState<string|null>(null);useEffect(()=>{let alive=true;setLoading(true);setError(null);getOverview(datasetId).then(r=>alive&&setData(r)).catch(e=>alive&&setError(e instanceof Error?e.message:"Overview could not be loaded.")).finally(()=>alive&&setLoading(false));return()=>{alive=false}},[datasetId]);if(loading)return <OverviewSkeleton/>;if(error)return <div className="panel overview-error" role="alert"><span className="eyebrow">OVERVIEW UNAVAILABLE</span><h2>We couldn't calculate the executive overview.</h2><p>{error}</p><p>No substitute figures are shown.</p></div>;if(!data)return null;return <div className="executive-overview"><div className="overview-intro"><div><span className="eyebrow">EXECUTIVE SNAPSHOT · {data.scope_label.toUpperCase()}</span><h2>{data.headline}</h2><p>{data.subheadline}</p></div><div className="source-badge"><span>Source of truth</span><strong>Uploaded data</strong></div></div><section className="metric-grid">{data.metrics.map(m=><MetricCard key={m.id} metric={m}/>)}</section><section className="decision-grid"><article className="panel decision-panel"><SectionHeading eyebrow="WHAT CHANGED" title="Recent movement" kicker="Deterministic"/>{data.what_changed.length?<ul className="signal-list">{data.what_changed.map((x,i)=><li key={`${x}-${i}`}>{x}</li>)}</ul>:<EmptySignal text="No comparable period or snapshot was available in the uploaded data."/>}</article><article className="panel decision-panel"><SectionHeading eyebrow="WHAT NEEDS ATTENTION" title={data.attention.length?`${data.attention.length} priority signal${data.attention.length===1?"":"s"}`:"No high-priority signal"} kicker="Evidence-backed"/>{data.attention.length?<div className="insight-stack">{data.attention.map(i=><InsightCard key={i.id} insight={i} kind="attention"/>)}</div>:<EmptySignal text="No validated risk threshold was triggered in the current scope."/>}</article></section><section className="panel opportunity-panel"><div className="section-heading"><div><span className="eyebrow">OPPORTUNITIES & PERFORMANCE</span><h3>Where to focus next</h3></div><Link href="/dashboard/explore" className="text-link">Explore →</Link></div>{data.opportunities.length?<div className="opportunity-grid">{data.opportunities.map(i=><InsightCard key={i.id} insight={i} kind="opportunity"/>)}</div>:<EmptySignal text="No validated opportunity signal is available yet. The analyst will not invent one to fill the space."/>}</section><section className="overview-footer-note"><span>Every value above is calculated from the current dataset and scope.</span><span>Evidence is available on each insight.</span></section></div>}
 
@@ -26,6 +26,51 @@ function Insights({datasetId}:{datasetId:string}){
   if(error)return <div className="panel overview-error" role="alert"><span className="eyebrow">INSIGHTS UNAVAILABLE</span><h2>We couldn't build the insight feed.</h2><p>{error}</p><p>No substitute figures are shown.</p></div>;
   if(!data)return null;
   return <div className="insights-page"><section className="hero-row"><div><span className="eyebrow">{data.business_model_label??"BUSINESS INSIGHTS"}</span><h2>{data.headline}</h2><p>{data.summary}</p></div><div className="confidence-card"><span>Insight policy</span><strong>Deterministic</strong><small>Every insight carries evidence.</small></div></section>{data.insights.length?<section className="insight-feed">{data.insights.map(i=><InsightFeedCard key={i.id} insight={i}/>)}</section>:<section className="panel empty-signal"><h3>No validated insights yet</h3><p>The analyst will not invent a signal when the dataset does not support one.</p></section>}<div className="overview-footer-note"><span>Insights are generated only from the current dataset and validated analytical scope.</span><span>Evidence is available on each insight.</span></div></div>
+}
+
+
+function Ask({datasetId}:{datasetId:string}){
+  const router=useRouter();
+  const[data,setData]=useState<AskResponse|null>(null);
+  const[question,setQuestion]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[error,setError]=useState<string|null>(null);
+  const submitted=data?.question ?? "";
+  async function submit(q:string){
+    const clean=q.trim(); if(!clean||loading)return;
+    setError(null); setLoading(true);
+    try{setData(await askAnalyst(datasetId,clean));}
+    catch(e){setError(e instanceof Error?e.message:"The analyst could not answer that question."); setData(null);}
+    finally{setLoading(false);}
+  }
+  const followups=data?.follow_ups??[];
+  return <div className="ask-page">
+    <section className="panel ask-hero">
+      <div><span className="eyebrow">ANALYST WORKSPACE</span><h2>Ask your analyst</h2><p>Ask about the current dataset. Answers are calculated from validated business metrics, not invented by the model.</p></div>
+      <div className="ask-policy"><span>Trust policy</span><strong>Deterministic</strong><small>Every numeric answer includes evidence.</small></div>
+    </section>
+    <section className="panel ask-box">
+      <label className="ask-label" htmlFor="ask-question">What would you like to understand?</label>
+      <div className="ask-input-row">
+        <input id="ask-question" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")void submit(question)}} placeholder="e.g. Which product has the highest revenue?" disabled={loading}/>
+        <button type="button" className="primary-button" onClick={()=>void submit(question)} disabled={loading||!question.trim()}>{loading?"Analyzing…":"Ask"}</button>
+        <button type="button" className="secondary-button" onClick={()=>{setQuestion("");setData(null);setError(null)}} disabled={loading&&!question}>Clear</button>
+      </div>
+      <div className="suggestion-row" aria-label="Suggested questions">
+        {(["What is total revenue?","Which product has the highest revenue?","What is the return rate?"] as string[]).map(q=><button key={q} type="button" className="question-chip" onClick={()=>{setQuestion(q);void submit(q)}} disabled={loading}>{q}</button>)}
+      </div>
+      {submitted&&question.trim()!==submitted&&<div className="ask-new-question">New question entered. Submit it to replace the current answer.</div>}
+    </section>
+    {error&&<div className="panel overview-error" role="alert"><span className="eyebrow">ANALYST UNAVAILABLE</span><h3>We couldn't answer that question.</h3><p>{error}</p></div>}
+    {data&&<section className="ask-answer panel">
+      <div className="answer-header"><div><span className="eyebrow">ANSWER</span><h3>{data.question}</h3></div><span className={`answer-status ${data.answer.status}`}>{data.answer.status.replace("_"," ")}</span></div>
+      <p className="answer-text">{data.answer.text}</p>
+      {data.answer.evidence&&<details open><summary>Evidence</summary><div className="evidence-box"><p><strong>Metric:</strong> {data.answer.evidence.metric}</p><p><strong>Calculation:</strong> {data.answer.evidence.calculation}</p><p><strong>Scope:</strong> {data.answer.evidence.scope}</p><p><strong>Source fields:</strong> {data.answer.evidence.source_fields.join(", ")||"Validated dataset"}</p></div></details>}
+      {data.answer.status==="unsupported"&&data.supported_summary&&<div className="trust-note">{data.supported_summary}</div>}
+      {data.explore_metric&&data.explore_dimension&&<button type="button" className="text-button" onClick={()=>router.push(`/dashboard/explore?metric=${encodeURIComponent(data.explore_metric!)}&dimension=${encodeURIComponent(data.explore_dimension!)}`)}>Explore this analysis →</button>}
+    </section>}
+    {followups.length>0&&<section className="panel ask-followups"><div className="section-heading"><div><span className="eyebrow">KEEP GOING</span><h3>Suggested next questions</h3></div></div><div className="suggestion-row">{followups.map(f=><button type="button" className="question-chip" key={f.question} onClick={()=>{setQuestion(f.question);void submit(f.question)}} disabled={loading}>{f.label}</button>)}</div></section>}
+  </div>
 }
 
 function InsightFeedCard({insight}:{insight:InsightItem}){return <article className={`insight-feed-card ${insight.kind} ${insight.severity}`}><div className="insight-feed-top"><div><span className="eyebrow">{insight.kind.toUpperCase()} · {insight.severity.toUpperCase()}</span><h3>{insight.title}</h3></div><strong>{insight.display_value}</strong></div><div className="insight-feed-grid"><div><span className="eyebrow">WHAT CHANGED</span><p>{insight.what_changed}</p></div><div><span className="eyebrow">WHY IT MATTERS</span><p>{insight.why_it_matters}</p></div><div><span className="eyebrow">RECOMMENDED ACTION</span><p>{insight.recommendation}</p></div></div><details><summary>Evidence</summary><div className="evidence-box"><p><strong>Metric:</strong> {insight.evidence.metric}</p><p><strong>Calculation:</strong> {insight.evidence.calculation}</p><p><strong>Scope:</strong> {insight.evidence.scope}</p><p><strong>Source fields:</strong> {insight.evidence.source_fields.join(", ")||"Validated dataset"}</p></div></details></article>}

@@ -3,11 +3,12 @@ from __future__ import annotations
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .contracts import HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse
+from .contracts import HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse
 from .services.onboarding import get_dataset, onboard
 from .services.overview import build_overview
 from .services.explore import build_explore
 from .services.insights import build_insights
+from .services.ask import answer_question
 
 app = FastAPI(title="AI Sales Analyst API", version="4.0.0-alpha.1", docs_url="/docs", redoc_url="/redoc")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["*"])
@@ -61,3 +62,13 @@ def insights(dataset_id: str) -> InsightsResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not build insights: {exc}") from exc
+
+
+@app.post("/api/v1/datasets/{dataset_id}/ask", response_model=AskResponse)
+def ask(dataset_id: str, question: str) -> AskResponse:
+    try:
+        return answer_question(dataset_id, question)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not answer the question: {exc}") from exc

@@ -147,3 +147,36 @@ class InsightsResponse(BaseModel):
     headline: str
     summary: str
     insights: list[InsightItem] = Field(default_factory=list)
+
+
+class AskEvidence(BaseModel):
+    metric: str
+    value: float | None = None
+    comparison_value: float | None = None
+    calculation: str
+    scope: str = "All data"
+    source_fields: list[str] = Field(default_factory=list)
+
+
+class AskFollowUp(BaseModel):
+    label: str
+    question: str
+
+
+class AskAnswer(BaseModel):
+    status: str
+    text: str
+    confidence: str = "high"
+    evidence: AskEvidence | None = None
+
+
+class AskResponse(BaseModel):
+    dataset_id: str
+    question: str
+    business_model: str | None
+    business_model_label: str | None
+    answer: AskAnswer
+    follow_ups: list[AskFollowUp] = Field(default_factory=list)
+    explore_metric: str | None = None
+    explore_dimension: str | None = None
+    supported_summary: str | None = None

@@ -26,3 +26,13 @@ export async function getInsights(datasetId: string): Promise<import("./types").
   }
   return response.json();
 }
+
+
+export async function askAnalyst(datasetId: string, question: string): Promise<import("./types").AskResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/ask?question=${encodeURIComponent(question)}`, { cache: "no-store", method: "POST" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "The analyst could not answer that question." }));
+    throw new Error(body.detail || "The analyst could not answer that question.");
+  }
+  return response.json();
+}
