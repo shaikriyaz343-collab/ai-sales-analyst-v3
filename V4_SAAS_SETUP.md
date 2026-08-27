@@ -1,21 +1,13 @@
-# AI Sales Analyst V4 — SaaS Foundation Setup
+# AI Sales Analyst V4 — SaaS Setup & Release Gates
 
-This phase starts the new SaaS frontend/backend architecture. It does not replace or delete the frozen V3 app.
+## Branch and baseline
+Target branch: `v4/saas-foundation`
+Frozen V3 baseline: `b8b7ad5`
 
-## Recommended branch
-Keep the previous Streamlit experiment separate. Create a fresh branch from the frozen V3 commit before adding these files:
-
-```powershell
-git switch main
-git pull origin main
-git switch -c v4/saas-foundation
-```
-
-The target baseline is `b8b7ad5`.
+The previous Streamlit V4 experiment remains historical/reference only. New product work belongs in the SaaS frontend + FastAPI backend.
 
 ## Backend
-
-From the repository root:
+From the repository root, using the dedicated V4 environment:
 
 ```powershell
 python -m pip install -r backend/requirements.txt
@@ -23,22 +15,17 @@ python -m uvicorn backend.api.main:app --reload --port 8000
 ```
 
 API:
+- `GET /api/v1/health`
+- `POST /api/v1/onboarding/profile`
+- `GET /api/v1/datasets/{dataset_id}`
+- `GET /api/v1/datasets/{dataset_id}/overview`
+- `GET /api/v1/datasets/{dataset_id}/explore`
+- `GET /api/v1/datasets/{dataset_id}/insights`
 
-- `GET http://localhost:8000/api/v1/health`
-- `POST http://localhost:8000/api/v1/onboarding/profile`
-- `GET http://localhost:8000/api/v1/datasets/{dataset_id}`
-
-The onboarding API reuses the V3 profiler, semantic model, business-model detector, and data-quality engine. Numeric sales metrics are deliberately not generated yet.
+The onboarding endpoint reuses the existing V3 profiler, semantic model, business-model detector, and data-quality engine.
 
 ## Frontend
-
-Next.js 16.x currently requires Node.js 20.9 or newer. Verify:
-
-```powershell
-node --version
-```
-
-Then:
+Node.js 20.9+ is required by the Next.js 16.x project.
 
 ```powershell
 cd frontend
@@ -48,19 +35,32 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-If your machine cannot reach npm, do not substitute random package versions. Use the versions in `frontend/package.json` once package installation is available.
+## Integrated test gates
+Backend:
+```powershell
+python -m pytest -q tests_v4_saas
+```
 
-## Phase 1 browser acceptance
+Frontend:
+```powershell
+cd frontend
+npm run build
+```
 
-1. Open the V4 web app.
-2. Upload CSV/XLSX/XLS.
-3. Confirm file name, row count, field count and detected business model.
-4. Navigate Overview -> Explore -> Insights -> Ask Analyst -> Actions -> Reports.
-5. Confirm navigation changes URL/workspace but does not mutate dataset state.
-6. Upload a different dataset and confirm the previous dataset metadata is replaced.
-7. Refresh and confirm the dataset session can be rehydrated from the backend metadata store while the backend is running.
-8. Try an unsupported file and confirm a controlled error.
+Do not consider a UI feature complete until the frontend build passes and the browser flow is validated.
 
-## Important
+## Current browser-validated flows
+- SaaS onboarding with Retail/Pipeline dataset replacement.
+- Executive Overview for Retail/Pipeline/Subscription/Services.
+- Explore metric/dimension consistency.
+- Explore dataset replacement resets to a valid business-model-specific query.
 
-The current backend stores development uploads and metadata under `backend/runtime_data/`. This is intentionally a development-only storage adapter. It must be replaced by object storage + database persistence before production SaaS launch.
+## Development storage
+`backend/runtime_data/` is development-only local storage and is ignored by Git. Before production SaaS launch, replace it with object storage + database persistence.
+
+## Product trust rules
+- Deterministic calculations own numeric truth.
+- AI explains validated results only.
+- Every material insight carries evidence and scope.
+- Unsupported analyses are declined instead of guessed.
+- UI state does not become analytical state.

@@ -16,3 +16,13 @@ export async function getExplore(datasetId: string, metric?: string, dimension?:
   }
   return response.json();
 }
+
+
+export async function getInsights(datasetId: string): Promise<import("./types").InsightsResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/insights`, { cache: "no-store" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "Insights could not be loaded." }));
+    throw new Error(body.detail || "Insights could not be loaded.");
+  }
+  return response.json();
+}

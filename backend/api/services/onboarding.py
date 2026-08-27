@@ -21,8 +21,10 @@ WORKSPACES = ["overview", "explore", "insights", "ask", "actions", "reports"]
 def _capabilities(semantic: dict | None = None, business_type: dict | None = None) -> dict:
     """Return product capabilities only; the optional semantic argument is retained for compatibility."""
     business_type = business_type or {}
+    semantic = semantic or {}
+    analytics = sorted({str(x) for x in semantic.get("available_concepts", [])})
     modules = sorted({str(x) for x in business_type.get("suggested_modules", [])})
-    return {"workspaces": WORKSPACES.copy(), "modules": modules}
+    return {"workspaces": WORKSPACES.copy(), "analytics": analytics, "modules": modules}
 
 
 def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:

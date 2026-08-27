@@ -123,3 +123,27 @@ class ExploreResponse(BaseModel):
     available_metrics: list[ExploreOption] = Field(default_factory=list)
     available_dimensions: list[ExploreOption] = Field(default_factory=list)
     rows: list[ExploreRow] = Field(default_factory=list)
+
+
+class InsightItem(BaseModel):
+    id: str
+    kind: str
+    severity: str
+    title: str
+    what_changed: str
+    why_it_matters: str
+    recommendation: str
+    metric: str
+    value: float | None = None
+    display_value: str
+    evidence: Evidence
+
+
+class InsightsResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    scope_label: str = "All data"
+    headline: str
+    summary: str
+    insights: list[InsightItem] = Field(default_factory=list)

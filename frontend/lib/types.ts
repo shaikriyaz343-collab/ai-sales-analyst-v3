@@ -105,3 +105,28 @@ export type ExploreResponse = {
   available_dimensions: ExploreOption[];
   rows: ExploreRow[];
 };
+
+
+export type InsightItem = {
+  id: string;
+  kind: "risk" | "change" | "opportunity" | string;
+  severity: string;
+  title: string;
+  what_changed: string;
+  why_it_matters: string;
+  recommendation: string;
+  metric: string;
+  value?: number | null;
+  display_value: string;
+  evidence: Evidence;
+};
+
+export type InsightsResponse = {
+  dataset_id: string;
+  business_model: string | null;
+  business_model_label: string | null;
+  scope_label: string;
+  headline: string;
+  summary: string;
+  insights: InsightItem[];
+};
