@@ -3,13 +3,14 @@ from __future__ import annotations
 from ..contracts import Evidence, InsightItem, InsightsResponse
 from .onboarding import get_dataset
 from .overview import build_overview
+from .session import scope_label
 
 
-def _from_overview(dataset_id: str) -> InsightsResponse:
+def _from_overview(dataset_id: str, scope=None) -> InsightsResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
         raise ValueError("Dataset not found.")
-    overview = build_overview(dataset_id)
+    overview = build_overview(dataset_id, scope=scope)
     items: list[InsightItem] = []
 
     # Reuse the validated Overview insight engine so Insights cannot drift
@@ -77,6 +78,7 @@ def _from_overview(dataset_id: str) -> InsightsResponse:
         dataset_id=summary.dataset_id,
         business_model=summary.business_model,
         business_model_label=summary.business_model_label,
+        scope_label=scope_label(scope) if scope is not None else "All data",
         headline="What matters right now",
         summary="Validated changes, risks and opportunities from the current dataset and scope.",
         insights=items[:8],
@@ -97,5 +99,5 @@ def _display(value: float | None, metric: str) -> str:
     return f"${value:,.0f}"
 
 
-def build_insights(dataset_id: str) -> InsightsResponse:
-    return _from_overview(dataset_id)
+def build_insights(dataset_id: str, scope=None) -> InsightsResponse:
+    return _from_overview(dataset_id, scope=scope)

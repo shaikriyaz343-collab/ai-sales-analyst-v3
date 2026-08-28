@@ -6,6 +6,10 @@ export type CapabilitySet = {
 
 export type Workspace = "overview" | "explore" | "insights" | "ask" | "actions" | "reports";
 
+export type ScopeFilter = { field: string; operator: "in" | "not_in" | "eq" | "neq"; values: string[] };
+export type ScopeState = { filters: ScopeFilter[] };
+export type AnalysisSession = { session_id: string; dataset_id: string; scope: ScopeState; active_analysis?: Record<string, unknown> | null; comparison?: Record<string, unknown> | null };
+
 export type DatasetSummary = {
   dataset_id: string;
   file_name: string;
@@ -93,6 +97,7 @@ export type ExploreRow = {
 
 export type ExploreResponse = {
   dataset_id: string;
+  scope_label: string;
   business_model: string | null;
   business_model_label: string | null;
   metric: string;
@@ -163,3 +168,5 @@ export type ActionsResponse = {
   summary: string;
   actions: ActionItem[];
 };
+
+export type ScopeValue = { value: string; label: string; count?: number | null; };

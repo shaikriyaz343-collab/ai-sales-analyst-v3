@@ -26,8 +26,8 @@ export default function OnboardingScreen() {
     setBusy(true);
     dispatch({ type: "dataset_loading" });
     try {
-      const dataset = await onboardDataset(file);
-      dispatch({ type: "dataset_loaded", dataset });
+      const result = await onboardDataset(file);
+      dispatch({ type: "dataset_loaded", dataset: result.dataset, session: { session_id: result.sessionId, dataset_id: result.dataset.dataset_id, scope: { filters: [] }, active_analysis: null, comparison: null } });
       router.push("/dashboard/overview");
     } catch (err) {
       dispatch({ type: "dataset_reset" });

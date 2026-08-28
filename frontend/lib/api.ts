@@ -1,13 +1,21 @@
-import type { DatasetSummary, OverviewResponse } from "./types";
+import type { AnalysisSession, DatasetSummary, OverviewResponse, ScopeFilter } from "./types";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-export async function onboardDataset(file:File):Promise<DatasetSummary>{const form=new FormData();form.append("file",file);const response=await fetch(`${API_BASE}/api/v1/onboarding/profile`,{method:"POST",body:form});if(!response.ok){const body=await response.json().catch(()=>({detail:"Upload failed."}));throw new Error(body.detail||"Upload failed.");}return (await response.json()).dataset as DatasetSummary;}
-export async function getDataset(datasetId:string):Promise<DatasetSummary>{const response=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}`,{cache:"no-store"});if(!response.ok)throw new Error("Dataset session is no longer available.");return response.json();}
-export async function getOverview(datasetId:string):Promise<OverviewResponse>{const response=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/overview`,{cache:"no-store"});if(!response.ok){const body=await response.json().catch(()=>({detail:"Overview could not be loaded."}));throw new Error(body.detail||"Overview could not be loaded.");}return response.json();}
+export async function onboardDataset(file:File):Promise<{dataset:DatasetSummary;sessionId:string}>{const form=new FormData();form.append("file",file);const response=await fetch(`${API_BASE}/api/v1/onboarding/profile`,{method:"POST",body:form});if(!response.ok){const body=await response.json().catch(()=>({detail:"Upload failed."}));throw new Error(body.detail||"Upload failed.");}const body = await response.json(); if (!body.session_id) throw new Error("The analysis session could not be created."); return { dataset: body.dataset as DatasetSummary, sessionId: body.session_id as string };}
 
-export async function getExplore(datasetId: string, metric?: string, dimension?: string): Promise<import("./types").ExploreResponse> {
+export async function createSession(datasetId:string):Promise<AnalysisSession>{const response=await fetch(`${API_BASE}/api/v1/sessions`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataset_id:datasetId}),cache:"no-store"});if(!response.ok){const body=await response.json().catch(()=>({detail:"Could not create analysis session."}));throw new Error(body.detail||"Could not create analysis session.");}return response.json();}
+export async function getSession(sessionId:string):Promise<AnalysisSession>{const response=await fetch(`${API_BASE}/api/v1/sessions/${sessionId}`,{cache:"no-store"});if(!response.ok)throw new Error("Analysis session is no longer available.");return response.json();}
+export async function updateSessionScope(sessionId:string, filters:ScopeFilter[]):Promise<AnalysisSession>{const response=await fetch(`${API_BASE}/api/v1/sessions/${sessionId}/scope`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({filters}),cache:"no-store"});if(!response.ok){const body=await response.json().catch(()=>({detail:"Scope could not be updated."}));throw new Error(body.detail||"Scope could not be updated.");}return response.json();}
+export async function getScopeValues(sessionId:string, field:string):Promise<import("./types").ScopeValue[]>{const response=await fetch(`${API_BASE}/api/v1/sessions/${sessionId}/scope-values?field=${encodeURIComponent(field)}`,{cache:"no-store"});if(!response.ok){const body=await response.json().catch(()=>({detail:"Scope values could not be loaded."}));throw new Error(body.detail||"Scope values could not be loaded.");}const body=await response.json();return body.values ?? [];}
+export async function resetSessionScope(sessionId:string):Promise<AnalysisSession>{const response=await fetch(`${API_BASE}/api/v1/sessions/${sessionId}/scope/reset`,{method:"POST",cache:"no-store"});if(!response.ok)throw new Error("Scope could not be reset.");return response.json();}
+
+export async function getDataset(datasetId:string):Promise<DatasetSummary>{const response=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}`,{cache:"no-store"});if(!response.ok)throw new Error("Dataset session is no longer available.");return response.json();}
+export async function getOverview(datasetId:string, sessionId?:string):Promise<OverviewResponse>{const response=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/overview${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`,{cache:"no-store"});if(!response.ok){const body=await response.json().catch(()=>({detail:"Overview could not be loaded."}));throw new Error(body.detail||"Overview could not be loaded.");}return response.json();}
+
+export async function getExplore(datasetId: string, metric?: string, dimension?: string, sessionId?: string): Promise<import("./types").ExploreResponse> {
   const params = new URLSearchParams();
   if (metric) params.set("metric", metric);
   if (dimension) params.set("dimension", dimension);
+  if (sessionId) params.set("session_id", sessionId);
   const query = params.toString();
   const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/explore${query ? `?${query}` : ""}`, { cache: "no-store" });
   if (!response.ok) {
@@ -18,8 +26,8 @@ export async function getExplore(datasetId: string, metric?: string, dimension?:
 }
 
 
-export async function getInsights(datasetId: string): Promise<import("./types").InsightsResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/insights`, { cache: "no-store" });
+export async function getInsights(datasetId: string, sessionId?: string): Promise<import("./types").InsightsResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/insights${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { cache: "no-store" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: "Insights could not be loaded." }));
     throw new Error(body.detail || "Insights could not be loaded.");
@@ -28,8 +36,8 @@ export async function getInsights(datasetId: string): Promise<import("./types").
 }
 
 
-export async function askAnalyst(datasetId: string, question: string): Promise<import("./types").AskResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/ask?question=${encodeURIComponent(question)}`, { cache: "no-store", method: "POST" });
+export async function askAnalyst(datasetId: string, question: string, sessionId?: string): Promise<import("./types").AskResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/ask?question=${encodeURIComponent(question)}${sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : ""}`, { cache: "no-store", method: "POST" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: "The analyst could not answer that question." }));
     throw new Error(body.detail || "The analyst could not answer that question.");
@@ -38,8 +46,8 @@ export async function askAnalyst(datasetId: string, question: string): Promise<i
 }
 
 
-export async function getActions(datasetId: string): Promise<import("./types").ActionsResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/actions`, { cache: "no-store" });
+export async function getActions(datasetId: string, sessionId?: string): Promise<import("./types").ActionsResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/actions${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { cache: "no-store" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: "Actions could not be loaded." }));
     throw new Error(body.detail || "Actions could not be loaded.");

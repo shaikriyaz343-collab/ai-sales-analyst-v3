@@ -49,13 +49,13 @@ def _action_from_insight(insight, context: _ActionContext) -> ActionItem:
     )
 
 
-def build_actions(dataset_id: str) -> ActionsResponse:
+def build_actions(dataset_id: str, scope=None) -> ActionsResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
         raise ValueError("Dataset not found.")
 
     context = _OWNER_BY_MODEL.get(summary.business_model or "", _ActionContext("Business owner", "Business action"))
-    overview = build_overview(dataset_id)
+    overview = build_overview(dataset_id, scope=scope)
 
     source_insights = [*overview.attention, *overview.opportunities]
     actions = [_action_from_insight(item, context) for item in source_insights]

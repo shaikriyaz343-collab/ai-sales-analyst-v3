@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Workspace } from "../lib/types";
-import { onboardDataset } from "../lib/api";
+import { getScopeValues, onboardDataset, resetSessionScope, updateSessionScope } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 
 const nav: { id: Workspace; label: string }[] = [
@@ -22,6 +22,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const { state, dispatch } = useAppState();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scopeField, setScopeField] = useState<string>("");
+  const [scopeValue, setScopeValue] = useState<string>("");
+  const [scopeValues, setScopeValues] = useState<string[]>([]);
+  const [scopeBusy, setScopeBusy] = useState(false);
+  const [scopeError, setScopeError] = useState<string | null>(null);
 
   const allowed = new Set(state.dataset?.capabilities.workspaces ?? nav.map((item) => item.id));
 
@@ -30,8 +35,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     setBusy(true);
     dispatch({ type: "dataset_loading" });
     try {
-      const dataset = await onboardDataset(file);
-      dispatch({ type: "dataset_loaded", dataset });
+      const result = await onboardDataset(file);
+      dispatch({ type: "dataset_loaded", dataset: result.dataset, session: { session_id: result.sessionId, dataset_id: result.dataset.dataset_id, scope: { filters: [] }, active_analysis: null, comparison: null } });
       router.replace("/dashboard/overview");
     } catch (err) {
       dispatch({ type: "dataset_reset" });
@@ -39,6 +44,36 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     } finally {
       setBusy(false);
     }
+  }
+
+  const filterableFields = state.dataset?.semantic && "dimensions" in state.dataset.semantic && Array.isArray(state.dataset.semantic.dimensions) ? state.dataset.semantic.dimensions : [];
+  useEffect(() => {
+    let alive = true;
+    setScopeValue("");
+    setScopeValues([]);
+    setScopeError(null);
+    if (!scopeField || !state.session) return;
+    getScopeValues(state.session.session_id, scopeField).then(values => alive && setScopeValues(values.map(v => v.value))).catch(err => alive && setScopeError(err instanceof Error ? err.message : "Could not load scope values."));
+    return () => { alive = false; };
+  }, [scopeField, state.session]);
+
+  async function applyFilter() {
+    if (!state.session || !scopeField || !scopeValue) return;
+    setScopeBusy(true); setScopeError(null);
+    try {
+      const existing = state.session.scope.filters.filter(f => f.field !== scopeField);
+      const updated = await updateSessionScope(state.session.session_id, [...existing, { field: scopeField, operator: "in", values: [scopeValue] }]);
+      dispatch({ type: "session_updated", session: updated });
+    } catch (err) { setScopeError(err instanceof Error ? err.message : "Scope could not be updated."); }
+    finally { setScopeBusy(false); }
+  }
+
+  async function clearScope() {
+    if (!state.session) return;
+    setScopeBusy(true); setScopeError(null);
+    try { const updated = await resetSessionScope(state.session.session_id); dispatch({ type: "session_updated", session: updated }); }
+    catch (err) { setScopeError(err instanceof Error ? err.message : "Scope could not be reset."); }
+    finally { setScopeBusy(false); }
   }
 
   return (
@@ -72,7 +107,23 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           </div>
         </header>
         <div className="scope-strip">
-          <span>Scope</span><strong>All data</strong>{state.dataset && <span>{state.dataset.row_count.toLocaleString()} rows · {state.dataset.column_count} fields</span>}
+          <span>Scope</span><strong>{state.session?.scope.filters.length ? state.session.scope.filters.map(f => `${f.field} = ${f.values.join(", ")}`).join(" · ") : "All data"}</strong>{state.dataset && <span>{state.dataset.row_count.toLocaleString()} rows · {state.dataset.column_count} fields</span>}
+          <details className="scope-editor">
+            <summary>Filter</summary>
+            <div className="scope-editor-body">
+              <select aria-label="Scope field" value={scopeField} onChange={e => setScopeField(e.target.value)} disabled={scopeBusy || !filterableFields.length}>
+                <option value="">Choose field…</option>
+                {filterableFields.map(field => <option key={field} value={field}>{field.replaceAll("_", " ")}</option>)}
+              </select>
+              <select aria-label="Scope value" value={scopeValue} onChange={e => setScopeValue(e.target.value)} disabled={scopeBusy || !scopeValues.length}>
+                <option value="">Choose value…</option>
+                {scopeValues.map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <button type="button" className="secondary-button" onClick={applyFilter} disabled={scopeBusy || !scopeField || !scopeValue}>{scopeBusy ? "Applying…" : "Apply"}</button>
+              <button type="button" className="text-button" onClick={clearScope} disabled={scopeBusy || !(state.session?.scope.filters.length)}>Clear scope</button>
+              {scopeError && <span className="error-text" role="alert">{scopeError}</span>}
+            </div>
+          </details>
         </div>
         <section className="workspace">{children}</section>
       </main>

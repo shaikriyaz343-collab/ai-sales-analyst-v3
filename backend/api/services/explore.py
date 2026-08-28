@@ -11,6 +11,7 @@ from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import ExploreResponse, ExploreRow
 from .onboarding import STORAGE, get_dataset
+from .session import apply_scope, scope_label
 from .overview import _canonicalize
 
 
@@ -181,7 +182,7 @@ def _source_fields(metric: str, dimension: str, data: pd.DataFrame) -> list[str]
     return fields
 
 
-def build_explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8) -> ExploreResponse:
+def build_explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8, scope=None) -> ExploreResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
         raise ValueError("Dataset not found.")
@@ -195,6 +196,8 @@ def build_explore(dataset_id: str, metric: str | None = None, dimension: str | N
     semantic = build_semantic_model(profile, data=data)
     business = detect_business_type(semantic, profile)
     canonical = _canonical(data, profile)
+    if scope is not None:
+        canonical = apply_scope(canonical, scope)
     primary = business.get("primary_type")
 
     metric_defs = METRICS.get(primary, {})
@@ -239,7 +242,7 @@ def build_explore(dataset_id: str, metric: str | None = None, dimension: str | N
                     "metric": metric,
                     "value": float(value),
                     "calculation": f"{metric_defs[metric]['label']} calculated for {dim_defs[dimension]} = {label}",
-                    "scope": "All data",
+                    "scope": scope_label(scope) if scope is not None else "All data",
                     "source_fields": _source_fields(metric, dimension, canonical),
                 },
             )
@@ -247,6 +250,7 @@ def build_explore(dataset_id: str, metric: str | None = None, dimension: str | N
 
     return ExploreResponse(
         dataset_id=summary.dataset_id,
+        scope_label=scope_label(scope) if scope is not None else "All data",
         business_model=summary.business_model,
         business_model_label=summary.business_model_label,
         metric=metric,

@@ -25,6 +25,7 @@ from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import Evidence, OverviewInsight, OverviewMetric, OverviewResponse
 from .onboarding import STORAGE, get_dataset
+from .session import apply_scope, scope_label
 
 
 def _num(series: pd.Series) -> pd.Series:
@@ -94,7 +95,7 @@ def _insight(insight_id: str, severity: str, title: str, summary: str, why: str,
     )
 
 
-def build_overview(dataset_id: str) -> OverviewResponse:
+def build_overview(dataset_id: str, scope=None) -> OverviewResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
         raise ValueError("Dataset not found.")
@@ -109,6 +110,8 @@ def build_overview(dataset_id: str) -> OverviewResponse:
     semantic = build_semantic_model(profile, data=data)
     business = detect_business_type(semantic, profile)
     canonical = _canonicalize(data, profile)
+    if scope is not None:
+        canonical = apply_scope(canonical, scope)
     primary = business.get("primary_type")
 
     metrics: list[OverviewMetric] = []
@@ -291,10 +294,17 @@ def build_overview(dataset_id: str) -> OverviewResponse:
             lead = employees[0]
             what_changed.append(f"{lead.get('employee')} has the highest recorded hours at {_count(float(lead.get('hours') or 0))}.")
 
+    current_scope_label = scope_label(scope) if scope is not None else "All data"
+    for metric in metrics:
+        metric.evidence.scope = current_scope_label
+    for insight in [*attention, *opportunities]:
+        insight.evidence.scope = current_scope_label
+
     headline = f"Your {summary.business_model_label or 'business'} at a glance"
     subheadline = f"{summary.file_name} · {summary.row_count:,} rows · {summary.column_count} fields · {summary.quality_issues} quality issues"
     return OverviewResponse(
         dataset_id=summary.dataset_id,
+        scope_label=current_scope_label,
         business_model=summary.business_model,
         business_model_label=summary.business_model_label,
         headline=headline,

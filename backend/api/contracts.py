@@ -22,6 +22,35 @@ class CapabilitySet(BaseModel):
     modules: list[str] = Field(default_factory=list)
 
 
+
+
+class ScopeFilter(BaseModel):
+    field: str
+    operator: str = "in"
+    values: list[str] = Field(default_factory=list)
+
+
+class ScopeState(BaseModel):
+    filters: list[ScopeFilter] = Field(default_factory=list)
+
+
+class ScopeValue(BaseModel):
+    value: str
+    label: str
+
+
+class ScopeValuesResponse(BaseModel):
+    field: str
+    values: list[ScopeValue] = Field(default_factory=list)
+
+
+class AnalysisSession(BaseModel):
+    session_id: str
+    dataset_id: str
+    scope: ScopeState = Field(default_factory=ScopeState)
+    active_analysis: dict[str, Any] | None = None
+    comparison: dict[str, Any] | None = None
+
 class DatasetSummary(BaseModel):
     dataset_id: str
     file_name: str
@@ -52,6 +81,7 @@ class ErrorResponse(BaseModel):
 class OnboardingResponse(BaseModel):
     dataset: DatasetSummary
     message: str
+    session_id: str | None = None
 
 
 class Evidence(BaseModel):
@@ -112,6 +142,7 @@ class ExploreRow(BaseModel):
 
 class ExploreResponse(BaseModel):
     dataset_id: str
+    scope_label: str = "All data"
     business_model: str | None
     business_model_label: str | None
     metric: str

@@ -120,7 +120,7 @@ def _answer_from_overview(summary, overview, question: str, metric_id: str) -> t
     return answer, followups
 
 
-def answer_question(dataset_id: str, question: str) -> AskResponse:
+def answer_question(dataset_id: str, question: str, scope=None) -> AskResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
         raise ValueError("Dataset not found.")
@@ -138,12 +138,12 @@ def answer_question(dataset_id: str, question: str) -> AskResponse:
     semantic = build_semantic_model(profile, data=data)
     business = detect_business_type(semantic, profile)
     primary = business.get("primary_type") or summary.business_model
-    overview = build_overview(dataset_id)
+    overview = build_overview(dataset_id, scope=scope)
 
     # "why/change" questions are grounded in the same Insight objects used by Insights.
     q = _canon(question)
     if any(term in q.split() for term in ("why", "cause", "caused", "changed", "change")):
-        insights = build_insights(dataset_id)
+        insights = build_insights(dataset_id, scope=scope)
         if insights.insights:
             target_metric = _pick_metric(question, primary, overview)
             selected = next((i for i in insights.insights if target_metric and i.metric == target_metric), insights.insights[0])
@@ -169,12 +169,12 @@ def answer_question(dataset_id: str, question: str) -> AskResponse:
             metric_id = next((m.id for m in overview.metrics if m.id not in {"arr"}), overview.metrics[0].id if overview.metrics else None)
         if metric_id and dimension:
             try:
-                result = build_explore(dataset_id, metric_id, dimension, 1)
+                result = build_explore(dataset_id, metric_id, dimension, 1, scope=scope)
             except ValueError as exc:
                 return AskResponse(dataset_id=dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label, answer=AskAnswer(status="unsupported", text=str(exc), confidence="high"), follow_ups=[])
             if not result.rows:
                 return AskResponse(dataset_id=dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label, answer=AskAnswer(status="no_data", text="I couldn't find a matching result in the current dataset.", confidence="high"), follow_ups=[])
-            row = result.rows[0] if _ranking_direction(question) == "highest" else build_explore(dataset_id, metric_id, dimension, 15).rows[-1]
+            row = result.rows[0] if _ranking_direction(question) == "highest" else build_explore(dataset_id, metric_id, dimension, 15, scope=scope).rows[-1]
             direction = "highest" if _ranking_direction(question) == "highest" else "lowest"
             text = f"The {dimension.replace('_',' ')} with the {direction} {_label_metric(metric_id)} is {row.key} at {row.display_value}."
             evidence = AskEvidence(**row.evidence)
