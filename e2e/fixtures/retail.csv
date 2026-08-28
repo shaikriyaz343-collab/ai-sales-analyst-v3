@@ -1,0 +1,5 @@
+OrderID,OrderDate,CustomerName,ProductName,Quantity,UnitPrice,TotalAmount,Region,Discount %,Return Status,PaymentMethod
+R001,2026-01-01,Alice,Phone,1,2800,2800,North,5,No,Card
+R002,2026-01-02,Bob,Laptop,1,1200,1200,West,5,No,Card
+R003,2026-01-03,Carol,Tablet,1,100,100,South,0,Returned,UPI
+R004,2026-01-04,Dave,Monitor,1,80,80,East,10,No,Cash

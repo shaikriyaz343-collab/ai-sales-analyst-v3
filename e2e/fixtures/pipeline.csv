@@ -1,0 +1,6 @@
+OpportunityID,CreatedDate,AccountName,Salesperson,Stage,Amount,Probability,ExpectedClose
+P001,2026-01-01,Acme,Anna,Closed Won,50000,1,2026-02-01
+P002,2026-01-02,Beta,Sam,Negotiation,40000,0.5,2026-03-01
+P003,2026-01-03,Gamma,Leah,Proposal,30000,0.4,2026-03-15
+P004,2026-01-04,Delta,John,Qualification,20000,0.2,2026-04-01
+P005,2026-01-05,Epsilon,Nina,Discovery,15000,0.1,2026-04-15

@@ -11,3 +11,9 @@ frontend/.next/
 backend/runtime_data/
 
 backend/runtime_sessions/
+
+# V4 browser test artifacts
+node_modules/
+e2e/test-results/
+e2e/v4-playwright-report/
+
