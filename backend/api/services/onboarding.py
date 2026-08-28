@@ -19,11 +19,11 @@ WORKSPACES = ["overview", "explore", "insights", "ask", "actions", "reports"]
 
 
 def _capabilities(semantic: dict | None = None, business_type: dict | None = None) -> dict:
-    """Return product capabilities only; the optional semantic argument is retained for compatibility."""
-    business_type = business_type or {}
+    """Separate stable product workspaces from validated analytical concepts."""
     semantic = semantic or {}
-    analytics = sorted({str(x) for x in semantic.get("available_concepts", [])})
+    business_type = business_type or {}
     modules = sorted({str(x) for x in business_type.get("suggested_modules", [])})
+    analytics = sorted({str(x) for x in semantic.get("available_concepts", [])})
     return {"workspaces": WORKSPACES.copy(), "analytics": analytics, "modules": modules}
 
 

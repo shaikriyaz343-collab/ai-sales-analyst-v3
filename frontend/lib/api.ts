@@ -36,3 +36,13 @@ export async function askAnalyst(datasetId: string, question: string): Promise<i
   }
   return response.json();
 }
+
+
+export async function getActions(datasetId: string): Promise<import("./types").ActionsResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/actions`, { cache: "no-store" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "Actions could not be loaded." }));
+    throw new Error(body.detail || "Actions could not be loaded.");
+  }
+  return response.json();
+}

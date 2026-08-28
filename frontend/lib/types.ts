@@ -139,3 +139,27 @@ export type AskResponse = {
   dataset_id: string; question: string; business_model: string | null; business_model_label: string | null;
   answer: AskAnswer; follow_ups: AskFollowUp[]; explore_metric?: string | null; explore_dimension?: string | null; supported_summary?: string | null;
 };
+
+export type ActionItem = {
+  id: string;
+  priority: string;
+  status: string;
+  title: string;
+  action: string;
+  owner: string;
+  rationale: string;
+  expected_outcome: string;
+  metric: string;
+  display_value: string;
+  evidence: Evidence;
+  source_insight_id: string;
+};
+
+export type ActionsResponse = {
+  dataset_id: string;
+  business_model: string | null;
+  business_model_label: string | null;
+  headline: string;
+  summary: string;
+  actions: ActionItem[];
+};

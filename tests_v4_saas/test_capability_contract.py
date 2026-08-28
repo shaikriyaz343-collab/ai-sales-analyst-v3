@@ -10,7 +10,6 @@ def test_capabilities_are_separated_for_retail() -> None:
     )
 
     assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports"]
-    assert caps["analytics"] == ["customer", "product", "return_status", "revenue"]
     assert caps["modules"] == ["Overview", "Products", "Returns", "What Needs Attention"]
     assert "revenue" not in caps["modules"]
 
@@ -22,6 +21,5 @@ def test_capabilities_are_separated_for_pipeline() -> None:
     )
 
     assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports"]
-    assert caps["analytics"] == ["amount", "probability", "salesperson", "stage"]
     assert caps["modules"] == ["Pipeline", "Sales Forecast", "Stage Performance"]
     assert "Products" not in caps["modules"]

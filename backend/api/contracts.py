@@ -180,3 +180,27 @@ class AskResponse(BaseModel):
     explore_metric: str | None = None
     explore_dimension: str | None = None
     supported_summary: str | None = None
+
+class ActionItem(BaseModel):
+    id: str
+    priority: str
+    status: str = "open"
+    title: str
+    action: str
+    owner: str
+    rationale: str
+    expected_outcome: str
+    metric: str
+    display_value: str
+    evidence: Evidence
+    source_insight_id: str
+
+
+class ActionsResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    headline: str
+    summary: str
+    actions: list[ActionItem] = Field(default_factory=list)
+
