@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .contracts import (HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse, ActionsResponse, ReportResponse, AnalysisSession, ScopeFilter, ScopeState, ScopeValuesResponse, ScopeValue)
+from .contracts import (HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse, ActionsResponse, ReportResponse, AnalysisSession, ScopeFilter, ScopeState, ScopeValuesResponse, ScopeValue, AlertsResponse, AlertRule, AlertRuleCreate)
 from .services.onboarding import get_dataset, onboard
 from .services.overview import build_overview
 from .services.explore import build_explore
@@ -12,9 +12,10 @@ from .services.ask import answer_question
 from .services.actions import build_actions
 from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
+from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
 
 app = FastAPI(title="AI Sales Analyst API", version="4.0.0-alpha.1", docs_url="/docs", redoc_url="/redoc")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
 
 def _scope_for(dataset_id: str, session_id: str | None):
@@ -109,6 +110,47 @@ def report(dataset_id: str, session_id: str | None = None) -> ReportResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not build report: {exc}") from exc
+
+
+@app.get("/api/v1/datasets/{dataset_id}/alerts", response_model=AlertsResponse)
+def alerts(dataset_id: str, session_id: str | None = None) -> AlertsResponse:
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
+    try:
+        return list_alerts(dataset_id, session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/datasets/{dataset_id}/alerts", response_model=AlertRule)
+def create_alert(dataset_id: str, request: AlertRuleCreate, session_id: str | None = None) -> AlertRule:
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
+    try:
+        return create_rule(dataset_id, session_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/v1/datasets/{dataset_id}/alerts/{rule_id}")
+def remove_alert(dataset_id: str, rule_id: str, session_id: str | None = None):
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
+    try:
+        delete_rule(dataset_id, session_id, rule_id)
+        return {"status": "ok"}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/datasets/{dataset_id}/alerts/evaluate", response_model=AlertsResponse)
+def evaluate_dataset_alerts(dataset_id: str, session_id: str | None = None) -> AlertsResponse:
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
+    try:
+        return evaluate_alerts(dataset_id, session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/sessions", response_model=AnalysisSession)

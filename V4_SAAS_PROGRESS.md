@@ -70,3 +70,9 @@ Current report experience:
 
 ## Important workflow rule
 Do not use isolated feature patches when a feature crosses shared contracts/state. Prefer a full current-repository reconciliation, run backend tests + frontend build + browser acceptance, then create one Git checkpoint.
+
+## Monitoring / Alerts milestone
+
+The product now has a deterministic monitoring rule layer over the shared analytical session. Users can create metric thresholds, evaluate them against the current scope, inspect evidence-backed alert events, and remove monitors. Dataset replacement clears prior monitoring state so alerts cannot leak across datasets.
+
+Current milestone scope is manual evaluation plus cadence metadata (`manual`, `daily`, `weekly`). Background scheduling and delivery are intentionally deferred to the SaaS infrastructure phase.

@@ -236,6 +236,55 @@ class ActionsResponse(BaseModel):
     actions: list[ActionItem] = Field(default_factory=list)
 
 
+class AlertRule(BaseModel):
+    rule_id: str
+    dataset_id: str
+    session_id: str
+    name: str
+    metric: str
+    operator: str
+    threshold: float
+    cadence: str = "manual"
+    scope_label: str = "All data"
+    active: bool = True
+    created_at: str
+    last_evaluated_at: str | None = None
+
+
+class AlertEvent(BaseModel):
+    event_id: str
+    rule_id: str
+    dataset_id: str
+    session_id: str
+    status: str
+    metric: str
+    value: float | None = None
+    threshold: float
+    operator: str
+    title: str
+    message: str
+    scope_label: str
+    evidence: Evidence
+    evaluated_at: str
+
+
+class AlertsResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    scope_label: str = "All data"
+    rules: list[AlertRule] = Field(default_factory=list)
+    events: list[AlertEvent] = Field(default_factory=list)
+
+
+class AlertRuleCreate(BaseModel):
+    name: str = ""
+    metric: str
+    operator: str
+    threshold: float
+    cadence: str = "manual"
+
+
 class ReportResponse(BaseModel):
     dataset_id: str
     file_name: str

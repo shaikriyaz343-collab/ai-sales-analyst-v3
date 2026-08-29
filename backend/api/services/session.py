@@ -67,6 +67,10 @@ def replace_dataset(session_id: str, dataset_id: str) -> AnalysisSession:
     session.scope = ScopeState()
     session.active_analysis = None
     session.comparison = None
+    # Dataset replacement invalidates monitoring rules/events tied to the prior dataset.
+    monitoring_path = SESSION_STORAGE.parent / "runtime_monitoring" / f"{session_id}.json"
+    if monitoring_path.exists():
+        monitoring_path.unlink()
     _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
     return session
 

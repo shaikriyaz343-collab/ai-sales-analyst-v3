@@ -64,3 +64,9 @@ export async function getReport(datasetId: string, sessionId?: string): Promise<
   }
   return response.json();
 }
+
+
+export async function getAlerts(datasetId:string, sessionId:string):Promise<import("./types").AlertsResponse>{const r=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/alerts?session_id=${encodeURIComponent(sessionId)}`,{cache:"no-store"});if(!r.ok){const b=await r.json().catch(()=>({detail:"Alerts could not be loaded."}));throw new Error(b.detail||"Alerts could not be loaded.");}return r.json();}
+export async function createAlert(datasetId:string,sessionId:string,request:{name:string;metric:string;operator:string;threshold:number;cadence:string}):Promise<import("./types").AlertRule>{const r=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/alerts?session_id=${encodeURIComponent(sessionId)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(request),cache:"no-store"});if(!r.ok){const b=await r.json().catch(()=>({detail:"Alert could not be created."}));throw new Error(b.detail||"Alert could not be created.");}return r.json();}
+export async function deleteAlert(datasetId:string,sessionId:string,ruleId:string){const r=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/alerts/${ruleId}?session_id=${encodeURIComponent(sessionId)}`,{method:"DELETE",cache:"no-store"});if(!r.ok){const b=await r.json().catch(()=>({detail:"Alert could not be deleted."}));throw new Error(b.detail||"Alert could not be deleted.");}}
+export async function evaluateAlerts(datasetId:string,sessionId:string):Promise<import("./types").AlertsResponse>{const r=await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/alerts/evaluate?session_id=${encodeURIComponent(sessionId)}`,{method:"POST",cache:"no-store"});if(!r.ok){const b=await r.json().catch(()=>({detail:"Alerts could not be evaluated."}));throw new Error(b.detail||"Alerts could not be evaluated.");}return r.json();}

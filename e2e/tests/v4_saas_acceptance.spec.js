@@ -59,3 +59,20 @@ test("V4 executive report uses the current session and survives dataset replacem
   await expect(page.getByText(/Executive report — Sales Pipeline/i)).toBeVisible();
   await expect(page.getByText("retail.csv", { exact: true })).toHaveCount(0);
 });
+
+
+test("V4 monitoring creates and evaluates a session-scoped alert", async ({ page }) => {
+  await upload(page, "retail.csv");
+  await page.getByRole("link", { name: "Monitoring", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Keep watch on what matters/i })).toBeVisible();
+  await page.getByLabel("Monitor name", { exact: true }).fill("Return rate watch");
+  await page.getByLabel("Monitor metric", { exact: true }).selectOption("return_rate");
+  await page.getByLabel("Monitor operator", { exact: true }).selectOption("gt");
+  await page.getByLabel("Monitor threshold", { exact: true }).fill("10");
+  await page.getByRole("button", { name: "Create monitor", exact: true }).click();
+  await expect(page.getByText("Return rate watch", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Evaluate now", exact: true }).click();
+  await expect(page.getByText(/Return rate watch is triggered/i)).toBeVisible();
+  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await expect(page.getByText(/Executive report/i).first()).toBeVisible();
+});

@@ -14,6 +14,7 @@ const nav: { id: Workspace; label: string }[] = [
   { id: "ask", label: "Ask Analyst" },
   { id: "actions", label: "Actions" },
   { id: "reports", label: "Reports" },
+  { id: "monitoring", label: "Monitoring" },
 ];
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
