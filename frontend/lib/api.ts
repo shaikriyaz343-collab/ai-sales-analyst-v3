@@ -54,3 +54,13 @@ export async function getActions(datasetId: string, sessionId?: string): Promise
   }
   return response.json();
 }
+
+
+export async function getReport(datasetId: string, sessionId?: string): Promise<import("./types").ReportResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/report${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { cache: "no-store" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "Report could not be generated." }));
+    throw new Error(body.detail || "Report could not be generated.");
+  }
+  return response.json();
+}
