@@ -170,3 +170,19 @@ export type ActionsResponse = {
 };
 
 export type ScopeValue = { value: string; label: string; count?: number | null; };
+export type ReportResponse = {
+  dataset_id: string;
+  file_name: string;
+  business_model: string | null;
+  business_model_label: string | null;
+  scope_label: string;
+  title: string;
+  executive_summary: string;
+  generated_at: string;
+  metrics: OverviewMetric[];
+  what_changed: string[];
+  attention: OverviewInsight[];
+  opportunities: OverviewInsight[];
+  actions: ActionItem[];
+  source_note: string;
+};

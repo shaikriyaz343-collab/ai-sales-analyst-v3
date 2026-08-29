@@ -3,13 +3,14 @@ from __future__ import annotations
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .contracts import (HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse, ActionsResponse, AnalysisSession, ScopeFilter, ScopeState, ScopeValuesResponse, ScopeValue)
+from .contracts import (HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse, ActionsResponse, ReportResponse, AnalysisSession, ScopeFilter, ScopeState, ScopeValuesResponse, ScopeValue)
 from .services.onboarding import get_dataset, onboard
 from .services.overview import build_overview
 from .services.explore import build_explore
 from .services.insights import build_insights
 from .services.ask import answer_question
 from .services.actions import build_actions
+from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
 
 app = FastAPI(title="AI Sales Analyst API", version="4.0.0-alpha.1", docs_url="/docs", redoc_url="/redoc")
@@ -98,6 +99,16 @@ def actions(dataset_id: str, session_id: str | None = None) -> ActionsResponse:
         raise HTTPException(status_code=422, detail=f"Could not build actions: {exc}") from exc
 
 
+
+
+@app.get("/api/v1/datasets/{dataset_id}/report", response_model=ReportResponse)
+def report(dataset_id: str, session_id: str | None = None) -> ReportResponse:
+    try:
+        return build_report(dataset_id, scope=_scope_for(dataset_id, session_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not build report: {exc}") from exc
 
 
 @app.post("/api/v1/sessions", response_model=AnalysisSession)

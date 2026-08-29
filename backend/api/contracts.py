@@ -235,3 +235,19 @@ class ActionsResponse(BaseModel):
     summary: str
     actions: list[ActionItem] = Field(default_factory=list)
 
+
+class ReportResponse(BaseModel):
+    dataset_id: str
+    file_name: str
+    business_model: str | None
+    business_model_label: str | None
+    scope_label: str = "All data"
+    title: str
+    executive_summary: str
+    generated_at: str
+    metrics: list[OverviewMetric] = Field(default_factory=list)
+    what_changed: list[str] = Field(default_factory=list)
+    attention: list[OverviewInsight] = Field(default_factory=list)
+    opportunities: list[OverviewInsight] = Field(default_factory=list)
+    actions: list[ActionItem] = Field(default_factory=list)
+    source_note: str
