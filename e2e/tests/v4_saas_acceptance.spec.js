@@ -42,3 +42,20 @@ test("V4 dataset replacement creates a clean analytical session", async ({ page 
   await expect(page.locator("header").getByText("Sales Pipeline", { exact: true })).toBeVisible();
   await expect(page.getByText("retail.csv", { exact: true })).toHaveCount(0);
 });
+
+
+test("V4 executive report uses the current session and survives dataset replacement", async ({ page }) => {
+  await upload(page, "retail.csv");
+  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Executive report/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print / Save PDF" })).toBeVisible();
+  await expect(page.locator("header").getByText("retail.csv", { exact: true })).toBeVisible();
+
+  const replaceInput = page.locator("label.upload-mini input[type=file]");
+  await replaceInput.setInputFiles(path.join(fixtures, "pipeline.csv"));
+  await expect(page).toHaveURL(/\/dashboard\/overview/, { timeout: 120_000 });
+  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await expect(page.locator("header").getByText("Sales Pipeline", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Executive report — Sales Pipeline/i)).toBeVisible();
+  await expect(page.getByText("retail.csv", { exact: true })).toHaveCount(0);
+});
