@@ -300,3 +300,44 @@ class ReportResponse(BaseModel):
     opportunities: list[OverviewInsight] = Field(default_factory=list)
     actions: list[ActionItem] = Field(default_factory=list)
     source_note: str
+
+class SavedIntelligence(BaseModel):
+    id: str
+    dataset_id: str
+    session_id: str
+    name: str
+    kind: str
+    title: str
+    summary: str
+    metric: str
+    metric_label: str
+    dimension: str | None = None
+    dimension_label: str | None = None
+    value: float | None = None
+    display_value: str
+    scope_label: str = "All data"
+    scope_filters: list[ScopeFilter] = Field(default_factory=list)
+    evidence: Evidence
+    source_workspace: str
+    source_id: str
+    active: bool = True
+    created_at: str
+    updated_at: str
+
+
+class SavedIntelligenceCreate(BaseModel):
+    name: str = ""
+    source_workspace: str
+    source_id: str
+    title: str = ""
+    summary: str = ""
+    metric: str | None = None
+    dimension: str | None = None
+
+
+class SavedIntelligenceResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    scope_label: str = "All data"
+    items: list[SavedIntelligence] = Field(default_factory=list)

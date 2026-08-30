@@ -25,7 +25,7 @@ The project must not return to Streamlit-centric page/widget state management. S
 - Unsupported business metrics are explicitly unavailable.
 
 ## Core workspaces
-Overview | Explore | Insights | Ask | Actions | Reports
+Overview | Explore | Insights | Ask | Actions | Reports | Monitoring | Saved
 
 ## Reference patterns
 Salesforce: decision-oriented revenue intelligence

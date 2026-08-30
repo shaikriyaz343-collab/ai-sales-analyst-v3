@@ -71,6 +71,8 @@ def replace_dataset(session_id: str, dataset_id: str) -> AnalysisSession:
     monitoring_path = SESSION_STORAGE.parent / "runtime_monitoring" / f"{session_id}.json"
     if monitoring_path.exists():
         monitoring_path.unlink()
+    from .saved_intelligence import invalidate_for_dataset_replacement
+    invalidate_for_dataset_replacement(session_id)
     _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
     return session
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .contracts import (HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse, ActionsResponse, ReportResponse, AnalysisSession, ScopeFilter, ScopeState, ScopeValuesResponse, ScopeValue, AlertsResponse, AlertRule, AlertRuleCreate)
+from .contracts import (HealthResponse, OnboardingResponse, OverviewResponse, ExploreResponse, InsightsResponse, AskResponse, ActionsResponse, ReportResponse, AnalysisSession, ScopeFilter, ScopeState, ScopeValuesResponse, ScopeValue, AlertsResponse, AlertRule, AlertRuleCreate, SavedIntelligenceResponse, SavedIntelligence, SavedIntelligenceCreate)
 from .services.onboarding import get_dataset, onboard
 from .services.overview import build_overview
 from .services.explore import build_explore
@@ -13,6 +13,7 @@ from .services.actions import build_actions
 from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
 from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
+from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
 
 app = FastAPI(title="AI Sales Analyst API", version="4.0.0-alpha.1", docs_url="/docs", redoc_url="/redoc")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
@@ -207,5 +208,36 @@ def session_scope_values(session_id: str, field: str, limit: int = 100) -> Scope
 def session_scope_reset(session_id: str) -> AnalysisSession:
     try:
         return reset_scope(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/datasets/{dataset_id}/saved", response_model=SavedIntelligenceResponse)
+def saved(dataset_id: str, session_id: str | None = None) -> SavedIntelligenceResponse:
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
+    try:
+        return list_saved(dataset_id, session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/datasets/{dataset_id}/saved", response_model=SavedIntelligence)
+def save(dataset_id: str, request: SavedIntelligenceCreate, session_id: str | None = None) -> SavedIntelligence:
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
+    try:
+        return save_intelligence(dataset_id, session_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/v1/datasets/{dataset_id}/saved/{item_id}")
+def remove_saved(dataset_id: str, item_id: str, session_id: str | None = None):
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
+    try:
+        delete_saved(dataset_id, session_id, item_id)
+        return {"status": "ok"}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

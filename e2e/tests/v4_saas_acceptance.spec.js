@@ -76,3 +76,19 @@ test("V4 monitoring creates and evaluates a session-scoped alert", async ({ page
   await page.getByRole("link", { name: "Reports", exact: true }).click();
   await expect(page.getByText(/Executive report/i).first()).toBeVisible();
 });
+
+
+test("V4 saved intelligence persists across refresh and can reopen an analysis", async ({ page }) => {
+  await upload(page, "retail.csv");
+  await page.getByRole("link", { name: "Explore", exact: true }).click();
+  await page.getByLabel("Saved intelligence name", { exact: true }).fill("Revenue by product");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Saved", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Saved", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Keep the signals you care about/i })).toBeVisible();
+  await expect(page.getByText("Revenue by product", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Revenue by product", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Open analysis", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/explore/);
+});

@@ -22,6 +22,9 @@ Core invariants:
 - Actions
 - Analytical Session + Scope
 - V4 Playwright acceptance harness
+- Reports
+- Monitoring / Alerts
+- Saved Intelligence
 
 ## Current validated capabilities
 Workspaces:
@@ -39,10 +42,9 @@ Supported business models:
 - Services / Professional Services
 
 ## Automated validation
-- Full Python suite: 90 tests passed before Reports.
-- V4 report service adds 6 tests; current full suite: 96 passed.
-- V4 Playwright harness covers onboarding, scope persistence, and dataset replacement; current acceptance suite previously reached 3/3 after test-harness fixes.
-- Frontend production build previously passed after the session/scope checkpoint.
+- Full Python regression suite: 111 passed after Saved Intelligence.
+- V4 Playwright acceptance covers onboarding, scope persistence, dataset replacement, Reports, and Monitoring; the Saved Intelligence acceptance test is included in this milestone.
+- Frontend production build passed for the preceding V4 milestones; the Saved Intelligence TSX source has also been syntax-validated.
 
 ## Reports milestone
 Reports is built as a thin composition layer over validated Overview, Insights, and Actions services for the active dataset/session scope. It does not introduce a second calculation engine.
@@ -58,15 +60,16 @@ Current report experience:
 - Print / Save PDF via browser print flow
 - Dataset replacement consistency
 
+## Saved Intelligence milestone
+Saved intelligence provides reusable, session-scoped bookmarks for validated Explore analyses, Insights, and Actions. Items preserve the dataset/session, scope snapshot, metric, optional dimension, and evidence used to create them. The current Saved workspace can reopen Explore analyses and jump into Monitoring; dataset replacement deactivates prior saved items so stale intelligence never becomes current truth.
+
 ## Next product work
-1. Validate Reports in the browser and add it to the V4 Playwright acceptance gate.
-2. Whole-product UX/integration polish.
-3. Monitoring and alerts.
-4. Saved intelligence.
-5. Connectors and production SaaS persistence.
-6. Gemini-powered interpretation behind deterministic validation.
-7. Accounts, teams, auth, usage and billing.
-8. Production deployment and monetization experiments.
+1. Whole-product UX/integration polish.
+2. Saved intelligence expansion and recurring workflow orchestration.
+3. Connectors and production SaaS persistence.
+4. Gemini-powered interpretation behind deterministic validation.
+5. Accounts, teams, auth, usage and billing.
+6. Production deployment and monetization experiments.
 
 ## Important workflow rule
 Do not use isolated feature patches when a feature crosses shared contracts/state. Prefer a full current-repository reconciliation, run backend tests + frontend build + browser acceptance, then create one Git checkpoint.

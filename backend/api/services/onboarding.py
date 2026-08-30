@@ -15,7 +15,7 @@ from ..contracts import DatasetSummary, SemanticSummary
 
 SUPPORTED = {".csv", ".xlsx", ".xls"}
 STORAGE = Path(__file__).resolve().parents[2] / "runtime_data"
-WORKSPACES = ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring"]
+WORKSPACES = ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring", "saved"]
 
 
 def _capabilities(semantic: dict | None = None, business_type: dict | None = None) -> dict:

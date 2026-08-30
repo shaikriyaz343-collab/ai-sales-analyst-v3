@@ -19,6 +19,6 @@ def test_semantic_model_and_capabilities_are_separate() -> None:
     assert semantic.concepts == ["order_id", "region", "revenue"]
     assert semantic.metrics == ["revenue"]
     assert semantic.dimensions == ["order_id", "region"]
-    assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring"]
+    assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring", "saved"]
     assert caps["modules"] == ["Overview", "Regions"]
     assert "revenue" not in caps["modules"]

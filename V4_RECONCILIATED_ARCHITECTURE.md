@@ -8,7 +8,9 @@ This checkpoint consolidates the V4 SaaS source around one shared analytical con
 - insights
 - ask
 - actions
-- reports (placeholder until report UX is implemented)
+- reports
+- monitoring
+- saved
 
 ## Source of truth
 The backend owns validated dataset semantics, capabilities, deterministic metrics, evidence, insights, answers, and actions. The frontend renders those contracts and keeps navigation separate from analytical state.

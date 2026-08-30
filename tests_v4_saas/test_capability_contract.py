@@ -9,7 +9,7 @@ def test_capabilities_are_separated_for_retail() -> None:
         {"suggested_modules": ["Overview", "Products", "Returns", "What Needs Attention"]},
     )
 
-    assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring"]
+    assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring", "saved"]
     assert caps["modules"] == ["Overview", "Products", "Returns", "What Needs Attention"]
     assert "revenue" not in caps["modules"]
 
@@ -20,6 +20,6 @@ def test_capabilities_are_separated_for_pipeline() -> None:
         {"suggested_modules": ["Pipeline", "Sales Forecast", "Stage Performance"]},
     )
 
-    assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring"]
+    assert caps["workspaces"] == ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring", "saved"]
     assert caps["modules"] == ["Pipeline", "Sales Forecast", "Stage Performance"]
     assert "Products" not in caps["modules"]
