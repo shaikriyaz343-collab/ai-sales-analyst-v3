@@ -21,3 +21,5 @@ e2e/v4-playwright-report/
 backend/runtime_monitoring/
 
 backend/runtime_saved_intelligence/
+backend/runtime_saas/
+e2e/.auth/

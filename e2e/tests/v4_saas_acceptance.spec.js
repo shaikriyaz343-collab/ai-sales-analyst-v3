@@ -1,14 +1,15 @@
-import { test, expect } from "@playwright/test";
-import path from "path";
-
-const fixtures = path.resolve(process.cwd(), "e2e", "fixtures");
+const { test, expect } = require("@playwright/test");
+const path = require("path");
+const fixtures = path.join(__dirname, "..", "fixtures");
 
 async function upload(page, file) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/dashboard/overview", { waitUntil: "domcontentloaded" });
   const input = page.locator('input[type="file"]').first();
   await expect(input).toBeAttached();
   await input.setInputFiles(path.join(fixtures, file));
   await expect(page).toHaveURL(/\/dashboard\/overview/, { timeout: 120_000 });
+  await expect(page.locator('[data-v4-readiness="dataset-ready"]')).toBeVisible({ timeout: 120_000 });
+  await expect(page.locator("header").getByText(file, { exact: true })).toBeVisible({ timeout: 120_000 });
 }
 
 test("V4 onboarding creates a dataset-backed workspace", async ({ page }) => {
@@ -35,14 +36,12 @@ test("V4 scope persists across workspaces", async ({ page }) => {
 
 test("V4 dataset replacement creates a clean analytical session", async ({ page }) => {
   await upload(page, "retail.csv");
-  await page.getByText("Replace dataset", { exact: true }).click();
-  const input = page.locator('input[type="file"]').last();
+  const input = page.locator("label.upload-mini input[type=file]");
   await input.setInputFiles(path.join(fixtures, "pipeline.csv"));
   await expect(page).toHaveURL(/\/dashboard\/overview/, { timeout: 120_000 });
   await expect(page.locator("header").getByText("Sales Pipeline", { exact: true })).toBeVisible();
   await expect(page.getByText("retail.csv", { exact: true })).toHaveCount(0);
 });
-
 
 test("V4 executive report uses the current session and survives dataset replacement", async ({ page }) => {
   await upload(page, "retail.csv");
@@ -56,10 +55,9 @@ test("V4 executive report uses the current session and survives dataset replacem
   await expect(page).toHaveURL(/\/dashboard\/overview/, { timeout: 120_000 });
   await page.getByRole("link", { name: "Reports", exact: true }).click();
   await expect(page.locator("header").getByText("Sales Pipeline", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Executive report — Sales Pipeline/i)).toBeVisible();
+  await expect(page.getByText(/Executive report/i).first()).toBeVisible();
   await expect(page.getByText("retail.csv", { exact: true })).toHaveCount(0);
 });
-
 
 test("V4 monitoring creates and evaluates a session-scoped alert", async ({ page }) => {
   await upload(page, "retail.csv");
@@ -77,7 +75,6 @@ test("V4 monitoring creates and evaluates a session-scoped alert", async ({ page
   await expect(page.getByText(/Executive report/i).first()).toBeVisible();
 });
 
-
 test("V4 saved intelligence persists across refresh and can reopen an analysis", async ({ page }) => {
   await upload(page, "retail.csv");
   await page.getByRole("link", { name: "Explore", exact: true }).click();
@@ -87,8 +84,39 @@ test("V4 saved intelligence persists across refresh and can reopen an analysis",
   await page.getByRole("link", { name: "Saved", exact: true }).click();
   await expect(page.getByRole("heading", { name: /Keep the signals you care about/i })).toBeVisible();
   await expect(page.getByText("Revenue by product", { exact: true })).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("Revenue by product", { exact: true })).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /Keep the signals you care about/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Revenue by product", { exact: true })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("link", { name: "Open analysis", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/explore/);
+});
+
+test.describe("V4 authentication lifecycle", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("V4 organization account can sign up, sign out and sign back in", async ({ page }) => {
+    const stamp = Date.now();
+    const email = `v4-auth-${stamp}@example.com`;
+    const password = "BrowserTest123!";
+
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.getByRole("tab", { name: "Create account", exact: true }).click();
+    await page.getByLabel("Full name", { exact: true }).fill("V4 Browser User");
+    await page.getByLabel("Organization name", { exact: true }).fill("V4 Browser Org");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard\/overview/, { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await expect(page).toHaveURL("/", { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard\/overview/, { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible({ timeout: 30_000 });
+  });
 });

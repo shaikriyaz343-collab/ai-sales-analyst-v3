@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { Workspace } from "../lib/types";
 import { getScopeValues, onboardDataset, resetSessionScope, updateSessionScope } from "../lib/api";
 import { useAppState } from "../lib/app-state";
+import { useAuth } from "../lib/auth";
 
 const nav: { id: Workspace; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -22,6 +23,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const router = useRouter();
   const { state, dispatch } = useAppState();
+  const { status, user, workspaceId, setWorkspaceId, signOut, addWorkspace } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scopeField, setScopeField] = useState<string>("");
@@ -29,16 +31,79 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [scopeValues, setScopeValues] = useState<string[]>([]);
   const [scopeBusy, setScopeBusy] = useState(false);
   const [scopeError, setScopeError] = useState<string | null>(null);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+
+  useEffect(() => {
+    if (status === "unauthenticated") router.replace("/");
+  }, [status, router]);
+
+  useEffect(() => {
+    let active = true;
+    const sessionId = state.session?.session_id;
+
+    if (!sessionId || !scopeField) {
+      setScopeValues([]);
+      setScopeValue("");
+      return () => { active = false; };
+    }
+
+    setScopeBusy(true);
+    setScopeError(null);
+    setScopeValues([]);
+    setScopeValue("");
+
+    getScopeValues(sessionId, scopeField)
+      .then((values) => {
+        if (!active) return;
+        setScopeValues(values.map((item) => item.label));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setScopeError(err instanceof Error ? err.message : "Scope values could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setScopeBusy(false);
+      });
+
+    return () => { active = false; };
+  }, [scopeField, state.session?.session_id]);
+
+  if (status === "loading") return <div className="auth-loading-screen">Checking your organization…</div>;
+  if (status !== "authenticated" || !user) return null;
+
+  const authenticatedUser = user;
+  const readiness = !state.hydrated
+    ? "hydrating"
+    : state.loadingDataset
+      ? "dataset-loading"
+      : state.dataset && state.session
+        ? "dataset-ready"
+        : "workspace-ready";
 
   const allowed = new Set(state.dataset?.capabilities.workspaces ?? nav.map((item) => item.id));
+  const filterableFields = state.dataset?.semantic && "dimensions" in state.dataset.semantic && Array.isArray(state.dataset.semantic.dimensions) ? state.dataset.semantic.dimensions : [];
 
   async function handleUpload(file: File) {
     setError(null);
     setBusy(true);
     dispatch({ type: "dataset_loading" });
     try {
-      const result = await onboardDataset(file);
-      dispatch({ type: "dataset_loaded", dataset: result.dataset, session: { session_id: result.sessionId, dataset_id: result.dataset.dataset_id, scope: { filters: [] }, active_analysis: null, comparison: null } });
+      if (!workspaceId) throw new Error("Choose a workspace before uploading data.");
+      const result = await onboardDataset(file, workspaceId);
+      dispatch({
+        type: "dataset_loaded",
+        dataset: result.dataset,
+        session: {
+          session_id: result.sessionId,
+          dataset_id: result.dataset.dataset_id,
+          organization_id: authenticatedUser.organization_id,
+          workspace_id: workspaceId,
+          scope: { filters: [] },
+          active_analysis: null,
+          comparison: null,
+        },
+        key: `${authenticatedUser.id}:${workspaceId}`,
+      });
       router.replace("/dashboard/overview");
     } catch (err) {
       dispatch({ type: "dataset_reset" });
@@ -47,17 +112,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       setBusy(false);
     }
   }
-
-  const filterableFields = state.dataset?.semantic && "dimensions" in state.dataset.semantic && Array.isArray(state.dataset.semantic.dimensions) ? state.dataset.semantic.dimensions : [];
-  useEffect(() => {
-    let alive = true;
-    setScopeValue("");
-    setScopeValues([]);
-    setScopeError(null);
-    if (!scopeField || !state.session) return;
-    getScopeValues(state.session.session_id, scopeField).then(values => alive && setScopeValues(values.map(v => v.value))).catch(err => alive && setScopeError(err instanceof Error ? err.message : "Could not load scope values."));
-    return () => { alive = false; };
-  }, [scopeField, state.session]);
 
   async function applyFilter() {
     if (!state.session || !scopeField || !scopeValue) return;
@@ -79,7 +133,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   }
 
   return (
-    <div className="app-frame">
+    <div className="app-frame" data-v4-readiness={readiness}>
       <aside className="sidebar">
         <Link href="/" className="brand" aria-label="AI Sales Analyst home">
           <div className="brand-mark">AI</div>
@@ -102,8 +156,28 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       <main className="main-area">
         <header className="topbar">
-          <div><span className="eyebrow">DATASET</span><strong>{state.dataset?.file_name ?? "No dataset loaded"}</strong></div>
+          <div><span className="eyebrow">{authenticatedUser.organization_name}</span><strong>{authenticatedUser.workspace_name} · <span className="dataset-filename">{state.dataset?.file_name ?? "No dataset loaded"}</span></strong></div>
           <div className="topbar-actions">
+            <div className="account-controls">
+              <select aria-label="Workspace" value={workspaceId ?? ""} onChange={async (e) => {
+                const next = e.target.value;
+                if (!next || next === workspaceId) return;
+                setWorkspaceId(next);
+                dispatch({ type: "dataset_reset" });
+                router.replace("/dashboard/overview");
+              }}>
+                {authenticatedUser.workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+              </select>
+              <button type="button" className="text-button topbar-button" onClick={async () => {
+                const name = window.prompt("New workspace name");
+                if (!name?.trim() || workspaceBusy) return;
+                setWorkspaceBusy(true);
+                try { await addWorkspace(name.trim()); dispatch({ type: "dataset_reset" }); router.replace("/dashboard/overview"); }
+                catch (err) { setError(err instanceof Error ? err.message : "Workspace could not be created."); }
+                finally { setWorkspaceBusy(false); }
+              }}>{workspaceBusy ? "Creating…" : "New workspace"}</button>
+              <button type="button" className="text-button topbar-button" onClick={() => void signOut()}>Sign out</button>
+            </div>
             {state.dataset?.business_model_label && <span className="badge">{state.dataset.business_model_label}</span>}
             <label className="upload-button">{busy ? "Analyzing…" : "Upload new data"}<input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} disabled={busy} /></label>
           </div>

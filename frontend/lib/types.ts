@@ -1,3 +1,9 @@
+export type AuthWorkspace = { id: string; name: string };
+export type AuthUser = {
+  id: string; email: string; name: string; organization_id: string; organization_name: string;
+  role: string; workspace_id: string; workspace_name: string; workspaces: AuthWorkspace[];
+};
+
 export type CapabilitySet = {
   workspaces: Workspace[];
   analytics: string[];
@@ -8,10 +14,12 @@ export type Workspace = "overview" | "explore" | "insights" | "ask" | "actions" 
 
 export type ScopeFilter = { field: string; operator: "in" | "not_in" | "eq" | "neq"; values: string[] };
 export type ScopeState = { filters: ScopeFilter[] };
-export type AnalysisSession = { session_id: string; dataset_id: string; scope: ScopeState; active_analysis?: Record<string, unknown> | null; comparison?: Record<string, unknown> | null };
+export type AnalysisSession = { session_id: string; dataset_id: string; organization_id?: string | null; workspace_id?: string | null; scope: ScopeState; active_analysis?: Record<string, unknown> | null; comparison?: Record<string, unknown> | null };
 
 export type DatasetSummary = {
   dataset_id: string;
+  organization_id?: string | null;
+  workspace_id?: string | null;
   file_name: string;
   file_type: string;
   row_count: number;

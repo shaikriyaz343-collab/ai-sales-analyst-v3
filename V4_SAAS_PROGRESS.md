@@ -79,3 +79,7 @@ Do not use isolated feature patches when a feature crosses shared contracts/stat
 The product now has a deterministic monitoring rule layer over the shared analytical session. Users can create metric thresholds, evaluate them against the current scope, inspect evidence-backed alert events, and remove monitors. Dataset replacement clears prior monitoring state so alerts cannot leak across datasets.
 
 Current milestone scope is manual evaluation plus cadence metadata (`manual`, `daily`, `weekly`). Background scheduling and delivery are intentionally deferred to the SaaS infrastructure phase.
+
+## Organizations + Authentication
+
+Implemented on top of baseline `7fa0348`. The V4 application now has a tenant-first identity boundary: organization → membership → workspace → dataset → analysis session. Authentication is handled by a server-side session cookie, and customer-owned dataset/session APIs are authorization-checked before analytical work is performed.

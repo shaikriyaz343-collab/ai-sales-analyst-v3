@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onboardDataset } from "../lib/api";
 import { useAppState } from "../lib/app-state";
+import { useAuth } from "../lib/auth";
 
 const ACCEPT = ".csv,.xlsx,.xls";
 
@@ -11,6 +12,7 @@ export default function OnboardingScreen() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { dispatch } = useAppState();
+  const { workspaceId, user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +28,9 @@ export default function OnboardingScreen() {
     setBusy(true);
     dispatch({ type: "dataset_loading" });
     try {
-      const result = await onboardDataset(file);
-      dispatch({ type: "dataset_loaded", dataset: result.dataset, session: { session_id: result.sessionId, dataset_id: result.dataset.dataset_id, scope: { filters: [] }, active_analysis: null, comparison: null } });
+      if (!workspaceId) throw new Error("Choose a workspace before uploading data.");
+      const result = await onboardDataset(file, workspaceId);
+      dispatch({ type: "dataset_loaded", dataset: result.dataset, session: { session_id: result.sessionId, dataset_id: result.dataset.dataset_id, organization_id: user?.organization_id, workspace_id: workspaceId, scope: { filters: [] }, active_analysis: null, comparison: null }, key: user && workspaceId ? `${user.id}:${workspaceId}` : "" });
       router.push("/dashboard/overview");
     } catch (err) {
       dispatch({ type: "dataset_reset" });
@@ -45,6 +48,8 @@ export default function OnboardingScreen() {
           <div className="brand-mark">AI</div>
           <div><strong>AI Sales Analyst</strong><span>Decision intelligence for revenue teams</span></div>
         </header>
+
+        <section className="onboarding-account-bar"><span>{user?.organization_name ?? "Organization"}</span><span>{user?.workspace_name ?? "Workspace"}</span></section>
 
         <section className="onboarding-hero">
           <div className="hero-copy">

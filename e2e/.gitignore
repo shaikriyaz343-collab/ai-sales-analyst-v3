@@ -1,0 +1,4 @@
+# Local browser authentication state
+.auth/
+# Generated Playwright output
+test-results/

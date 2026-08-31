@@ -33,11 +33,14 @@ def _canonical_fields(dataset_id: str) -> set[str]:
     return {str(x) for x in data.columns} | concepts
 
 
-def create_session(dataset_id: str) -> AnalysisSession:
-    if get_dataset(dataset_id) is None:
+def create_session(dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> AnalysisSession:
+    summary = get_dataset(dataset_id, organization_id=organization_id, workspace_id=workspace_id)
+    if summary is None:
         raise ValueError("Dataset not found.")
+    organization_id = organization_id or summary.organization_id
+    workspace_id = workspace_id or summary.workspace_id
     session_id = uuid.uuid4().hex
-    session = AnalysisSession(session_id=session_id, dataset_id=dataset_id, scope=ScopeState())
+    session = AnalysisSession(session_id=session_id, dataset_id=dataset_id, organization_id=organization_id, workspace_id=workspace_id, scope=ScopeState())
     _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
     return session
 
@@ -49,11 +52,15 @@ def get_session(session_id: str) -> AnalysisSession | None:
     return AnalysisSession.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
-def require_session(session_id: str) -> AnalysisSession:
+def require_session(session_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> AnalysisSession:
     session = get_session(session_id)
     if session is None:
         raise ValueError("Analysis session not found.")
-    if get_dataset(session.dataset_id) is None:
+    if organization_id is not None and session.organization_id != organization_id:
+        raise ValueError("Analysis session is not available to this organization.")
+    if workspace_id is not None and session.workspace_id != workspace_id:
+        raise ValueError("Analysis session is not available to this workspace.")
+    if get_dataset(session.dataset_id, organization_id=organization_id, workspace_id=workspace_id) is None:
         raise ValueError("Dataset not found.")
     return session
 

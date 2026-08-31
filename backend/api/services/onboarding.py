@@ -53,7 +53,7 @@ def _save_upload(file_name: str, stream: BinaryIO, dataset_id: str) -> Path:
     return target
 
 
-def _profile(file_path: Path, file_name: str, dataset_id: str) -> DatasetSummary:
+def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary:
     profile = profile_dataframe(file_path)
     from schema_profiler_v2 import load_dataframe
 
@@ -64,6 +64,8 @@ def _profile(file_path: Path, file_name: str, dataset_id: str) -> DatasetSummary
 
     summary = DatasetSummary(
         dataset_id=dataset_id,
+        organization_id=organization_id,
+        workspace_id=workspace_id,
         file_name=file_name,
         file_type=file_path.suffix.lower().lstrip("."),
         row_count=int(len(data)),
@@ -83,7 +85,7 @@ def _profile(file_path: Path, file_name: str, dataset_id: str) -> DatasetSummary
     return summary
 
 
-def onboard(file_name: str, stream: BinaryIO) -> DatasetSummary:
+def onboard(file_name: str, stream: BinaryIO, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary:
     suffix = Path(file_name).suffix.lower()
     if suffix not in SUPPORTED:
         raise ValueError("Supported files are CSV, XLSX, and XLS.")
@@ -91,15 +93,20 @@ def onboard(file_name: str, stream: BinaryIO) -> DatasetSummary:
     dataset_id = uuid.uuid4().hex
     path = _save_upload(file_name, stream, dataset_id)
     try:
-        return _profile(path, file_name, dataset_id)
+        return _profile(path, file_name, dataset_id, organization_id=organization_id, workspace_id=workspace_id)
     except Exception:
         path.unlink(missing_ok=True)
         (STORAGE / f"{dataset_id}.json").unlink(missing_ok=True)
         raise
 
 
-def get_dataset(dataset_id: str) -> DatasetSummary | None:
+def get_dataset(dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary | None:
     meta = STORAGE / f"{dataset_id}.json"
     if not meta.exists():
         return None
-    return DatasetSummary.model_validate(json.loads(meta.read_text(encoding="utf-8")))
+    summary = DatasetSummary.model_validate(json.loads(meta.read_text(encoding="utf-8")))
+    if organization_id is not None and summary.organization_id != organization_id:
+        return None
+    if workspace_id is not None and summary.workspace_id != workspace_id:
+        return None
+    return summary

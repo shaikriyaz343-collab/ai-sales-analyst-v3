@@ -47,12 +47,16 @@ class ScopeValuesResponse(BaseModel):
 class AnalysisSession(BaseModel):
     session_id: str
     dataset_id: str
+    organization_id: str | None = None
+    workspace_id: str | None = None
     scope: ScopeState = Field(default_factory=ScopeState)
     active_analysis: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None
 
 class DatasetSummary(BaseModel):
     dataset_id: str
+    organization_id: str | None = None
+    workspace_id: str | None = None
     file_name: str
     file_type: str
     row_count: int
@@ -76,6 +80,53 @@ class HealthResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class AuthWorkspace(BaseModel):
+    id: str
+    name: str
+
+
+class AuthUser(BaseModel):
+    id: str
+    email: str
+    name: str
+    organization_id: str
+    organization_name: str
+    role: str
+    workspace_id: str
+    workspace_name: str
+    workspaces: list[AuthWorkspace] = Field(default_factory=list)
+
+
+class AuthResponse(BaseModel):
+    user: AuthUser
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+    organization_name: str = "My Organization"
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class CreateWorkspaceRequest(BaseModel):
+    name: str
+
+
+class WorkspaceSummary(BaseModel):
+    id: str
+    name: str
+
+
+class WorkspaceListResponse(BaseModel):
+    organization_id: str
+    items: list[WorkspaceSummary] = Field(default_factory=list)
 
 
 class OnboardingResponse(BaseModel):
