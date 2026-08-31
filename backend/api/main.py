@@ -73,6 +73,42 @@ app.add_middleware(
 )
 
 
+class SecurityHeadersMiddleware:
+    """Add conservative response security headers."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http" or not settings.security_headers_enabled:
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message.get("type") == "http.response.start":
+                headers = list(message.get("headers", []))
+                existing = {name.lower() for name, _ in headers}
+
+                def add(name: str, value: str) -> None:
+                    key = name.lower().encode("latin-1")
+                    if key not in existing:
+                        headers.append((name.encode("latin-1"), value.encode("latin-1")))
+
+                add("X-Content-Type-Options", "nosniff")
+                add("X-Frame-Options", "DENY")
+                add("Referrer-Policy", "strict-origin-when-cross-origin")
+                add("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+                if settings.is_production:
+                    add("Strict-Transport-Security", f"max-age={settings.hsts_max_age}; includeSubDomains")
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
 COOKIE_SECURE = settings.secure_cookie
 COOKIE_NAME = settings.cookie_name
 COOKIE_MAX_AGE = 7 * 24 * 60 * 60
@@ -220,7 +256,6 @@ async def profile_upload(
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not understand this file: {exc}") from exc
     return OnboardingResponse(dataset=summary, message="Your dataset is ready for analysis.", session_id=session.session_id)
-
 
 @app.get("/api/v1/datasets/{dataset_id}")
 def dataset(dataset_id: str, principal: Principal = Depends(require_user)):

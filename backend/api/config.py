@@ -69,6 +69,8 @@ class Settings:
     auth_storage: Path
     data_storage: Path
     upload_max_bytes: int
+    security_headers_enabled: bool
+    hsts_max_age: int
 
     @property
     def is_production(self) -> bool:
@@ -134,6 +136,16 @@ def load_settings() -> Settings:
 
     upload_max_bytes = _positive_int_env("V4_UPLOAD_MAX_BYTES", 50 * 1024 * 1024)
 
+    security_headers_enabled = _bool_env(
+        "V4_SECURITY_HEADERS_ENABLED",
+        environment in {"staging", "production"},
+    )
+    hsts_max_age = _positive_int_env("V4_HSTS_MAX_AGE", 31536000)
+    if environment == "production" and not security_headers_enabled:
+        raise ConfigurationError(
+            "V4_SECURITY_HEADERS_ENABLED must be true in production."
+        )
+
     return Settings(
         environment=environment,
         frontend_origins=frontend_origins,
@@ -144,6 +156,8 @@ def load_settings() -> Settings:
         auth_storage=auth_storage,
         data_storage=data_storage,
         upload_max_bytes=upload_max_bytes,
+        security_headers_enabled=security_headers_enabled,
+        hsts_max_age=hsts_max_age,
     )
 
 
