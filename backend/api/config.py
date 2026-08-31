@@ -77,6 +77,8 @@ class Settings:
     auth_signup_ip_limit: int
     auth_signup_email_limit: int
     auth_signup_window_seconds: int
+    auth_session_idle_seconds: int
+    auth_session_max_seconds: int
 
     @property
     def is_production(self) -> bool:
@@ -154,6 +156,19 @@ def load_settings() -> Settings:
     auth_signup_ip_limit = _positive_int_env("V4_AUTH_SIGNUP_IP_LIMIT", 10)
     auth_signup_email_limit = _positive_int_env("V4_AUTH_SIGNUP_EMAIL_LIMIT", 3)
     auth_signup_window_seconds = _positive_int_env("V4_AUTH_SIGNUP_WINDOW_SECONDS", 3600)
+
+    auth_session_idle_seconds = _positive_int_env(
+        "V4_AUTH_SESSION_IDLE_SECONDS", 1800
+    )
+    auth_session_max_seconds = _positive_int_env(
+        "V4_AUTH_SESSION_MAX_SECONDS", 604800
+    )
+    if auth_session_idle_seconds >= auth_session_max_seconds:
+        raise ConfigurationError(
+            "V4_AUTH_SESSION_IDLE_SECONDS must be less than "
+            "V4_AUTH_SESSION_MAX_SECONDS."
+        )
+
     if environment == "production" and not security_headers_enabled:
         raise ConfigurationError(
             "V4_SECURITY_HEADERS_ENABLED must be true in production."
@@ -177,6 +192,8 @@ def load_settings() -> Settings:
         auth_signup_ip_limit=auth_signup_ip_limit,
         auth_signup_email_limit=auth_signup_email_limit,
         auth_signup_window_seconds=auth_signup_window_seconds,
+        auth_session_idle_seconds=auth_session_idle_seconds,
+        auth_session_max_seconds=auth_session_max_seconds,
     )
 
 

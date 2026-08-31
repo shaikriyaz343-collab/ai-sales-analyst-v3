@@ -94,3 +94,26 @@ def test_production_rejects_non_host_cookie_name(monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(ConfigurationError, match="__Host-"):
         load_settings()
+
+
+def test_session_timeout_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("V4_AUTH_SESSION_IDLE_SECONDS", raising=False)
+    monkeypatch.delenv("V4_AUTH_SESSION_MAX_SECONDS", raising=False)
+
+    settings = load_settings()
+
+    assert settings.auth_session_idle_seconds == 1800
+    assert settings.auth_session_max_seconds == 604800
+
+
+def test_session_idle_timeout_must_be_less_than_absolute_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("V4_AUTH_SESSION_IDLE_SECONDS", "604800")
+    monkeypatch.setenv("V4_AUTH_SESSION_MAX_SECONDS", "604800")
+
+    with pytest.raises(
+        ConfigurationError,
+        match="V4_AUTH_SESSION_IDLE_SECONDS must be less than",
+    ):
+        load_settings()

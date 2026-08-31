@@ -46,6 +46,7 @@ from .services.auth import (
     principal_from_token,
     principal_workspaces,
     revoke_session,
+    revoke_all_sessions,
     _rate_key,
     consume_rate_limit,
     record_security_event,
@@ -252,6 +253,12 @@ def logout(response: Response, token: Annotated[str | None, Cookie(alias=COOKIE_
     revoke_session(token)
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"status": "ok"}
+
+
+@app.post("/api/v1/auth/sessions/revoke-all")
+def revoke_all_auth_sessions(principal: Principal = Depends(require_user)):
+    revoked = revoke_all_sessions(principal.user_id)
+    return {"status": "ok", "revoked": revoked}
 
 
 @app.get("/api/v1/workspaces", response_model=WorkspaceListResponse)

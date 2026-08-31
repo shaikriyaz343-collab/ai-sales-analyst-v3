@@ -16,7 +16,8 @@ from ..config import settings
 AUTH_STORAGE = settings.auth_storage
 AUTH_DB = AUTH_STORAGE / "auth.db"
 SESSION_COOKIE = settings.cookie_name
-SESSION_TTL_DAYS = 7
+SESSION_IDLE_SECONDS = settings.auth_session_idle_seconds
+SESSION_MAX_SECONDS = settings.auth_session_max_seconds
 PASSWORD_ITERATIONS = 310_000
 
 LOGIN_RATE_LIMIT_IP = settings.auth_login_ip_limit
@@ -96,6 +97,7 @@ def init_db() -> None:
                 expires_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL,
+                revoked_at TEXT,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
             CREATE TABLE IF NOT EXISTS auth_rate_limits (
@@ -120,7 +122,16 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at);
             """
         )
-        # Remove expired sessions opportunistically.
+
+        # Backward-compatible migration for databases created before C2.
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(auth_sessions)").fetchall()
+        }
+        if "revoked_at" not in columns:
+            conn.execute("ALTER TABLE auth_sessions ADD COLUMN revoked_at TEXT")
+
+        # Remove absolutely expired sessions opportunistically.
         conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ?", (_iso(_utc_now()),))
 
 
@@ -287,9 +298,23 @@ def issue_session(user_id: str) -> tuple[str, datetime]:
     init_db()
     token = secrets.token_urlsafe(48)
     now = _utc_now()
-    expires = now + timedelta(days=SESSION_TTL_DAYS)
+    expires = now + timedelta(seconds=SESSION_MAX_SECONDS)
     with _connect() as conn:
-        conn.execute("INSERT INTO auth_sessions(id,user_id,token_hash,expires_at,created_at,last_seen_at) VALUES(?,?,?,?,?,?)", (uuid.uuid4().hex, user_id, _token_hash(token), _iso(expires), _iso(now), _iso(now)))
+        conn.execute(
+            """
+            INSERT INTO auth_sessions(
+                id,user_id,token_hash,expires_at,created_at,last_seen_at,revoked_at
+            ) VALUES(?,?,?,?,?,?,NULL)
+            """,
+            (
+                uuid.uuid4().hex,
+                user_id,
+                _token_hash(token),
+                _iso(expires),
+                _iso(now),
+                _iso(now),
+            ),
+        )
     return token, expires
 
 
@@ -297,38 +322,103 @@ def revoke_session(token: str | None) -> None:
     if not token:
         return
     init_db()
+    now = _iso(_utc_now())
     with _connect() as conn:
-        conn.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (_token_hash(token),))
+        conn.execute(
+            """
+            UPDATE auth_sessions
+            SET revoked_at = ?
+            WHERE token_hash = ? AND revoked_at IS NULL
+            """,
+            (now, _token_hash(token)),
+        )
+
+
+def revoke_all_sessions(user_id: str) -> int:
+    init_db()
+    now = _iso(_utc_now())
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE auth_sessions
+            SET revoked_at = ?
+            WHERE user_id = ? AND revoked_at IS NULL
+            """,
+            (now, user_id),
+        )
+        return cursor.rowcount
 
 
 def principal_from_token(token: str | None) -> Principal | None:
     if not token:
         return None
     init_db()
-    now = _iso(_utc_now())
+    now_dt = _utc_now()
+    now = _iso(now_dt)
     with _connect() as conn:
         row = conn.execute(
             """
             SELECT u.id user_id, u.email, u.name,
                    o.id organization_id, o.name organization_name,
                    m.role, w.id workspace_id, w.name workspace_name,
-                   s.expires_at, s.id session_id
+                   s.expires_at, s.created_at, s.last_seen_at,
+                   s.revoked_at, s.id session_id
             FROM auth_sessions s
             JOIN users u ON u.id = s.user_id
             JOIN memberships m ON m.user_id = u.id
             JOIN organizations o ON o.id = m.organization_id
             JOIN workspaces w ON w.organization_id = o.id
-            WHERE s.token_hash = ? AND s.expires_at > ?
+            WHERE s.token_hash = ?
             ORDER BY w.created_at ASC
             LIMIT 1
             """,
-            (_token_hash(token), now),
+            (_token_hash(token),),
         ).fetchone()
+
         if not row:
             return None
-        conn.execute("UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?", (now, row["session_id"]))
-        return Principal(row["user_id"], row["email"], row["name"], row["organization_id"], row["organization_name"], row["role"], row["workspace_id"], row["workspace_name"])
 
+        if row["revoked_at"] is not None:
+            return None
+
+        try:
+            expires_at = datetime.fromisoformat(
+                row["expires_at"].replace("Z", "+00:00")
+            )
+            last_seen_at = datetime.fromisoformat(
+                row["last_seen_at"].replace("Z", "+00:00")
+            )
+        except (AttributeError, ValueError):
+            return None
+
+        if expires_at <= now_dt:
+            return None
+
+        if last_seen_at + timedelta(seconds=SESSION_IDLE_SECONDS) <= now_dt:
+            conn.execute(
+                """
+                UPDATE auth_sessions
+                SET revoked_at = ?
+                WHERE id = ? AND revoked_at IS NULL
+                """,
+                (now, row["session_id"]),
+            )
+            return None
+
+        conn.execute(
+            "UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?",
+            (now, row["session_id"]),
+        )
+        return Principal(
+            row["user_id"],
+            row["email"],
+            row["name"],
+            row["organization_id"],
+            row["organization_name"],
+            row["role"],
+            row["workspace_id"],
+            row["workspace_name"],
+        )
 
 def list_workspaces(organization_id: str) -> list[dict[str, str]]:
     init_db()
