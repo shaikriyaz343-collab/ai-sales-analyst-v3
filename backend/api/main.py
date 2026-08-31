@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
@@ -46,6 +46,15 @@ from .services.auth import (
     principal_from_token,
     principal_workspaces,
     revoke_session,
+    _rate_key,
+    consume_rate_limit,
+    record_security_event,
+    LOGIN_RATE_LIMIT_IP,
+    LOGIN_RATE_LIMIT_EMAIL,
+    LOGIN_RATE_LIMIT_WINDOW,
+    SIGNUP_RATE_LIMIT_IP,
+    SIGNUP_RATE_LIMIT_EMAIL,
+    SIGNUP_RATE_LIMIT_WINDOW,
     user_can_access_workspace,
 )
 from .services.onboarding import get_dataset, onboard
@@ -190,25 +199,47 @@ def health() -> HealthResponse:
 
 
 @app.post("/api/v1/auth/signup", response_model=AuthResponse)
-def signup(request: SignupRequest, response: Response) -> AuthResponse:
+def signup(request: SignupRequest, response: Response, http_request: Request) -> AuthResponse:
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    email = request.email.strip().lower()
+    ip_allowed = consume_rate_limit("signup", _rate_key("ip", client_ip), SIGNUP_RATE_LIMIT_IP, SIGNUP_RATE_LIMIT_WINDOW)
+    email_allowed = consume_rate_limit("signup", _rate_key("email", email), SIGNUP_RATE_LIMIT_EMAIL, SIGNUP_RATE_LIMIT_WINDOW)
+    if not ip_allowed or not email_allowed:
+        record_security_event("signup_rate_limited", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=429, detail="Too many signup attempts. Please try again later.")
     try:
         principal = create_account(request.email, request.password, request.name, request.organization_name)
         token, _ = issue_session(principal.user_id)
         _set_session_cookie(response, token)
+        record_security_event("signup_success", email=principal.email, client_ip=client_ip, user_id=principal.user_id)
         return AuthResponse(user=_auth_user(principal))
     except ValueError as exc:
+        # Keep the public response generic so account existence cannot be enumerated.
+        if "already exists" in str(exc).lower():
+            record_security_event("signup_duplicate", email=email, client_ip=client_ip)
+            raise HTTPException(status_code=400, detail="Unable to create this account.") from exc
+        record_security_event("signup_rejected", email=email, client_ip=client_ip)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/auth/login", response_model=AuthResponse)
-def login(request: LoginRequest, response: Response) -> AuthResponse:
+def login(request: LoginRequest, response: Response, http_request: Request) -> AuthResponse:
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    email = request.email.strip().lower()
+    ip_allowed = consume_rate_limit("login", _rate_key("ip", client_ip), LOGIN_RATE_LIMIT_IP, LOGIN_RATE_LIMIT_WINDOW)
+    email_allowed = consume_rate_limit("login", _rate_key("email", email), LOGIN_RATE_LIMIT_EMAIL, LOGIN_RATE_LIMIT_WINDOW)
+    if not ip_allowed or not email_allowed:
+        record_security_event("login_rate_limited", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=429, detail="Too many login attempts. Please try again later.")
     try:
         principal = authenticate(request.email, request.password)
         token, _ = issue_session(principal.user_id)
         _set_session_cookie(response, token)
+        record_security_event("login_success", email=principal.email, client_ip=client_ip, user_id=principal.user_id)
         return AuthResponse(user=_auth_user(principal))
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+        record_security_event("login_failed", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=401, detail="Email or password is incorrect.") from exc
 
 
 @app.get("/api/v1/auth/me", response_model=AuthResponse)

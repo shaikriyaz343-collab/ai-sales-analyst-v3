@@ -71,6 +71,12 @@ class Settings:
     upload_max_bytes: int
     security_headers_enabled: bool
     hsts_max_age: int
+    auth_login_ip_limit: int
+    auth_login_email_limit: int
+    auth_login_window_seconds: int
+    auth_signup_ip_limit: int
+    auth_signup_email_limit: int
+    auth_signup_window_seconds: int
 
     @property
     def is_production(self) -> bool:
@@ -141,6 +147,13 @@ def load_settings() -> Settings:
         environment in {"staging", "production"},
     )
     hsts_max_age = _positive_int_env("V4_HSTS_MAX_AGE", 31536000)
+
+    auth_login_ip_limit = _positive_int_env("V4_AUTH_LOGIN_IP_LIMIT", 20)
+    auth_login_email_limit = _positive_int_env("V4_AUTH_LOGIN_EMAIL_LIMIT", 8)
+    auth_login_window_seconds = _positive_int_env("V4_AUTH_LOGIN_WINDOW_SECONDS", 900)
+    auth_signup_ip_limit = _positive_int_env("V4_AUTH_SIGNUP_IP_LIMIT", 10)
+    auth_signup_email_limit = _positive_int_env("V4_AUTH_SIGNUP_EMAIL_LIMIT", 3)
+    auth_signup_window_seconds = _positive_int_env("V4_AUTH_SIGNUP_WINDOW_SECONDS", 3600)
     if environment == "production" and not security_headers_enabled:
         raise ConfigurationError(
             "V4_SECURITY_HEADERS_ENABLED must be true in production."
@@ -158,6 +171,12 @@ def load_settings() -> Settings:
         upload_max_bytes=upload_max_bytes,
         security_headers_enabled=security_headers_enabled,
         hsts_max_age=hsts_max_age,
+        auth_login_ip_limit=auth_login_ip_limit,
+        auth_login_email_limit=auth_login_email_limit,
+        auth_login_window_seconds=auth_login_window_seconds,
+        auth_signup_ip_limit=auth_signup_ip_limit,
+        auth_signup_email_limit=auth_signup_email_limit,
+        auth_signup_window_seconds=auth_signup_window_seconds,
     )
 
 

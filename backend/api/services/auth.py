@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import secrets
 import sqlite3
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,13 @@ AUTH_DB = AUTH_STORAGE / "auth.db"
 SESSION_COOKIE = settings.cookie_name
 SESSION_TTL_DAYS = 7
 PASSWORD_ITERATIONS = 310_000
+
+LOGIN_RATE_LIMIT_IP = settings.auth_login_ip_limit
+LOGIN_RATE_LIMIT_EMAIL = settings.auth_login_email_limit
+LOGIN_RATE_LIMIT_WINDOW = settings.auth_login_window_seconds
+SIGNUP_RATE_LIMIT_IP = settings.auth_signup_ip_limit
+SIGNUP_RATE_LIMIT_EMAIL = settings.auth_signup_email_limit
+SIGNUP_RATE_LIMIT_WINDOW = settings.auth_signup_window_seconds
 
 
 @dataclass(frozen=True)
@@ -90,9 +98,26 @@ def init_db() -> None:
                 last_seen_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS auth_rate_limits (
+                action TEXT NOT NULL,
+                rate_key TEXT NOT NULL,
+                window_started_at TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL,
+                PRIMARY KEY (action, rate_key)
+            );
+            CREATE TABLE IF NOT EXISTS security_events (
+                id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                user_id TEXT,
+                email_hash TEXT,
+                client_ip_hash TEXT,
+                metadata_json TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_memberships_org ON memberships(organization_id);
             CREATE INDEX IF NOT EXISTS idx_workspaces_org ON workspaces(organization_id);
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON auth_sessions(token_hash);
+            CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at);
             """
         )
         # Remove expired sessions opportunistically.
@@ -127,6 +152,80 @@ def _token_hash(token: str) -> str:
 
 def _normalize_email(email: str) -> str:
     return email.strip().lower()
+
+
+def _stable_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def consume_rate_limit(action: str, rate_key: str, max_attempts: int, window_seconds: int) -> bool:
+    """Atomically consume one attempt from a SQLite-backed fixed window."""
+    if max_attempts <= 0 or window_seconds <= 0:
+        return False
+    now = _utc_now()
+    now_iso = _iso(now)
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT window_started_at, attempt_count FROM auth_rate_limits WHERE action = ? AND rate_key = ?",
+            (action, rate_key),
+        ).fetchone()
+        if row is None:
+            conn.execute(
+                "INSERT INTO auth_rate_limits(action,rate_key,window_started_at,attempt_count) VALUES(?,?,?,1)",
+                (action, rate_key, now_iso),
+            )
+            return True
+        try:
+            started = datetime.fromisoformat(row["window_started_at"].replace("Z", "+00:00"))
+        except ValueError:
+            started = now
+        if (now - started).total_seconds() >= window_seconds:
+            conn.execute(
+                "UPDATE auth_rate_limits SET window_started_at = ?, attempt_count = 1 WHERE action = ? AND rate_key = ?",
+                (now_iso, action, rate_key),
+            )
+            return True
+        if int(row["attempt_count"]) >= max_attempts:
+            return False
+        conn.execute(
+            "UPDATE auth_rate_limits SET attempt_count = attempt_count + 1 WHERE action = ? AND rate_key = ?",
+            (action, rate_key),
+        )
+        return True
+
+
+def record_security_event(
+    event_type: str,
+    *,
+    email: str | None = None,
+    client_ip: str | None = None,
+    user_id: str | None = None,
+    metadata: dict[str, str] | None = None,
+) -> None:
+    """Persist authentication events without storing passwords, tokens, or raw identifiers."""
+    init_db()
+    metadata_json = json.dumps(metadata or {}, sort_keys=True, separators=(",", ":"))
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO security_events(
+                id,event_type,created_at,user_id,email_hash,client_ip_hash,metadata_json
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            (
+                uuid.uuid4().hex,
+                event_type,
+                _iso(_utc_now()),
+                user_id,
+                _stable_hash(_normalize_email(email)) if email else None,
+                _stable_hash(client_ip) if client_ip else None,
+                metadata_json,
+            ),
+        )
+
+
+def _rate_key(prefix: str, value: str) -> str:
+    return f"{prefix}:{_stable_hash(value)}"
 
 
 def _validate_credentials(email: str, password: str, name: str | None = None) -> tuple[str, str]:
@@ -272,3 +371,27 @@ def principal_workspaces(principal: Principal) -> list[dict[str, str]]:
 
 
 init_db()
+
+def list_security_events() -> list[dict[str, object]]:
+    """Return persisted authentication security events for operational diagnostics/tests."""
+    init_db()
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, event_type, created_at, user_id, email_hash, client_ip_hash, metadata_json
+            FROM security_events
+            ORDER BY created_at ASC, id ASC
+            """
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "event_type": row["event_type"],
+                "created_at": row["created_at"],
+                "user_id": row["user_id"],
+                "email_hash": row["email_hash"],
+                "client_ip_hash": row["client_ip_hash"],
+                "metadata_json": row["metadata_json"],
+            }
+            for row in rows
+        ]

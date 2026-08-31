@@ -16,6 +16,8 @@ def test_development_defaults_preserve_local_runtime_shape(monkeypatch: pytest.M
         "V4_AUTH_STORAGE",
         "V4_DATA_STORAGE",
         "V4_UPLOAD_MAX_BYTES",
+        "V4_AUTH_LOGIN_IP_LIMIT", "V4_AUTH_LOGIN_EMAIL_LIMIT", "V4_AUTH_LOGIN_WINDOW_SECONDS",
+        "V4_AUTH_SIGNUP_IP_LIMIT", "V4_AUTH_SIGNUP_EMAIL_LIMIT", "V4_AUTH_SIGNUP_WINDOW_SECONDS",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -26,6 +28,12 @@ def test_development_defaults_preserve_local_runtime_shape(monkeypatch: pytest.M
     assert settings.secure_cookie is False
     assert settings.cookie_name == "v4_auth_session"
     assert settings.upload_max_bytes == 50 * 1024 * 1024
+    assert settings.auth_login_ip_limit == 20
+    assert settings.auth_login_email_limit == 8
+    assert settings.auth_login_window_seconds == 900
+    assert settings.auth_signup_ip_limit == 10
+    assert settings.auth_signup_email_limit == 3
+    assert settings.auth_signup_window_seconds == 3600
 
 
 def test_production_requires_explicit_runtime_root(monkeypatch: pytest.MonkeyPatch) -> None:
