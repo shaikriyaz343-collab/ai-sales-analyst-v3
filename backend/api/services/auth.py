@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import os
 import secrets
 import sqlite3
 import uuid
@@ -11,9 +10,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
-AUTH_STORAGE = Path(os.getenv("V4_AUTH_STORAGE", Path(__file__).resolve().parents[2] / "runtime_saas"))
+from ..config import settings
+
+AUTH_STORAGE = settings.auth_storage
 AUTH_DB = AUTH_STORAGE / "auth.db"
-SESSION_COOKIE = "v4_auth_session"
+SESSION_COOKIE = settings.cookie_name
 SESSION_TTL_DAYS = 7
 PASSWORD_ITERATIONS = 310_000
 

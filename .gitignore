@@ -23,3 +23,10 @@ backend/runtime_monitoring/
 backend/runtime_saved_intelligence/
 backend/runtime_saas/
 e2e/.auth/
+
+# V4 runtime state
+runtime_data/
+runtime_monitoring/
+runtime_saved_intelligence/
+runtime_sessions/
+runtime_saas/

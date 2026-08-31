@@ -10,11 +10,12 @@ from data_quality_engine_v1 import run_data_quality_checks
 from schema_profiler_v2 import profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
 
+from ..config import settings
 from ..contracts import DatasetSummary, SemanticSummary
 
 
 SUPPORTED = {".csv", ".xlsx", ".xls"}
-STORAGE = Path(__file__).resolve().parents[2] / "runtime_data"
+STORAGE = settings.data_storage
 WORKSPACES = ["overview", "explore", "insights", "ask", "actions", "reports", "monitoring", "saved"]
 
 

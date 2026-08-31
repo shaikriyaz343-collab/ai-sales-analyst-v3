@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import os
 from typing import Annotated
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
+from .config import settings
 from .contracts import (
     ActionItem,
     ActionsResponse,
@@ -36,7 +37,6 @@ from .contracts import (
     WorkspaceSummary,
 )
 from .services.auth import (
-    SESSION_COOKIE,
     Principal,
     authenticate,
     create_account,
@@ -62,14 +62,19 @@ from .services.saved_intelligence import list_saved, save_intelligence, delete_s
 app = FastAPI(title="AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=list(settings.frontend_origins),
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=list(settings.trusted_hosts),
+)
 
 
-COOKIE_SECURE = os.getenv("V4_AUTH_SECURE_COOKIE", "0").lower() in {"1", "true", "yes"}
+COOKIE_SECURE = settings.secure_cookie
+COOKIE_NAME = settings.cookie_name
 COOKIE_MAX_AGE = 7 * 24 * 60 * 60
 
 
@@ -90,7 +95,7 @@ def _auth_user(principal: Principal) -> AuthUser:
 
 def _set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        key=SESSION_COOKIE,
+        key=COOKIE_NAME,
         value=token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
@@ -100,7 +105,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
     )
 
 
-def require_user(token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None) -> Principal:
+def require_user(token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None) -> Principal:
     principal = principal_from_token(token)
     if principal is None:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -176,9 +181,9 @@ def me(principal: Principal = Depends(require_user)) -> AuthResponse:
 
 
 @app.post("/api/v1/auth/logout")
-def logout(response: Response, token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None):
+def logout(response: Response, token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None):
     revoke_session(token)
-    response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(COOKIE_NAME, path="/")
     return {"status": "ok"}
 
 
