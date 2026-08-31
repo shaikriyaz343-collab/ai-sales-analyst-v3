@@ -117,3 +117,25 @@ def test_session_idle_timeout_must_be_less_than_absolute_timeout(
         match="V4_AUTH_SESSION_IDLE_SECONDS must be less than",
     ):
         load_settings()
+
+
+def test_persistence_mode_defaults_to_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("V4_PERSISTENCE_MODE", raising=False)
+    settings = load_settings()
+    assert settings.persistence_mode == "local"
+
+
+def test_production_can_declare_external_persistence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("V4_ENVIRONMENT", "production")
+    monkeypatch.setenv("V4_RUNTIME_ROOT", "/srv/ai-sales-analyst")
+    monkeypatch.setenv("V4_FRONTEND_ORIGINS", "https://app.example.com")
+    monkeypatch.setenv("V4_TRUSTED_HOSTS", "api.example.com")
+    monkeypatch.setenv("V4_AUTH_SECURE_COOKIE", "true")
+    monkeypatch.setenv("V4_AUTH_COOKIE_NAME", "__Host-v4_auth_session")
+    monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
+    monkeypatch.setenv("V4_PERSISTENCE_MODE", "external")
+
+    settings = load_settings()
+
+    assert settings.is_production
+    assert settings.persistence_mode == "external"

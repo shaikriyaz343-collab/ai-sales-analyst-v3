@@ -79,6 +79,7 @@ class Settings:
     auth_signup_window_seconds: int
     auth_session_idle_seconds: int
     auth_session_max_seconds: int
+    persistence_mode: str
 
     @property
     def is_production(self) -> bool:
@@ -169,6 +170,9 @@ def load_settings() -> Settings:
             "V4_AUTH_SESSION_MAX_SECONDS."
         )
 
+    persistence_mode = (_env("V4_PERSISTENCE_MODE", "local") or "local").lower()
+    if persistence_mode not in {"local", "external"}:
+        raise ConfigurationError("V4_PERSISTENCE_MODE must be local or external.")
     if environment == "production" and not security_headers_enabled:
         raise ConfigurationError(
             "V4_SECURITY_HEADERS_ENABLED must be true in production."
@@ -194,6 +198,7 @@ def load_settings() -> Settings:
         auth_signup_window_seconds=auth_signup_window_seconds,
         auth_session_idle_seconds=auth_session_idle_seconds,
         auth_session_max_seconds=auth_session_max_seconds,
+        persistence_mode=persistence_mode,
     )
 
 

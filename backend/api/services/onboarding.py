@@ -12,6 +12,7 @@ from semantic_business_model_v2 import build_semantic_model
 
 from ..config import settings
 from ..contracts import DatasetSummary, SemanticSummary
+from ..persistence import object_store, json_store
 
 
 SUPPORTED = {".csv", ".xlsx", ".xls"}
@@ -45,13 +46,8 @@ def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:
 
 
 def _save_upload(file_name: str, stream: BinaryIO, dataset_id: str) -> Path:
-    STORAGE.mkdir(parents=True, exist_ok=True)
     suffix = Path(file_name).suffix.lower()
-    target = STORAGE / f"{dataset_id}{suffix}"
-    with target.open("wb") as handle:
-        while chunk := stream.read(1024 * 1024):
-            handle.write(chunk)
-    return target
+    return object_store(STORAGE, mode=settings.persistence_mode).put_stream(f"{dataset_id}{suffix}", stream)
 
 
 def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary:
@@ -81,8 +77,7 @@ def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: 
         supported_concepts=sorted(semantic.get("available_concepts", [])),
     )
 
-    meta = STORAGE / f"{dataset_id}.json"
-    meta.write_text(json.dumps(summary.model_dump(), indent=2), encoding="utf-8")
+    json_store(STORAGE, mode=settings.persistence_mode).write(dataset_id, summary.model_dump())
     return summary
 
 
@@ -96,16 +91,16 @@ def onboard(file_name: str, stream: BinaryIO, organization_id: str | None = None
     try:
         return _profile(path, file_name, dataset_id, organization_id=organization_id, workspace_id=workspace_id)
     except Exception:
-        path.unlink(missing_ok=True)
-        (STORAGE / f"{dataset_id}.json").unlink(missing_ok=True)
+        object_store(STORAGE, mode=settings.persistence_mode).delete(f"{dataset_id}{suffix}")
+        json_store(STORAGE, mode=settings.persistence_mode).delete(dataset_id)
         raise
 
 
 def get_dataset(dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary | None:
-    meta = STORAGE / f"{dataset_id}.json"
-    if not meta.exists():
+    raw = json_store(STORAGE, mode=settings.persistence_mode).read(dataset_id)
+    if raw is None:
         return None
-    summary = DatasetSummary.model_validate(json.loads(meta.read_text(encoding="utf-8")))
+    summary = DatasetSummary.model_validate(raw)
     if organization_id is not None and summary.organization_id != organization_id:
         return None
     if workspace_id is not None and summary.workspace_id != workspace_id:

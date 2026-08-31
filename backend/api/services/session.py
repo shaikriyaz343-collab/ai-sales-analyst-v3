@@ -5,7 +5,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from ..config import settings
 from ..contracts import AnalysisSession, ScopeFilter, ScopeState
+from ..persistence import json_store
 from .onboarding import STORAGE, get_dataset
 from schema_profiler_v2 import load_dataframe, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
@@ -14,7 +16,6 @@ SESSION_STORAGE = STORAGE.parent / "runtime_sessions"
 
 
 def _session_path(session_id: str) -> Path:
-    SESSION_STORAGE.mkdir(parents=True, exist_ok=True)
     return SESSION_STORAGE / f"{session_id}.json"
 
 
@@ -41,15 +42,15 @@ def create_session(dataset_id: str, organization_id: str | None = None, workspac
     workspace_id = workspace_id or summary.workspace_id
     session_id = uuid.uuid4().hex
     session = AnalysisSession(session_id=session_id, dataset_id=dataset_id, organization_id=organization_id, workspace_id=workspace_id, scope=ScopeState())
-    _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
+    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
     return session
 
 
 def get_session(session_id: str) -> AnalysisSession | None:
-    path = _session_path(session_id)
-    if not path.exists():
+    raw = json_store(SESSION_STORAGE, mode=settings.persistence_mode).read(session_id)
+    if raw is None:
         return None
-    return AnalysisSession.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    return AnalysisSession.model_validate(raw)
 
 
 def require_session(session_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> AnalysisSession:
@@ -75,12 +76,10 @@ def replace_dataset(session_id: str, dataset_id: str) -> AnalysisSession:
     session.active_analysis = None
     session.comparison = None
     # Dataset replacement invalidates monitoring rules/events tied to the prior dataset.
-    monitoring_path = SESSION_STORAGE.parent / "runtime_monitoring" / f"{session_id}.json"
-    if monitoring_path.exists():
-        monitoring_path.unlink()
+    json_store(STORAGE.parent / "runtime_monitoring", mode=settings.persistence_mode).delete(session_id)
     from .saved_intelligence import invalidate_for_dataset_replacement
     invalidate_for_dataset_replacement(session_id)
-    _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
+    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
     return session
 
 
@@ -95,7 +94,7 @@ def update_scope(session_id: str, filters: list[ScopeFilter]) -> AnalysisSession
         if not item.values:
             raise ValueError(f"Scope filter for '{item.field}' must contain at least one value.")
     session.scope = ScopeState(filters=filters)
-    _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
+    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
     return session
 
 
@@ -131,7 +130,7 @@ def scope_values(session_id: str, field: str, limit: int = 100) -> list[str]:
 def reset_scope(session_id: str) -> AnalysisSession:
     session = require_session(session_id)
     session.scope = ScopeState()
-    _session_path(session_id).write_text(json.dumps(session.model_dump(), indent=2), encoding="utf-8")
+    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
     return session
 
 

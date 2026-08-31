@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import AlertEvent, AlertRule, AlertsResponse, AlertRuleCreate, Evidence
+from ..config import settings
+from ..persistence import json_store
 from .onboarding import get_dataset, STORAGE
 from .overview import build_overview
 from .session import get_session, require_session, scope_label
@@ -16,19 +18,18 @@ OPS = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "=", "neq": "≠"}
 
 
 def _path(session_id: str) -> Path:
-    MONITORING_STORAGE.mkdir(parents=True, exist_ok=True)
     return MONITORING_STORAGE / f"{session_id}.json"
 
 
 def _load(session_id: str) -> dict[str, Any]:
-    path = _path(session_id)
-    if not path.exists():
+    raw = json_store(MONITORING_STORAGE, mode=settings.persistence_mode).read(session_id)
+    if raw is None:
         return {"rules": [], "events": []}
-    return json.loads(path.read_text(encoding="utf-8"))
+    return raw
 
 
 def _save(session_id: str, payload: dict[str, Any]) -> None:
-    _path(session_id).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    json_store(MONITORING_STORAGE, mode=settings.persistence_mode).write(session_id, payload)
 
 
 def _now() -> str:

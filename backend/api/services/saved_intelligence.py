@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import Evidence, SavedIntelligence, SavedIntelligenceCreate, SavedIntelligenceResponse
+from ..config import settings
+from ..persistence import json_store
 from .actions import build_actions
 from .explore import build_explore
 from .insights import build_insights
@@ -18,19 +20,18 @@ SAVED_STORAGE = STORAGE.parent / "runtime_saved_intelligence"
 
 
 def _path(session_id: str) -> Path:
-    SAVED_STORAGE.mkdir(parents=True, exist_ok=True)
     return SAVED_STORAGE / f"{session_id}.json"
 
 
 def _load(session_id: str) -> list[dict[str, Any]]:
-    path = _path(session_id)
-    if not path.exists():
+    raw = json_store(SAVED_STORAGE, mode=settings.persistence_mode).read(session_id)
+    if raw is None:
         return []
-    return json.loads(path.read_text(encoding="utf-8"))
+    return raw
 
 
 def _save(session_id: str, items: list[dict[str, Any]]) -> None:
-    _path(session_id).write_text(json.dumps(items, indent=2), encoding="utf-8")
+    json_store(SAVED_STORAGE, mode=settings.persistence_mode).write(session_id, items)
 
 
 def _now() -> str:
