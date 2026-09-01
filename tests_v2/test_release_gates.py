@@ -132,8 +132,18 @@ class ReleaseGateTests(unittest.TestCase):
             )
 
     def test_no_deprecated_streamlit_calls_in_application(self):
+        excluded_parts = {
+            ".venv-v4",
+            "node_modules",
+            ".next",
+            "__pycache__",
+        }
         for path in ROOT.rglob("*.py"):
-            if path.name == "runtime_diagnostics.py" or "tests_v2" in path.parts:
+            if (
+                path.name == "runtime_diagnostics.py"
+                or "tests_v2" in path.parts
+                or any(part in excluded_parts for part in path.parts)
+            ):
                 continue
             text = path.read_text(
                 encoding="utf-8",

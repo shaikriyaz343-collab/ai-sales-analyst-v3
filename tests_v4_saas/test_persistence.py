@@ -43,6 +43,6 @@ def test_local_persistence_round_trip(tmp_path: Path):
     assert context.objects.path_for("dataset-1.csv").read_bytes() == b"a,b\n1,2\n"
 
 
-def test_external_persistence_fails_closed(tmp_path: Path):
-    with pytest.raises(PersistenceConfigurationError, match="not implemented until C3-B"):
+def test_external_persistence_requires_configuration(tmp_path: Path):
+    with pytest.raises(PersistenceConfigurationError, match="External persistence requires"):
         build_persistence(mode="external", runtime_root=tmp_path)

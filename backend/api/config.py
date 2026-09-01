@@ -80,6 +80,14 @@ class Settings:
     auth_session_idle_seconds: int
     auth_session_max_seconds: int
     persistence_mode: str
+    database_url: str | None
+    object_store_bucket: str | None
+    object_store_region: str | None
+    object_store_endpoint_url: str | None
+    object_store_access_key: str | None
+    object_store_secret_key: str | None
+    object_store_prefix: str
+    object_store_temp_root: Path
 
     @property
     def is_production(self) -> bool:
@@ -173,6 +181,19 @@ def load_settings() -> Settings:
     persistence_mode = (_env("V4_PERSISTENCE_MODE", "local") or "local").lower()
     if persistence_mode not in {"local", "external"}:
         raise ConfigurationError("V4_PERSISTENCE_MODE must be local or external.")
+    database_url = _env("V4_DATABASE_URL")
+    object_store_bucket = _env("V4_OBJECT_STORE_BUCKET")
+    object_store_region = _env("V4_OBJECT_STORE_REGION")
+    object_store_endpoint_url = _env("V4_OBJECT_STORE_ENDPOINT_URL")
+    object_store_access_key = _env("V4_OBJECT_STORE_ACCESS_KEY")
+    object_store_secret_key = _env("V4_OBJECT_STORE_SECRET_KEY")
+    object_store_prefix = _env("V4_OBJECT_STORE_PREFIX", "v4") or "v4"
+    object_store_temp_root = Path(_env("V4_OBJECT_STORE_TEMP_ROOT") or (runtime_root / "runtime_object_cache")).expanduser().resolve()
+    if persistence_mode == "external":
+        if not database_url: raise ConfigurationError("V4_DATABASE_URL is required when V4_PERSISTENCE_MODE=external.")
+        if not object_store_bucket: raise ConfigurationError("V4_OBJECT_STORE_BUCKET is required when V4_PERSISTENCE_MODE=external.")
+        if not object_store_region: raise ConfigurationError("V4_OBJECT_STORE_REGION is required when V4_PERSISTENCE_MODE=external.")
+    if environment == "production" and persistence_mode != "external": raise ConfigurationError("V4_PERSISTENCE_MODE must be external in production.")
     if environment == "production" and not security_headers_enabled:
         raise ConfigurationError(
             "V4_SECURITY_HEADERS_ENABLED must be true in production."
@@ -199,6 +220,14 @@ def load_settings() -> Settings:
         auth_session_idle_seconds=auth_session_idle_seconds,
         auth_session_max_seconds=auth_session_max_seconds,
         persistence_mode=persistence_mode,
+        database_url=database_url,
+        object_store_bucket=object_store_bucket,
+        object_store_region=object_store_region,
+        object_store_endpoint_url=object_store_endpoint_url,
+        object_store_access_key=object_store_access_key,
+        object_store_secret_key=object_store_secret_key,
+        object_store_prefix=object_store_prefix,
+        object_store_temp_root=object_store_temp_root,
     )
 
 

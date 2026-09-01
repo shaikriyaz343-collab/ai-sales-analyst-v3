@@ -51,6 +51,11 @@ def test_production_requires_secure_host_cookie(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("V4_TRUSTED_HOSTS", "api.example.com")
     monkeypatch.setenv("V4_AUTH_SECURE_COOKIE", "true")
     monkeypatch.setenv("V4_AUTH_COOKIE_NAME", "__Host-v4_auth_session")
+    monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
+    monkeypatch.setenv("V4_PERSISTENCE_MODE", "external")
+    monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app")
+    monkeypatch.setenv("V4_OBJECT_STORE_BUCKET", "app-data")
+    monkeypatch.setenv("V4_OBJECT_STORE_REGION", "ap-south-1")
 
     settings = load_settings()
     assert settings.is_production
@@ -134,8 +139,26 @@ def test_production_can_declare_external_persistence(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("V4_AUTH_COOKIE_NAME", "__Host-v4_auth_session")
     monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
     monkeypatch.setenv("V4_PERSISTENCE_MODE", "external")
+    monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
+    monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app")
+    monkeypatch.setenv("V4_OBJECT_STORE_BUCKET", "app-data")
+    monkeypatch.setenv("V4_OBJECT_STORE_REGION", "ap-south-1")
 
     settings = load_settings()
 
     assert settings.is_production
     assert settings.persistence_mode == "external"
+
+
+def test_external_persistence_requires_provider_configuration(monkeypatch):
+    monkeypatch.setenv("V4_PERSISTENCE_MODE", "external")
+    monkeypatch.delenv("V4_DATABASE_URL", raising=False)
+    monkeypatch.delenv("V4_OBJECT_STORE_BUCKET", raising=False)
+    monkeypatch.delenv("V4_OBJECT_STORE_REGION", raising=False)
+    with pytest.raises(ConfigurationError, match="V4_DATABASE_URL"):
+        load_settings()
+
+def test_production_requires_external_persistence(monkeypatch):
+    for key, value in {"V4_ENVIRONMENT":"production","V4_RUNTIME_ROOT":"/srv/ai-sales-analyst","V4_FRONTEND_ORIGINS":"https://app.example.com","V4_TRUSTED_HOSTS":"api.example.com","V4_AUTH_SECURE_COOKIE":"true","V4_AUTH_COOKIE_NAME":"__Host-v4_auth_session","V4_SECURITY_HEADERS_ENABLED":"true","V4_PERSISTENCE_MODE":"local"}.items(): monkeypatch.setenv(key,value)
+    with pytest.raises(ConfigurationError, match="must be external"):
+        load_settings()

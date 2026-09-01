@@ -7,7 +7,7 @@ from typing import Any
 
 from ..config import settings
 from ..contracts import AnalysisSession, ScopeFilter, ScopeState
-from ..persistence import json_store
+from ..persistence import json_store, object_store
 from .onboarding import STORAGE, get_dataset
 from schema_profiler_v2 import load_dataframe, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
@@ -24,7 +24,7 @@ def _canonical_fields(dataset_id: str) -> set[str]:
     if summary is None:
         raise ValueError("Dataset not found.")
     suffix = Path(summary.file_name).suffix.lower()
-    path = STORAGE / f"{dataset_id}{suffix}"
+    path = object_store(STORAGE, mode=settings.persistence_mode).path_for(f"{dataset_id}{suffix}")
     if not path.exists():
         raise ValueError("Dataset file is no longer available for analysis.")
     profile = profile_dataframe(path)
@@ -105,7 +105,7 @@ def scope_values(session_id: str, field: str, limit: int = 100) -> list[str]:
         raise ValueError(f"Scope field '{field}' is not available in this dataset.")
     summary = get_dataset(session.dataset_id)
     suffix = Path(summary.file_name).suffix.lower()
-    path = STORAGE / f"{session.dataset_id}{suffix}"
+    path = object_store(STORAGE, mode=settings.persistence_mode).path_for(f"{session.dataset_id}{suffix}")
     data = load_dataframe(path)
     profile = profile_dataframe(path)
     canonical = build_semantic_model(profile, data=data)

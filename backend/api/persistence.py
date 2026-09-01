@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Protocol
+from typing import Any, BinaryIO, Callable, Protocol
 
 
 class PersistenceConfigurationError(RuntimeError):
@@ -97,27 +99,76 @@ class PersistenceContext:
     saved_intelligence: JsonDocumentStore
 
 
-def json_store(root: Path, *, mode: str = "local") -> JsonDocumentStore:
-    if mode == "local":
-        return LocalJsonDocumentStore(root)
-    if mode == "external":
-        raise PersistenceConfigurationError(
-            "External production persistence is not implemented until C3-B. "
-            "Refusing to fall back to local JSON storage."
-        )
-    raise PersistenceConfigurationError(f"Unsupported persistence mode: {mode}")
+class PostgresJsonDocumentStore:
+    _TABLE = "v4_json_documents"
+    def __init__(self,database_url:str,namespace:str,connect:Callable[...,Any]|None=None)->None:
+        if not database_url: raise PersistenceConfigurationError("V4_DATABASE_URL is required for external persistence.")
+        self.database_url=database_url; self.namespace=namespace; self._connect_factory=connect; self._ensure_table()
+    def _connect(self):
+        if self._connect_factory is not None: return self._connect_factory(self.database_url)
+        try: import psycopg
+        except ImportError as exc: raise PersistenceConfigurationError("psycopg is required for external PostgreSQL persistence.") from exc
+        return psycopg.connect(self.database_url)
+    @staticmethod
+    def _json_adapter(value:Any)->Any:
+        try: from psycopg.types.json import Json
+        except ImportError as exc: raise PersistenceConfigurationError("psycopg is required for external PostgreSQL persistence.") from exc
+        return Json(value)
+    def _ensure_table(self)->None:
+        with self._connect() as conn:
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {self._TABLE} (namespace TEXT NOT NULL, document_key TEXT NOT NULL, payload JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY(namespace, document_key))"); conn.commit()
+    def read(self,key:str)->Any|None:
+        with self._connect() as conn:
+            row=conn.execute(f"SELECT payload FROM {self._TABLE} WHERE namespace=%s AND document_key=%s",(self.namespace,key)).fetchone(); return None if row is None else row[0]
+    def write(self,key:str,value:Any)->None:
+        with self._connect() as conn:
+            conn.execute(f"INSERT INTO {self._TABLE}(namespace,document_key,payload,updated_at) VALUES(%s,%s,%s,NOW()) ON CONFLICT(namespace,document_key) DO UPDATE SET payload=EXCLUDED.payload,updated_at=NOW()",(self.namespace,key,self._json_adapter(value))); conn.commit()
+    def exists(self,key:str)->bool:
+        with self._connect() as conn: return conn.execute(f"SELECT 1 FROM {self._TABLE} WHERE namespace=%s AND document_key=%s LIMIT 1",(self.namespace,key)).fetchone() is not None
+    def delete(self,key:str)->None:
+        with self._connect() as conn: conn.execute(f"DELETE FROM {self._TABLE} WHERE namespace=%s AND document_key=%s",(self.namespace,key)); conn.commit()
 
+class S3ObjectStore:
+    def __init__(self,bucket:str,region:str,endpoint_url:str|None=None,access_key:str|None=None,secret_key:str|None=None,prefix:str="",temp_root:Path|None=None,client:Any|None=None)->None:
+        if not bucket or not region: raise PersistenceConfigurationError("V4_OBJECT_STORE_BUCKET and V4_OBJECT_STORE_REGION are required for external persistence.")
+        self.bucket=bucket; self.region=region; self.prefix=prefix.strip("/"); self.temp_root=(temp_root or Path(tempfile.gettempdir())/"ai-sales-analyst-v4-objects").resolve(); self.temp_root.mkdir(parents=True,exist_ok=True)
+        if client is not None: self.client=client; return
+        try: import boto3
+        except ImportError as exc: raise PersistenceConfigurationError("boto3 is required for external S3-compatible object storage.") from exc
+        kwargs={'region_name':region}
+        if endpoint_url: kwargs['endpoint_url']=endpoint_url
+        if access_key: kwargs['aws_access_key_id']=access_key
+        if secret_key: kwargs['aws_secret_access_key']=secret_key
+        self.client=boto3.client('s3',**kwargs)
+    def _key(self,key:str)->str:
+        clean=key.replace('\\','/').lstrip('/')
+        if any(part=='..' for part in clean.split('/')): raise ValueError('Persistence key cannot contain parent-directory segments.')
+        return f'{self.prefix}/{clean}' if self.prefix else clean
+    def _cache_path(self,key:str)->Path:
+        return self.temp_root/f"{hashlib.sha256(self._key(key).encode()).hexdigest()}{Path(key).suffix}"
+    def put_stream(self,key:str,stream:BinaryIO)->Path:
+        self.client.upload_fileobj(stream,self.bucket,self._key(key)); self._cache_path(key).unlink(missing_ok=True); return self.path_for(key)
+    def path_for(self,key:str)->Path:
+        cache=self._cache_path(key)
+        if not cache.exists():
+            try: self.client.download_file(self.bucket,self._key(key),str(cache))
+            except Exception as exc: cache.unlink(missing_ok=True); raise PersistenceConfigurationError(f'Object-store object is unavailable: {key}') from exc
+        return cache
+    def exists(self,key:str)->bool:
+        try: self.client.head_object(Bucket=self.bucket,Key=self._key(key)); return True
+        except Exception: return False
+    def delete(self,key:str)->None:
+        self.client.delete_object(Bucket=self.bucket,Key=self._key(key)); self._cache_path(key).unlink(missing_ok=True)
 
-def object_store(root: Path, *, mode: str = "local") -> ObjectStore:
-    if mode == "local":
-        return LocalObjectStore(root)
-    if mode == "external":
-        raise PersistenceConfigurationError(
-            "External production persistence is not implemented until C3-B. "
-            "Refusing to fall back to local object storage."
-        )
-    raise PersistenceConfigurationError(f"Unsupported persistence mode: {mode}")
+def build_external_persistence(*,database_url:str,object_bucket:str,object_region:str,object_endpoint_url:str|None,object_access_key:str|None,object_secret_key:str|None,object_prefix:str,object_temp_root:Path)->PersistenceContext:
+    return PersistenceContext(mode='external',objects=S3ObjectStore(object_bucket,object_region,object_endpoint_url,object_access_key,object_secret_key,object_prefix,object_temp_root),datasets=PostgresJsonDocumentStore(database_url,'datasets'),sessions=PostgresJsonDocumentStore(database_url,'sessions'),monitoring=PostgresJsonDocumentStore(database_url,'monitoring'),saved_intelligence=PostgresJsonDocumentStore(database_url,'saved_intelligence'))
 
+def build_persistence(*,mode:str,runtime_root:Path,database_url:str|None=None,object_bucket:str|None=None,object_region:str|None=None,object_endpoint_url:str|None=None,object_access_key:str|None=None,object_secret_key:str|None=None,object_prefix:str='',object_temp_root:Path|None=None)->PersistenceContext:
+    if mode=='local': return build_local_persistence(runtime_root)
+    if mode=='external':
+        if not database_url or not object_bucket or not object_region: raise PersistenceConfigurationError('External persistence requires PostgreSQL URL, object-store bucket, and object-store region.')
+        return build_external_persistence(database_url=database_url,object_bucket=object_bucket,object_region=object_region,object_endpoint_url=object_endpoint_url,object_access_key=object_access_key,object_secret_key=object_secret_key,object_prefix=object_prefix,object_temp_root=object_temp_root or Path(tempfile.gettempdir())/'ai-sales-analyst-v4-objects')
+    raise PersistenceConfigurationError(f'Unsupported persistence mode: {mode}')
 
 def build_local_persistence(runtime_root: Path) -> PersistenceContext:
     return PersistenceContext(
@@ -130,12 +181,10 @@ def build_local_persistence(runtime_root: Path) -> PersistenceContext:
     )
 
 
-def build_persistence(*, mode: str, runtime_root: Path) -> PersistenceContext:
-    if mode == "local":
-        return build_local_persistence(runtime_root)
-    if mode == "external":
-        raise PersistenceConfigurationError(
-            "External production persistence is not implemented until C3-B. "
-            "Refusing to fall back to local runtime storage."
-        )
-    raise PersistenceConfigurationError(f"Unsupported persistence mode: {mode}")
+def json_store(root:Path,*,mode:str='local')->JsonDocumentStore:
+    if mode=='local': return LocalJsonDocumentStore(root)
+    raise PersistenceConfigurationError("External JSON storage is provided through build_persistence().")
+
+def object_store(root:Path,*,mode:str='local')->ObjectStore:
+    if mode=='local': return LocalObjectStore(root)
+    raise PersistenceConfigurationError("External object storage is provided through build_persistence().")
