@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -80,18 +81,70 @@ class Settings:
     auth_session_idle_seconds: int
     auth_session_max_seconds: int
     persistence_mode: str
-    database_url: str | None
+    database_url: str | None = field(repr=False)
     object_store_bucket: str | None
     object_store_region: str | None
     object_store_endpoint_url: str | None
-    object_store_access_key: str | None
-    object_store_secret_key: str | None
+    object_store_access_key: str | None = field(repr=False)
+    object_store_secret_key: str | None = field(repr=False)
     object_store_prefix: str
     object_store_temp_root: Path
 
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+
+
+def _validate_production_external_configuration(
+    *,
+    database_url: str,
+    object_store_bucket: str,
+    object_store_region: str,
+    object_store_endpoint_url: str | None,
+    object_store_access_key: str | None,
+    object_store_secret_key: str | None,
+    object_store_prefix: str,
+) -> None:
+    """Validate production external persistence without exposing secret values."""
+    parsed_database = urlparse(database_url)
+    if parsed_database.scheme not in {"postgresql", "postgres"}:
+        raise ConfigurationError(
+            "V4_DATABASE_URL must use a PostgreSQL URL scheme in production."
+        )
+    if not parsed_database.hostname:
+        raise ConfigurationError(
+            "V4_DATABASE_URL must include a database host in production."
+        )
+
+    query = parse_qs(parsed_database.query)
+    ssl_modes = {mode.lower() for mode in query.get("sslmode", [])}
+    if not ssl_modes.intersection({"require", "verify-ca", "verify-full"}):
+        raise ConfigurationError(
+            "Production V4_DATABASE_URL must explicitly enable TLS via sslmode=require, verify-ca, or verify-full."
+        )
+
+    if object_store_endpoint_url:
+        parsed_endpoint = urlparse(object_store_endpoint_url)
+        if parsed_endpoint.scheme != "https":
+            raise ConfigurationError(
+                "V4_OBJECT_STORE_ENDPOINT_URL must use HTTPS in production."
+            )
+
+    if bool(object_store_access_key) != bool(object_store_secret_key):
+        raise ConfigurationError(
+            "V4_OBJECT_STORE_ACCESS_KEY and V4_OBJECT_STORE_SECRET_KEY must be provided together."
+        )
+
+    normalized_prefix = object_store_prefix.strip("/")
+    if not normalized_prefix:
+        raise ConfigurationError(
+            "V4_OBJECT_STORE_PREFIX must not be empty in production."
+        )
+    if any(part == ".." for part in normalized_prefix.replace("\\", "/").split("/")):
+        raise ConfigurationError(
+            "V4_OBJECT_STORE_PREFIX cannot contain parent-directory segments."
+        )
 
 
 def load_settings() -> Settings:
@@ -197,6 +250,17 @@ def load_settings() -> Settings:
     if environment == "production" and not security_headers_enabled:
         raise ConfigurationError(
             "V4_SECURITY_HEADERS_ENABLED must be true in production."
+        )
+
+    if environment == "production":
+        _validate_production_external_configuration(
+            database_url=database_url,
+            object_store_bucket=object_store_bucket,
+            object_store_region=object_store_region,
+            object_store_endpoint_url=object_store_endpoint_url,
+            object_store_access_key=object_store_access_key,
+            object_store_secret_key=object_store_secret_key,
+            object_store_prefix=object_store_prefix,
         )
 
     return Settings(

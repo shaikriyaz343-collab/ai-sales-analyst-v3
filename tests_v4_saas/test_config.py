@@ -53,7 +53,7 @@ def test_production_requires_secure_host_cookie(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("V4_AUTH_COOKIE_NAME", "__Host-v4_auth_session")
     monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
     monkeypatch.setenv("V4_PERSISTENCE_MODE", "external")
-    monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app")
+    monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app?sslmode=require")
     monkeypatch.setenv("V4_OBJECT_STORE_BUCKET", "app-data")
     monkeypatch.setenv("V4_OBJECT_STORE_REGION", "ap-south-1")
 
@@ -140,7 +140,7 @@ def test_production_can_declare_external_persistence(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
     monkeypatch.setenv("V4_PERSISTENCE_MODE", "external")
     monkeypatch.setenv("V4_SECURITY_HEADERS_ENABLED", "true")
-    monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app")
+    monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app?sslmode=require")
     monkeypatch.setenv("V4_OBJECT_STORE_BUCKET", "app-data")
     monkeypatch.setenv("V4_OBJECT_STORE_REGION", "ap-south-1")
 
