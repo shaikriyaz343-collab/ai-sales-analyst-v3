@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import argparse
 import json
 import sqlite3
@@ -180,17 +182,58 @@ def _critical_columns(table: str) -> list[str]:
     }[table]
 
 
-def _normalized(row: dict[str, Any], table: str) -> tuple[Any, ...]:
-    values: list[Any] = []
-    for column in _critical_columns(table):
-        value = row.get(column)
-        if isinstance(value, datetime):
-            value = value.isoformat().replace("+00:00", "Z")
-        elif column == "metadata_json" and isinstance(value, (dict, list)):
-            value = json.dumps(value, sort_keys=True, separators=(",", ":"))
-        values.append(value)
-    return tuple(values)
+TIMESTAMP_COLUMNS = {
+    'created_at',
+    'last_seen_at',
+    'expires_at',
+    'revoked_at',
+    'window_started_at',
+}
 
+def _canonicalize_timestamp(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        candidate = value.strip()
+        probe = candidate[:-1] + '+00:00' if candidate.endswith('Z') else candidate
+        try:
+            parsed = datetime.fromisoformat(probe)
+        except ValueError as exc:
+            raise MigrationError(f'Invalid timestamp value during verification: {value!r}') from exc
+    else:
+        raise MigrationError(f'Unsupported timestamp type during verification: {type(value).__name__}')
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.isoformat(timespec='microseconds').replace('+00:00', 'Z')
+
+def _canonicalize_json(value: Any) -> str:
+    if value is None:
+        return '{}'
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise MigrationError('Invalid metadata_json encountered during verification.') from exc
+    if not isinstance(value, (dict, list)):
+        raise MigrationError('metadata_json must be a JSON object or array during verification.')
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+
+def _canonicalize_verification_value(value: Any, column: str) -> Any:
+    if column in TIMESTAMP_COLUMNS:
+        return _canonicalize_timestamp(value)
+    if column == 'metadata_json':
+        return _canonicalize_json(value)
+    return value
+
+def _normalized(row: dict[str, Any], table: str) -> tuple[Any, ...]:
+    return tuple(
+        _canonicalize_verification_value(row.get(column), column)
+        for column in _critical_columns(table)
+    )
 
 def verify_source_target(source_rows: dict[str, list[dict[str, Any]]], target: MigrationTarget) -> dict[str, int]:
     target_counts: dict[str, int] = {}
