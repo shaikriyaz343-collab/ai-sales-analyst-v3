@@ -28,6 +28,17 @@ SIGNUP_RATE_LIMIT_EMAIL = settings.auth_signup_email_limit
 SIGNUP_RATE_LIMIT_WINDOW = settings.auth_signup_window_seconds
 
 
+def _external_auth_enabled() -> bool:
+    return settings.persistence_mode == "external"
+
+
+def _external_auth_store():
+    if not _external_auth_enabled():
+        return None
+    from .auth_postgres import PostgresAuthStore
+    return PostgresAuthStore(settings.database_url)
+
+
 @dataclass(frozen=True)
 class Principal:
     user_id: str
@@ -58,6 +69,10 @@ def _connect() -> sqlite3.Connection:
 
 
 def init_db() -> None:
+    if _external_auth_enabled():
+        from .auth_postgres import PostgresAuthStore
+        PostgresAuthStore(settings.database_url)
+        return
     with _connect() as conn:
         conn.executescript(
             """
@@ -170,7 +185,9 @@ def _stable_hash(value: str) -> str:
 
 
 def consume_rate_limit(action: str, rate_key: str, max_attempts: int, window_seconds: int) -> bool:
-    """Atomically consume one attempt from a SQLite-backed fixed window."""
+    """Atomically consume one attempt from the configured authentication store."""
+    if _external_auth_enabled():
+        return _external_auth_store().consume_rate_limit(action, rate_key, max_attempts, window_seconds)
     if max_attempts <= 0 or window_seconds <= 0:
         return False
     now = _utc_now()
@@ -214,6 +231,14 @@ def record_security_event(
     metadata: dict[str, str] | None = None,
 ) -> None:
     """Persist authentication events without storing passwords, tokens, or raw identifiers."""
+    if _external_auth_enabled():
+        return _external_auth_store().record_security_event(
+            event_type,
+            email_hash=_stable_hash(_normalize_email(email)) if email else None,
+            client_ip_hash=_stable_hash(client_ip) if client_ip else None,
+            user_id=user_id,
+            metadata=metadata,
+        )
     init_db()
     metadata_json = json.dumps(metadata or {}, sort_keys=True, separators=(",", ":"))
     with _connect() as conn:
@@ -252,6 +277,17 @@ def _validate_credentials(email: str, password: str, name: str | None = None) ->
 
 
 def create_account(email: str, password: str, name: str, organization_name: str) -> Principal:
+    if _external_auth_enabled():
+        email, password = _validate_credentials(email, password, name)
+        organization_name = organization_name.strip() or "My Organization"
+        now = _iso(_utc_now())
+        user_id = uuid.uuid4().hex
+        org_id = uuid.uuid4().hex
+        workspace_id = uuid.uuid4().hex
+        return _external_auth_store().create_account(
+            email, _hash_password(password), name.strip(), organization_name,
+            user_id, org_id, workspace_id, "Main Workspace", now,
+        )
     email, password = _validate_credentials(email, password, name)
     organization_name = organization_name.strip() or "My Organization"
     now = _iso(_utc_now())
@@ -271,6 +307,12 @@ def create_account(email: str, password: str, name: str, organization_name: str)
 
 
 def authenticate(email: str, password: str) -> Principal:
+    if _external_auth_enabled():
+        email, password = _validate_credentials(email, password)
+        row = _external_auth_store().authenticate(email)
+        if not row or not _verify_password(password, row["password_hash"]):
+            raise ValueError("Email or password is incorrect.")
+        return Principal(row["user_id"], row["email"], row["name"], row["organization_id"], row["organization_name"], row["role"], row["workspace_id"], row["workspace_name"])
     email, password = _validate_credentials(email, password)
     init_db()
     with _connect() as conn:
@@ -295,6 +337,12 @@ def authenticate(email: str, password: str) -> Principal:
 
 
 def issue_session(user_id: str) -> tuple[str, datetime]:
+    if _external_auth_enabled():
+        token = secrets.token_urlsafe(48)
+        now = _utc_now()
+        expires = now + timedelta(seconds=SESSION_MAX_SECONDS)
+        _external_auth_store().issue_session(user_id, _token_hash(token), _iso(expires), _iso(now), uuid.uuid4().hex)
+        return token, expires
     init_db()
     token = secrets.token_urlsafe(48)
     now = _utc_now()
@@ -321,6 +369,9 @@ def issue_session(user_id: str) -> tuple[str, datetime]:
 def revoke_session(token: str | None) -> None:
     if not token:
         return
+    if _external_auth_enabled():
+        _external_auth_store().revoke_session(_token_hash(token), _iso(_utc_now()))
+        return
     init_db()
     now = _iso(_utc_now())
     with _connect() as conn:
@@ -335,6 +386,8 @@ def revoke_session(token: str | None) -> None:
 
 
 def revoke_all_sessions(user_id: str) -> int:
+    if _external_auth_enabled():
+        return _external_auth_store().revoke_all_sessions(user_id, _iso(_utc_now()))
     init_db()
     now = _iso(_utc_now())
     with _connect() as conn:
@@ -352,6 +405,8 @@ def revoke_all_sessions(user_id: str) -> int:
 def principal_from_token(token: str | None) -> Principal | None:
     if not token:
         return None
+    if _external_auth_enabled():
+        return _external_auth_store().principal_from_token(_token_hash(token), _utc_now(), SESSION_IDLE_SECONDS)
     init_db()
     now_dt = _utc_now()
     now = _iso(now_dt)
@@ -421,6 +476,8 @@ def principal_from_token(token: str | None) -> Principal | None:
         )
 
 def list_workspaces(organization_id: str) -> list[dict[str, str]]:
+    if _external_auth_enabled():
+        return _external_auth_store().list_workspaces(organization_id)
     init_db()
     with _connect() as conn:
         rows = conn.execute("SELECT id,name FROM workspaces WHERE organization_id = ? ORDER BY created_at ASC", (organization_id,)).fetchall()
@@ -428,6 +485,11 @@ def list_workspaces(organization_id: str) -> list[dict[str, str]]:
 
 
 def create_workspace(organization_id: str, name: str) -> dict[str, str]:
+    if _external_auth_enabled():
+        name = name.strip()
+        if not name or len(name) > 80:
+            raise ValueError("Workspace name must be between 1 and 80 characters.")
+        return _external_auth_store().create_workspace(organization_id, uuid.uuid4().hex, name, _iso(_utc_now()))
     name = name.strip()
     if not name or len(name) > 80:
         raise ValueError("Workspace name must be between 1 and 80 characters.")
@@ -442,6 +504,8 @@ def create_workspace(organization_id: str, name: str) -> dict[str, str]:
 
 
 def user_can_access_workspace(user_id: str, organization_id: str, workspace_id: str) -> bool:
+    if _external_auth_enabled():
+        return _external_auth_store().user_can_access_workspace(user_id, organization_id, workspace_id)
     init_db()
     with _connect() as conn:
         row = conn.execute(
@@ -464,6 +528,8 @@ init_db()
 
 def list_security_events() -> list[dict[str, object]]:
     """Return persisted authentication security events for operational diagnostics/tests."""
+    if _external_auth_enabled():
+        return _external_auth_store().list_security_events()
     init_db()
     with _connect() as conn:
         rows = conn.execute(
