@@ -258,20 +258,41 @@ def migrate_sqlite_to_postgres(source: Path, database_url: str, *, dry_run: bool
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Migrate V4 authentication SQLite state into PostgreSQL.")
+    parser = argparse.ArgumentParser(
+        description="Safely migrate V4 authentication SQLite state into PostgreSQL."
+    )
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--database-url", required=True)
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Perform writes. Without --apply the command is a read-only dry-run.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explicitly request read-only preflight behavior.",
+    )
     parser.add_argument("--no-verify", action="store_true")
     args = parser.parse_args()
 
+    if args.apply and args.dry_run:
+        parser.error("--apply and --dry-run cannot be used together")
+
+    dry_run = not args.apply
     report = migrate_sqlite_to_postgres(
         args.source,
         args.database_url,
-        dry_run=args.dry_run,
+        dry_run=dry_run,
         verify=not args.no_verify,
     )
-    print(json.dumps({"source_counts": report.source_counts, "target_counts": report.target_counts, "verified_tables": report.verified_tables}, indent=2))
+    payload = {
+        "mode": "apply" if args.apply else "dry-run",
+        "source_counts": report.source_counts,
+        "target_counts": report.target_counts,
+        "verified_tables": report.verified_tables,
+    }
+    print(json.dumps(payload, indent=2))
     return 0
 
 
