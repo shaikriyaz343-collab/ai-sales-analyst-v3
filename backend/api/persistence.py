@@ -97,14 +97,16 @@ class PersistenceContext:
     sessions: JsonDocumentStore
     monitoring: JsonDocumentStore
     saved_intelligence: JsonDocumentStore
+    provider: Any | None = None
 
 
 class PostgresJsonDocumentStore:
     _TABLE = "v4_json_documents"
-    def __init__(self,database_url:str,namespace:str,connect:Callable[...,Any]|None=None)->None:
-        if not database_url: raise PersistenceConfigurationError("V4_DATABASE_URL is required for external persistence.")
-        self.database_url=database_url; self.namespace=namespace; self._connect_factory=connect; self._ensure_table()
+    def __init__(self,database_url:str,namespace:str,connect:Callable[...,Any]|None=None,provider:Any|None=None)->None:
+        if not database_url and not provider: raise PersistenceConfigurationError("V4_DATABASE_URL is required for external persistence.")
+        self.database_url=database_url; self.namespace=namespace; self._connect_factory=connect; self.provider=provider; self._ensure_table()
     def _connect(self):
+        if self.provider is not None: return self.provider.connection()
         if self._connect_factory is not None: return self._connect_factory(self.database_url)
         try: import psycopg
         except ImportError as exc: raise PersistenceConfigurationError("psycopg is required for external PostgreSQL persistence.") from exc
@@ -160,14 +162,14 @@ class S3ObjectStore:
     def delete(self,key:str)->None:
         self.client.delete_object(Bucket=self.bucket,Key=self._key(key)); self._cache_path(key).unlink(missing_ok=True)
 
-def build_external_persistence(*,database_url:str,object_bucket:str,object_region:str,object_endpoint_url:str|None,object_access_key:str|None,object_secret_key:str|None,object_prefix:str,object_temp_root:Path)->PersistenceContext:
-    return PersistenceContext(mode='external',objects=S3ObjectStore(object_bucket,object_region,object_endpoint_url,object_access_key,object_secret_key,object_prefix,object_temp_root),datasets=PostgresJsonDocumentStore(database_url,'datasets'),sessions=PostgresJsonDocumentStore(database_url,'sessions'),monitoring=PostgresJsonDocumentStore(database_url,'monitoring'),saved_intelligence=PostgresJsonDocumentStore(database_url,'saved_intelligence'))
+def build_external_persistence(*,database_url:str,object_bucket:str,object_region:str,object_endpoint_url:str|None,object_access_key:str|None,object_secret_key:str|None,object_prefix:str,object_temp_root:Path,provider:Any|None=None)->PersistenceContext:
+    return PersistenceContext(mode='external',objects=S3ObjectStore(object_bucket,object_region,object_endpoint_url,object_access_key,object_secret_key,object_prefix,object_temp_root),datasets=PostgresJsonDocumentStore(database_url,'datasets',provider=provider),sessions=PostgresJsonDocumentStore(database_url,'sessions',provider=provider),monitoring=PostgresJsonDocumentStore(database_url,'monitoring',provider=provider),saved_intelligence=PostgresJsonDocumentStore(database_url,'saved_intelligence',provider=provider),provider=provider)
 
-def build_persistence(*,mode:str,runtime_root:Path,database_url:str|None=None,object_bucket:str|None=None,object_region:str|None=None,object_endpoint_url:str|None=None,object_access_key:str|None=None,object_secret_key:str|None=None,object_prefix:str='',object_temp_root:Path|None=None)->PersistenceContext:
+def build_persistence(*,mode:str,runtime_root:Path,database_url:str|None=None,object_bucket:str|None=None,object_region:str|None=None,object_endpoint_url:str|None=None,object_access_key:str|None=None,object_secret_key:str|None=None,object_prefix:str='',object_temp_root:Path|None=None,provider:Any|None=None)->PersistenceContext:
     if mode=='local': return build_local_persistence(runtime_root)
     if mode=='external':
         if not database_url or not object_bucket or not object_region: raise PersistenceConfigurationError('External persistence requires PostgreSQL URL, object-store bucket, and object-store region.')
-        return build_external_persistence(database_url=database_url,object_bucket=object_bucket,object_region=object_region,object_endpoint_url=object_endpoint_url,object_access_key=object_access_key,object_secret_key=object_secret_key,object_prefix=object_prefix,object_temp_root=object_temp_root or Path(tempfile.gettempdir())/'ai-sales-analyst-v4-objects')
+        return build_external_persistence(database_url=database_url,object_bucket=object_bucket,object_region=object_region,object_endpoint_url=object_endpoint_url,object_access_key=object_access_key,object_secret_key=object_secret_key,object_prefix=object_prefix,object_temp_root=object_temp_root or Path(tempfile.gettempdir())/'ai-sales-analyst-v4-objects',provider=provider)
     raise PersistenceConfigurationError(f'Unsupported persistence mode: {mode}')
 
 def build_local_persistence(runtime_root: Path) -> PersistenceContext:

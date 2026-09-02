@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
@@ -69,7 +70,34 @@ from .services.session import create_session, get_session, replace_dataset, upda
 from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
 from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
 
-app = FastAPI(title="AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.persistence_mode == "external":
+        from . import runtime_persistence
+        from .services.auth import set_external_auth, reset_external_auth
+        from .services.auth_postgres import PostgresAuthStore
+
+        try:
+            # start_runtime_persistence creates and opens the provider, and builds context
+            runtime_persistence.start_runtime_persistence()
+
+            # Use the shared provider for auth
+            auth_store = PostgresAuthStore(settings.database_url, provider=runtime_persistence._provider)
+            set_external_auth(auth_store)
+
+            yield
+        finally:
+            reset_external_auth()
+            runtime_persistence.reset_runtime_persistence()
+    else:
+        from .runtime_persistence import start_runtime_persistence, reset_runtime_persistence
+        try:
+            start_runtime_persistence()
+            yield
+        finally:
+            reset_runtime_persistence()
+
+app = FastAPI(title="AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.frontend_origins),

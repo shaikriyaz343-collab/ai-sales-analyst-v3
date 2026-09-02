@@ -10,6 +10,15 @@ import backend.api.runtime_persistence as runtime
 class _Store:
     pass
 
+
+class _Provider:
+    def open(self):
+        pass
+
+    def close(self):
+        pass
+
+
 @pytest.fixture(autouse=True)
 def clean_runtime_registry():
     runtime.reset_runtime_persistence()
@@ -51,9 +60,10 @@ def test_external_context_is_created_once(monkeypatch, tmp_path):
         "build_persistence",
         lambda **kwargs: calls.append(kwargs) or context,
     )
+    monkeypatch.setattr(runtime, "PsycopgConnectionPool", lambda _: _Provider())
     runtime.reset_runtime_persistence()
 
-    assert runtime.get_runtime_persistence() is context
+    assert runtime.start_runtime_persistence() is context
     assert runtime.get_runtime_persistence() is context
     assert len(calls) == 1
 
@@ -62,7 +72,9 @@ def test_external_namespaces_return_configured_stores(monkeypatch, tmp_path):
     context = _context()
     monkeypatch.setattr(runtime, "settings", _settings(tmp_path))
     monkeypatch.setattr(runtime, "build_persistence", lambda **_: context)
+    monkeypatch.setattr(runtime, "PsycopgConnectionPool", lambda _: _Provider())
     runtime.reset_runtime_persistence()
+    runtime.start_runtime_persistence()
 
     assert runtime.runtime_document_store("datasets", local_root=tmp_path) is context.datasets
     assert runtime.runtime_document_store("sessions", local_root=tmp_path) is context.sessions
@@ -103,7 +115,9 @@ def test_unknown_external_namespace_fails_closed(monkeypatch, tmp_path):
     context = _context()
     monkeypatch.setattr(runtime, "settings", _settings(tmp_path))
     monkeypatch.setattr(runtime, "build_persistence", lambda **_: context)
+    monkeypatch.setattr(runtime, "PsycopgConnectionPool", lambda _: _Provider())
     runtime.reset_runtime_persistence()
+    runtime.start_runtime_persistence()
 
     with pytest.raises(ValueError, match="Unsupported runtime document namespace"):
         runtime.runtime_document_store("unknown", local_root=tmp_path)

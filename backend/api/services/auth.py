@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Any
 
 from ..config import settings
 
@@ -31,12 +31,23 @@ SIGNUP_RATE_LIMIT_WINDOW = settings.auth_signup_window_seconds
 def _external_auth_enabled() -> bool:
     return settings.persistence_mode == "external"
 
+_auth_store = None
 
 def _external_auth_store():
     if not _external_auth_enabled():
         return None
-    from .auth_postgres import PostgresAuthStore
-    return PostgresAuthStore(settings.database_url)
+    global _auth_store
+    if _auth_store is None:
+        raise RuntimeError("External auth store accessed before lifecycle startup.")
+    return _auth_store
+
+def set_external_auth(store: Any) -> None:
+    global _auth_store
+    _auth_store = store
+
+def reset_external_auth() -> None:
+    global _auth_store
+    _auth_store = None
 
 
 @dataclass(frozen=True)

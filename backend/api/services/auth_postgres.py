@@ -124,16 +124,22 @@ def _principal(row: Any):
 class PostgresAuthStore:
     """Production authentication store backed by PostgreSQL."""
 
-    def __init__(self, database_url: str | None = None) -> None:
+    def __init__(self, database_url: str | None = None, provider: Any | None = None) -> None:
+        self.provider = provider
         self.database_url = database_url or settings.database_url
-        if not self.database_url:
+        if not self.database_url and not self.provider:
             raise AuthPersistenceError(
                 "V4_DATABASE_URL is required for external authentication persistence."
             )
         self._initialize()
 
+    def _connection(self):
+        if self.provider is not None:
+            return self.provider.connection()
+        return _connect(self.database_url)
+
     def _initialize(self) -> None:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             ensure_schema(conn)
 
     def create_account(
@@ -141,7 +147,7 @@ class PostgresAuthStore:
         user_id: str, organization_id: str, workspace_id: str, workspace_name: str, now: str,
     ):
         try:
-            with _connect(self.database_url) as conn:
+            with self._connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT id FROM users WHERE email = %s", (email,))
                     if cur.fetchone():
@@ -173,7 +179,7 @@ class PostgresAuthStore:
         return Principal(user_id, email, name, organization_id, organization_name, "owner", workspace_id, workspace_name)
 
     def authenticate(self, email: str):
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor(row_factory=_dict_row_factory()) as cur:
                 cur.execute(
                     """
@@ -193,7 +199,7 @@ class PostgresAuthStore:
                 return cur.fetchone()
 
     def issue_session(self, user_id: str, token_hash: str, expires_at: str, created_at: str, session_id: str) -> None:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -205,7 +211,7 @@ class PostgresAuthStore:
             conn.commit()
 
     def revoke_session(self, token_hash: str, now: str) -> None:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "UPDATE auth_sessions SET revoked_at = %s WHERE token_hash = %s AND revoked_at IS NULL",
@@ -214,7 +220,7 @@ class PostgresAuthStore:
             conn.commit()
 
     def revoke_all_sessions(self, user_id: str, now: str) -> int:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "UPDATE auth_sessions SET revoked_at = %s WHERE user_id = %s AND revoked_at IS NULL",
@@ -225,7 +231,7 @@ class PostgresAuthStore:
             return count
 
     def principal_from_token(self, token_hash: str, now: datetime, idle_seconds: int):
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor(row_factory=_dict_row_factory()) as cur:
                 cur.execute(
                     """
@@ -267,7 +273,7 @@ class PostgresAuthStore:
                 return _principal(row)
 
     def list_workspaces(self, organization_id: str) -> list[dict[str, str]]:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT id,name FROM workspaces WHERE organization_id = %s ORDER BY created_at ASC",
@@ -277,7 +283,7 @@ class PostgresAuthStore:
 
     def create_workspace(self, organization_id: str, workspace_id: str, name: str, now: str) -> dict[str, str]:
         try:
-            with _connect(self.database_url) as conn:
+            with self._connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         "INSERT INTO workspaces(id,organization_id,name,created_at) VALUES(%s,%s,%s,%s)",
@@ -291,7 +297,7 @@ class PostgresAuthStore:
         return {"id": workspace_id, "name": name}
 
     def user_can_access_workspace(self, user_id: str, organization_id: str, workspace_id: str) -> bool:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -308,7 +314,7 @@ class PostgresAuthStore:
         if max_attempts <= 0 or window_seconds <= 0:
             return False
         now = _now()
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT window_started_at, attempt_count FROM auth_rate_limits WHERE action=%s AND rate_key=%s FOR UPDATE",
@@ -351,7 +357,7 @@ class PostgresAuthStore:
     ) -> None:
         import uuid
 
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -371,7 +377,7 @@ class PostgresAuthStore:
             conn.commit()
 
     def list_security_events(self) -> list[dict[str, object]]:
-        with _connect(self.database_url) as conn:
+        with self._connection() as conn:
             with conn.cursor(row_factory=_dict_row_factory()) as cur:
                 cur.execute(
                     """
