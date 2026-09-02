@@ -8,7 +8,7 @@ from typing import Any
 
 from ..contracts import Evidence, SavedIntelligence, SavedIntelligenceCreate, SavedIntelligenceResponse
 from ..config import settings
-from ..persistence import json_store
+from ..runtime_persistence import runtime_document_store
 from .actions import build_actions
 from .explore import build_explore
 from .insights import build_insights
@@ -24,14 +24,14 @@ def _path(session_id: str) -> Path:
 
 
 def _load(session_id: str) -> list[dict[str, Any]]:
-    raw = json_store(SAVED_STORAGE, mode=settings.persistence_mode).read(session_id)
+    raw = runtime_document_store("saved_intelligence", local_root=SAVED_STORAGE).read(session_id)
     if raw is None:
         return []
     return raw
 
 
 def _save(session_id: str, items: list[dict[str, Any]]) -> None:
-    json_store(SAVED_STORAGE, mode=settings.persistence_mode).write(session_id, items)
+    runtime_document_store("saved_intelligence", local_root=SAVED_STORAGE).write(session_id, items)
 
 
 def _now() -> str:
@@ -190,8 +190,8 @@ def delete_saved(dataset_id: str, session_id: str, item_id: str) -> None:
 
 
 def invalidate_for_dataset_replacement(session_id: str) -> None:
-    path = _path(session_id)
-    if not path.exists():
+    store = runtime_document_store("saved_intelligence", local_root=SAVED_STORAGE)
+    if not store.exists(session_id):
         return
     items = _load(session_id)
     if not items:

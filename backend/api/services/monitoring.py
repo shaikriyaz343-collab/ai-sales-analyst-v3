@@ -8,7 +8,7 @@ from typing import Any
 
 from ..contracts import AlertEvent, AlertRule, AlertsResponse, AlertRuleCreate, Evidence
 from ..config import settings
-from ..persistence import json_store
+from ..runtime_persistence import runtime_document_store
 from .onboarding import get_dataset, STORAGE
 from .overview import build_overview
 from .session import get_session, require_session, scope_label
@@ -22,14 +22,14 @@ def _path(session_id: str) -> Path:
 
 
 def _load(session_id: str) -> dict[str, Any]:
-    raw = json_store(MONITORING_STORAGE, mode=settings.persistence_mode).read(session_id)
+    raw = runtime_document_store("monitoring", local_root=MONITORING_STORAGE).read(session_id)
     if raw is None:
         return {"rules": [], "events": []}
     return raw
 
 
 def _save(session_id: str, payload: dict[str, Any]) -> None:
-    json_store(MONITORING_STORAGE, mode=settings.persistence_mode).write(session_id, payload)
+    runtime_document_store("monitoring", local_root=MONITORING_STORAGE).write(session_id, payload)
 
 
 def _now() -> str:

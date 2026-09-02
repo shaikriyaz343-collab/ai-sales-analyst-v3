@@ -12,7 +12,7 @@ from semantic_business_model_v2 import build_semantic_model
 
 from ..config import settings
 from ..contracts import DatasetSummary, SemanticSummary
-from ..persistence import object_store, json_store
+from ..runtime_persistence import runtime_object_store, runtime_document_store
 
 
 SUPPORTED = {".csv", ".xlsx", ".xls"}
@@ -47,7 +47,7 @@ def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:
 
 def _save_upload(file_name: str, stream: BinaryIO, dataset_id: str) -> Path:
     suffix = Path(file_name).suffix.lower()
-    return object_store(STORAGE, mode=settings.persistence_mode).put_stream(f"{dataset_id}{suffix}", stream)
+    return runtime_object_store(local_root=STORAGE).put_stream(f"{dataset_id}{suffix}", stream)
 
 
 def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary:
@@ -77,7 +77,7 @@ def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: 
         supported_concepts=sorted(semantic.get("available_concepts", [])),
     )
 
-    json_store(STORAGE, mode=settings.persistence_mode).write(dataset_id, summary.model_dump())
+    runtime_document_store("datasets", local_root=STORAGE).write(dataset_id, summary.model_dump())
     return summary
 
 
@@ -91,13 +91,13 @@ def onboard(file_name: str, stream: BinaryIO, organization_id: str | None = None
     try:
         return _profile(path, file_name, dataset_id, organization_id=organization_id, workspace_id=workspace_id)
     except Exception:
-        object_store(STORAGE, mode=settings.persistence_mode).delete(f"{dataset_id}{suffix}")
-        json_store(STORAGE, mode=settings.persistence_mode).delete(dataset_id)
+        runtime_object_store(local_root=STORAGE).delete(f"{dataset_id}{suffix}")
+        runtime_document_store("datasets", local_root=STORAGE).delete(dataset_id)
         raise
 
 
 def get_dataset(dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary | None:
-    raw = json_store(STORAGE, mode=settings.persistence_mode).read(dataset_id)
+    raw = runtime_document_store("datasets", local_root=STORAGE).read(dataset_id)
     if raw is None:
         return None
     summary = DatasetSummary.model_validate(raw)

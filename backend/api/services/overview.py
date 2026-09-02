@@ -24,6 +24,7 @@ from schema_profiler_v2 import load_dataframe, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import Evidence, OverviewInsight, OverviewMetric, OverviewResponse
+from ..runtime_persistence import runtime_object_store
 from .onboarding import STORAGE, get_dataset
 from .session import apply_scope, scope_label
 
@@ -101,7 +102,7 @@ def build_overview(dataset_id: str, scope=None) -> OverviewResponse:
         raise ValueError("Dataset not found.")
 
     suffix = Path(summary.file_name).suffix.lower()
-    path = STORAGE / f"{dataset_id}{suffix}"
+    path = runtime_object_store(local_root=STORAGE).path_for(f"{dataset_id}{suffix}")
     if not path.exists():
         raise ValueError("Dataset file is no longer available for analysis.")
 

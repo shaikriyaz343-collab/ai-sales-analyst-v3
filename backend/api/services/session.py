@@ -7,7 +7,7 @@ from typing import Any
 
 from ..config import settings
 from ..contracts import AnalysisSession, ScopeFilter, ScopeState
-from ..persistence import json_store, object_store
+from ..runtime_persistence import runtime_document_store, runtime_object_store
 from .onboarding import STORAGE, get_dataset
 from schema_profiler_v2 import load_dataframe, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
@@ -24,7 +24,7 @@ def _canonical_fields(dataset_id: str) -> set[str]:
     if summary is None:
         raise ValueError("Dataset not found.")
     suffix = Path(summary.file_name).suffix.lower()
-    path = object_store(STORAGE, mode=settings.persistence_mode).path_for(f"{dataset_id}{suffix}")
+    path = runtime_object_store(local_root=STORAGE).path_for(f"{dataset_id}{suffix}")
     if not path.exists():
         raise ValueError("Dataset file is no longer available for analysis.")
     profile = profile_dataframe(path)
@@ -42,12 +42,12 @@ def create_session(dataset_id: str, organization_id: str | None = None, workspac
     workspace_id = workspace_id or summary.workspace_id
     session_id = uuid.uuid4().hex
     session = AnalysisSession(session_id=session_id, dataset_id=dataset_id, organization_id=organization_id, workspace_id=workspace_id, scope=ScopeState())
-    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
+    runtime_document_store("sessions", local_root=SESSION_STORAGE).write(session_id, session.model_dump())
     return session
 
 
 def get_session(session_id: str) -> AnalysisSession | None:
-    raw = json_store(SESSION_STORAGE, mode=settings.persistence_mode).read(session_id)
+    raw = runtime_document_store("sessions", local_root=SESSION_STORAGE).read(session_id)
     if raw is None:
         return None
     return AnalysisSession.model_validate(raw)
@@ -76,10 +76,10 @@ def replace_dataset(session_id: str, dataset_id: str) -> AnalysisSession:
     session.active_analysis = None
     session.comparison = None
     # Dataset replacement invalidates monitoring rules/events tied to the prior dataset.
-    json_store(STORAGE.parent / "runtime_monitoring", mode=settings.persistence_mode).delete(session_id)
+    runtime_document_store("monitoring", local_root=STORAGE.parent / "runtime_monitoring").delete(session_id)
     from .saved_intelligence import invalidate_for_dataset_replacement
     invalidate_for_dataset_replacement(session_id)
-    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
+    runtime_document_store("sessions", local_root=SESSION_STORAGE).write(session_id, session.model_dump())
     return session
 
 
@@ -94,7 +94,7 @@ def update_scope(session_id: str, filters: list[ScopeFilter]) -> AnalysisSession
         if not item.values:
             raise ValueError(f"Scope filter for '{item.field}' must contain at least one value.")
     session.scope = ScopeState(filters=filters)
-    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
+    runtime_document_store("sessions", local_root=SESSION_STORAGE).write(session_id, session.model_dump())
     return session
 
 
@@ -105,7 +105,7 @@ def scope_values(session_id: str, field: str, limit: int = 100) -> list[str]:
         raise ValueError(f"Scope field '{field}' is not available in this dataset.")
     summary = get_dataset(session.dataset_id)
     suffix = Path(summary.file_name).suffix.lower()
-    path = object_store(STORAGE, mode=settings.persistence_mode).path_for(f"{session.dataset_id}{suffix}")
+    path = runtime_object_store(local_root=STORAGE).path_for(f"{session.dataset_id}{suffix}")
     data = load_dataframe(path)
     profile = profile_dataframe(path)
     canonical = build_semantic_model(profile, data=data)
@@ -130,7 +130,7 @@ def scope_values(session_id: str, field: str, limit: int = 100) -> list[str]:
 def reset_scope(session_id: str) -> AnalysisSession:
     session = require_session(session_id)
     session.scope = ScopeState()
-    json_store(SESSION_STORAGE, mode=settings.persistence_mode).write(session_id, session.model_dump())
+    runtime_document_store("sessions", local_root=SESSION_STORAGE).write(session_id, session.model_dump())
     return session
 
 
