@@ -77,6 +77,10 @@ class HealthResponse(BaseModel):
     product: str
     version: str
 
+class ReadyResponse(BaseModel):
+    status: str
+    reason: str | None = None
+
 
 class ErrorResponse(BaseModel):
     detail: str

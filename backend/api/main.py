@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import enum
 from typing import Annotated
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
+
+class LifecycleState(enum.Enum):
+    STARTING = "STARTING"
+    READY = "READY"
+    SHUTTING_DOWN = "SHUTTING_DOWN"
+    FAILED = "FAILED"
+
+class AppState:
+    lifecycle: LifecycleState = LifecycleState.STARTING
+
+app_state = AppState()
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
@@ -26,6 +38,7 @@ from .contracts import (
     LoginRequest,
     OnboardingResponse,
     OverviewResponse,
+    ReadyResponse,
     ReportResponse,
     SavedIntelligence,
     SavedIntelligenceCreate,
@@ -72,6 +85,7 @@ from .services.saved_intelligence import list_saved, save_intelligence, delete_s
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app_state.lifecycle = LifecycleState.STARTING
     if settings.persistence_mode == "external":
         from . import runtime_persistence
         from .services.auth import set_external_auth, reset_external_auth
@@ -85,16 +99,26 @@ async def lifespan(app: FastAPI):
             auth_store = PostgresAuthStore(settings.database_url, provider=runtime_persistence._provider)
             set_external_auth(auth_store)
 
+            app_state.lifecycle = LifecycleState.READY
             yield
+        except Exception:
+            app_state.lifecycle = LifecycleState.FAILED
+            raise
         finally:
+            app_state.lifecycle = LifecycleState.SHUTTING_DOWN
             reset_external_auth()
             runtime_persistence.reset_runtime_persistence()
     else:
         from .runtime_persistence import start_runtime_persistence, reset_runtime_persistence
         try:
             start_runtime_persistence()
+            app_state.lifecycle = LifecycleState.READY
             yield
+        except Exception:
+            app_state.lifecycle = LifecycleState.FAILED
+            raise
         finally:
+            app_state.lifecycle = LifecycleState.SHUTTING_DOWN
             reset_runtime_persistence()
 
 app = FastAPI(title="AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan)
@@ -280,6 +304,27 @@ def _scope_for(principal: Principal, dataset_id: str, session_id: str | None):
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", product="AI Sales Analyst", version="4.1.0-alpha.1")
+
+
+@app.get("/api/v1/ready", response_model=ReadyResponse)
+def ready(response: Response) -> ReadyResponse:
+    if app_state.lifecycle != LifecycleState.READY:
+        response.status_code = 503
+        return ReadyResponse(status="not_ready", reason=app_state.lifecycle.value.lower())
+
+    if settings.persistence_mode == "external":
+        try:
+            from . import runtime_persistence
+            provider = runtime_persistence._provider
+            if not provider:
+                response.status_code = 503
+                return ReadyResponse(status="not_ready", reason="provider_missing")
+            provider.check()
+        except Exception:
+            response.status_code = 503
+            return ReadyResponse(status="not_ready", reason="database_down")
+
+    return ReadyResponse(status="ready")
 
 
 @app.post("/api/v1/auth/signup", response_model=AuthResponse)
