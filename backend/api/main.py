@@ -175,6 +175,11 @@ import traceback
 import psycopg
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+
+from .telemetry import setup_logging, CorrelationMiddleware, user_id_var, org_id_var
+setup_logging()
+app.add_middleware(CorrelationMiddleware)
+
 try:
     from botocore.exceptions import BotoCoreError, ClientError
     _has_boto = True
@@ -222,8 +227,18 @@ async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, RequestValidationError):
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
+    import traceback
+    from backend.api import telemetry
     tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-    logger.error(_sanitize_log(f"Unexpected internal error: {exc}\n{tb_str}"))
+
+    req_id = request.scope.get("state", {}).get("request_id")
+    token = telemetry.request_id_var.set(req_id) if req_id else None
+
+    try:
+        logger.error(_sanitize_log(f"Unexpected internal error: {exc}\n{tb_str}"))
+    finally:
+        if token:
+            telemetry.request_id_var.reset(token)
 
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 COOKIE_SECURE = settings.secure_cookie
@@ -262,6 +277,8 @@ def require_user(token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None)
     principal = principal_from_token(token)
     if principal is None:
         raise HTTPException(status_code=401, detail="Authentication required.")
+    user_id_var.set(principal.user_id)
+    org_id_var.set(principal.organization_id)
     return principal
 
 
