@@ -146,7 +146,62 @@ class SecurityHeadersMiddleware:
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+import logging
+import traceback
+import psycopg
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+try:
+    from botocore.exceptions import BotoCoreError, ClientError
+    _has_boto = True
+except ImportError:
+    _has_boto = False
 
+logger = logging.getLogger("ai_sales_analyst.errors")
+
+def _sanitize_log(text: str) -> str:
+    if not text:
+        return text
+    secrets = []
+    if settings.database_url:
+        secrets.append(settings.database_url)
+    if settings.object_store_secret_key:
+        secrets.append(settings.object_store_secret_key)
+    if settings.object_store_access_key:
+        secrets.append(settings.object_store_access_key)
+
+    for s in secrets:
+        if s and len(s) > 4:
+            text = text.replace(s, "***REDACTED***")
+    return text
+
+@app.exception_handler(psycopg.OperationalError)
+async def psycopg_operational_exception_handler(request: Request, exc: psycopg.OperationalError):
+    logger.error(_sanitize_log(f"Database dependency failure: {exc}"))
+    return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Database connection failed."})
+
+if _has_boto:
+    @app.exception_handler(BotoCoreError)
+    async def botocore_exception_handler(request: Request, exc: BotoCoreError):
+        logger.error(_sanitize_log(f"Object storage dependency failure: {exc}"))
+        return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
+
+    @app.exception_handler(ClientError)
+    async def botocore_client_exception_handler(request: Request, exc: ClientError):
+        logger.error(_sanitize_log(f"Object storage client failure: {exc}"))
+        return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=getattr(exc, "headers", None))
+    if isinstance(exc, RequestValidationError):
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+    tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    logger.error(_sanitize_log(f"Unexpected internal error: {exc}\n{tb_str}"))
+
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 COOKIE_SECURE = settings.secure_cookie
 COOKIE_NAME = settings.cookie_name
 COOKIE_MAX_AGE = 7 * 24 * 60 * 60
