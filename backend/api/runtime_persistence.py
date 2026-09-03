@@ -19,7 +19,19 @@ class PsycopgConnectionPool:
             import psycopg_pool
         except ImportError as exc:
             raise RuntimeError("psycopg_pool is required for connection pooling.") from exc
-        self._pool = psycopg_pool.ConnectionPool(self.database_url, open=False)
+        kwargs = {
+            "connect_timeout": settings.database_timeout_connect,
+            "options": f"-c statement_timeout={settings.database_timeout_statement}"
+        }
+        self._pool = psycopg_pool.ConnectionPool(
+            self.database_url,
+            min_size=settings.database_pool_min,
+            max_size=settings.database_pool_max,
+            timeout=settings.database_timeout_pool,
+            max_lifetime=3600,
+            kwargs=kwargs,
+            open=False
+        )
         self._closed = False
 
     def open(self):

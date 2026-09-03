@@ -80,6 +80,13 @@ class Settings:
     auth_signup_window_seconds: int
     auth_session_idle_seconds: int
     auth_session_max_seconds: int
+    database_pool_min: int
+    database_pool_max: int
+    database_timeout_connect: int
+    database_timeout_statement: int
+    database_timeout_pool: int
+    object_store_timeout_connect: int
+    object_store_timeout_read: int
     persistence_mode: str
     database_url: str | None = field(repr=False)
     object_store_bucket: str | None
@@ -231,6 +238,18 @@ def load_settings() -> Settings:
             "V4_AUTH_SESSION_MAX_SECONDS."
         )
 
+    database_pool_min = _positive_int_env("V4_DATABASE_POOL_MIN", 4)
+    database_pool_max = _positive_int_env("V4_DATABASE_POOL_MAX", 20)
+    if database_pool_max < database_pool_min:
+        raise ConfigurationError("V4_DATABASE_POOL_MAX cannot be less than V4_DATABASE_POOL_MIN.")
+
+    database_timeout_connect = _positive_int_env("V4_DATABASE_TIMEOUT_CONNECT", 5)
+    database_timeout_statement = _positive_int_env("V4_DATABASE_TIMEOUT_STATEMENT", 30000)
+    database_timeout_pool = _positive_int_env("V4_DATABASE_TIMEOUT_POOL", 10)
+
+    object_store_timeout_connect = _positive_int_env("V4_OBJECT_STORE_TIMEOUT_CONNECT", 5)
+    object_store_timeout_read = _positive_int_env("V4_OBJECT_STORE_TIMEOUT_READ", 15)
+
     persistence_mode = (_env("V4_PERSISTENCE_MODE", "local") or "local").lower()
     if persistence_mode not in {"local", "external"}:
         raise ConfigurationError("V4_PERSISTENCE_MODE must be local or external.")
@@ -283,6 +302,13 @@ def load_settings() -> Settings:
         auth_signup_window_seconds=auth_signup_window_seconds,
         auth_session_idle_seconds=auth_session_idle_seconds,
         auth_session_max_seconds=auth_session_max_seconds,
+        database_pool_min=database_pool_min,
+        database_pool_max=database_pool_max,
+        database_timeout_connect=database_timeout_connect,
+        database_timeout_statement=database_timeout_statement,
+        database_timeout_pool=database_timeout_pool,
+        object_store_timeout_connect=object_store_timeout_connect,
+        object_store_timeout_read=object_store_timeout_read,
         persistence_mode=persistence_mode,
         database_url=database_url,
         object_store_bucket=object_store_bucket,

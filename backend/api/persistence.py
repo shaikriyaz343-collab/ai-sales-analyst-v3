@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Protocol
 
+from .config import settings
+
 
 class PersistenceConfigurationError(RuntimeError):
     """Raised when a configured persistence provider is unavailable."""
@@ -135,9 +137,17 @@ class S3ObjectStore:
         if not bucket or not region: raise PersistenceConfigurationError("V4_OBJECT_STORE_BUCKET and V4_OBJECT_STORE_REGION are required for external persistence.")
         self.bucket=bucket; self.region=region; self.prefix=prefix.strip("/"); self.temp_root=(temp_root or Path(tempfile.gettempdir())/"ai-sales-analyst-v4-objects").resolve(); self.temp_root.mkdir(parents=True,exist_ok=True)
         if client is not None: self.client=client; return
-        try: import boto3
+        try:
+            import boto3
+            from botocore.config import Config
         except ImportError as exc: raise PersistenceConfigurationError("boto3 is required for external S3-compatible object storage.") from exc
-        kwargs={'region_name':region}
+
+        boto_config = Config(
+            connect_timeout=settings.object_store_timeout_connect,
+            read_timeout=settings.object_store_timeout_read,
+            retries={'max_attempts': 3}
+        )
+        kwargs={'region_name':region, 'config': boto_config}
         if endpoint_url: kwargs['endpoint_url']=endpoint_url
         if access_key: kwargs['aws_access_key_id']=access_key
         if secret_key: kwargs['aws_secret_access_key']=secret_key
