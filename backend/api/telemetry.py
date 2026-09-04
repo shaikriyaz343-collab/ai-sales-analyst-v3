@@ -11,6 +11,59 @@ request_id_var = contextvars.ContextVar("request_id", default=None)
 user_id_var = contextvars.ContextVar("user_id", default=None)
 org_id_var = contextvars.ContextVar("org_id", default=None)
 
+METRIC_REGISTRY = {
+    "http_requests_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"method": None, "route": None, "status_code": None},
+    },
+    "http_request_duration_seconds": {
+        "type": "histogram",
+        "unit": "seconds",
+        "labels": {"method": None, "route": None},
+    },
+    "http_5xx_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"method": None, "route": None, "status_code": None},
+    },
+    "auth_failures_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"route": None, "reason": {"invalid_token", "missing_token"}},
+    },
+    "rate_limit_hits_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"route": None},
+    },
+    "database_pool_timeouts_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"pool_name": {"default"}},
+    },
+    "database_failures_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"operation": {"query", "transaction"}, "failure_type": {"connection", "statement"}},
+    },
+    "object_store_failures_total": {
+        "type": "counter",
+        "unit": "count",
+        "labels": {"operation": {"read", "write"}, "failure_type": {"timeout", "client_error"}},
+    },
+    "migration_status": {
+        "type": "state",
+        "unit": "state",
+        "labels": {"target_version": None, "status": {"success", "failure"}},
+    }
+}
+
+FORBIDDEN_LABELS = {
+    "request_id", "session_id", "user_id", "organization_id", "dataset_id",
+    "email", "raw_url", "query_string", "sql", "exception", "traceback"
+}
+
 class ContextFilter(logging.Filter):
     def filter(self, record):
         record.request_id = request_id_var.get()
@@ -44,6 +97,58 @@ class JSONFormatter(logging.Formatter):
 
         return json.dumps(log_record)
 
+class MetricJSONFormatter(logging.Formatter):
+    def format(self, record):
+        if hasattr(record, "metric_payload"):
+            return json.dumps(record.metric_payload)
+        return json.dumps({"message": record.getMessage()})
+
+def emit_metric(name: str, value: float | int, labels: dict):
+    if name not in METRIC_REGISTRY:
+        raise ValueError(f"Unknown metric: {name}")
+
+    spec = METRIC_REGISTRY[name]
+
+    for k in labels:
+        if k in FORBIDDEN_LABELS:
+            raise ValueError(f"Forbidden metric label: {k}")
+        if k not in spec["labels"]:
+            raise ValueError(f"Unknown label key '{k}' for metric '{name}'")
+
+    for k in spec["labels"]:
+        if k not in labels:
+            raise ValueError(f"Missing required label '{k}' for metric '{name}'")
+
+    for k, v in labels.items():
+        allowed = spec["labels"][k]
+        if allowed is not None and v not in allowed:
+            raise ValueError(f"Invalid value '{v}' for label '{k}' in metric '{name}'")
+
+    if not isinstance(value, (int, float)):
+        raise ValueError("Metric value must be numeric")
+
+    payload = {
+        "telemetry_version": 1,
+        "event_type": "metric",
+        "metric_name": name,
+        "metric_type": spec["type"],
+        "value": value,
+        "unit": spec["unit"],
+        "labels": labels
+    }
+
+    metrics_logger = logging.getLogger("ai_sales_analyst.metrics")
+    metrics_logger.info("METRIC", extra={"metric_payload": payload})
+
+
+def safe_emit_metric(name: str, value: float | int, labels: dict):
+    try:
+        emit_metric(name, value, labels)
+    except Exception as e:
+        error_logger = logging.getLogger("ai_sales_analyst.errors")
+        # Safely log the metric name and exception type, avoiding raw values to prevent PII leakage
+        error_logger.error(f"Telemetry emission failed for metric '{name}': {type(e).__name__}")
+
 def setup_logging():
     handler = logging.StreamHandler()
     handler.setFormatter(JSONFormatter())
@@ -55,6 +160,13 @@ def setup_logging():
         l.setLevel(logging.INFO)
         l.propagate = False
         l.addFilter(ctx_filter)
+
+    metric_handler = logging.StreamHandler()
+    metric_handler.setFormatter(MetricJSONFormatter())
+    ml = logging.getLogger("ai_sales_analyst.metrics")
+    ml.handlers = [metric_handler]
+    ml.setLevel(logging.INFO)
+    ml.propagate = False
 
     uvicorn_access = logging.getLogger("uvicorn.access")
     uvicorn_access.propagate = False
@@ -112,6 +224,25 @@ class CorrelationMiddleware:
             }
             self.logger.info("HTTP Request", extra={"http_info": http_info})
 
-            request_id_var.reset(token_req)
-            user_id_var.reset(token_uid)
-            org_id_var.reset(token_oid)
+            try:
+                safe_emit_metric("http_requests_total", 1, {
+                    "method": method,
+                    "route": route_path,
+                    "status_code": status_code
+                })
+
+                safe_emit_metric("http_request_duration_seconds", round(duration_ms / 1000, 4), {
+                    "method": method,
+                    "route": route_path
+                })
+
+                if status_code >= 500:
+                    safe_emit_metric("http_5xx_total", 1, {
+                        "method": method,
+                        "route": route_path,
+                        "status_code": status_code
+                    })
+            finally:
+                request_id_var.reset(token_req)
+                user_id_var.reset(token_uid)
+                org_id_var.reset(token_oid)

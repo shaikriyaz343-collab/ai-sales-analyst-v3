@@ -206,17 +206,37 @@ def _sanitize_log(text: str) -> str:
 
 @app.exception_handler(psycopg.OperationalError)
 async def psycopg_operational_exception_handler(request: Request, exc: psycopg.OperationalError):
+    from backend.api.telemetry import safe_emit_metric
+    try:
+        import psycopg_pool
+        if isinstance(exc, psycopg_pool.PoolTimeout):
+            safe_emit_metric("database_pool_timeouts_total", 1, {"pool_name": "default"})
+        else:
+            op = "transaction" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "query"
+            safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": "connection"})
+    except ImportError:
+        op = "transaction" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "query"
+        safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": "connection"})
+
     logger.error(_sanitize_log(f"Database dependency failure: {exc}"))
     return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Database connection failed."})
 
 if _has_boto:
     @app.exception_handler(BotoCoreError)
     async def botocore_exception_handler(request: Request, exc: BotoCoreError):
+        from backend.api.telemetry import safe_emit_metric
+        op = "write" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "read"
+        failure_type = "timeout" if "timeout" in str(type(exc)).lower() else "client_error"
+        safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": failure_type})
         logger.error(_sanitize_log(f"Object storage dependency failure: {exc}"))
         return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
 
     @app.exception_handler(ClientError)
     async def botocore_client_exception_handler(request: Request, exc: ClientError):
+        from backend.api.telemetry import safe_emit_metric
+        op = "write" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "read"
+        failure_type = "timeout" if "timeout" in str(type(exc)).lower() else "client_error"
+        safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": failure_type})
         logger.error(_sanitize_log(f"Object storage client failure: {exc}"))
         return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
 
@@ -229,6 +249,20 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     import traceback
     from backend.api import telemetry
+    import psycopg
+
+    try:
+        import psycopg_pool
+        if isinstance(exc, psycopg_pool.PoolTimeout):
+            telemetry.safe_emit_metric("database_pool_timeouts_total", 1, {"pool_name": "default"})
+    except ImportError:
+        pass
+
+    if isinstance(exc, psycopg.Error):
+        op = "transaction" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "query"
+        failure_type = "connection" if isinstance(exc, psycopg.OperationalError) else "statement"
+        telemetry.safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": failure_type})
+
     tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
     req_id = request.scope.get("state", {}).get("request_id")
@@ -273,9 +307,16 @@ def _set_session_cookie(response: Response, token: str) -> None:
     )
 
 
-def require_user(token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None) -> Principal:
+def require_user(request: Request, token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None) -> Principal:
+    route_path = request.scope.get("route").path if "route" in request.scope else request.scope.get("path", "unknown")
+    if not token:
+        from backend.api.telemetry import safe_emit_metric
+        safe_emit_metric("auth_failures_total", 1, {"route": route_path, "reason": "missing_token"})
+        raise HTTPException(status_code=401, detail="Authentication required.")
     principal = principal_from_token(token)
     if principal is None:
+        from backend.api.telemetry import safe_emit_metric
+        safe_emit_metric("auth_failures_total", 1, {"route": route_path, "reason": "invalid_token"})
         raise HTTPException(status_code=401, detail="Authentication required.")
     user_id_var.set(principal.user_id)
     org_id_var.set(principal.organization_id)
@@ -351,6 +392,8 @@ def signup(request: SignupRequest, response: Response, http_request: Request) ->
     ip_allowed = consume_rate_limit("signup", _rate_key("ip", client_ip), SIGNUP_RATE_LIMIT_IP, SIGNUP_RATE_LIMIT_WINDOW)
     email_allowed = consume_rate_limit("signup", _rate_key("email", email), SIGNUP_RATE_LIMIT_EMAIL, SIGNUP_RATE_LIMIT_WINDOW)
     if not ip_allowed or not email_allowed:
+        from backend.api.telemetry import safe_emit_metric
+        safe_emit_metric("rate_limit_hits_total", 1, {"route": "/api/v1/auth/signup"})
         record_security_event("signup_rate_limited", email=email, client_ip=client_ip)
         raise HTTPException(status_code=429, detail="Too many signup attempts. Please try again later.")
     try:
@@ -375,6 +418,8 @@ def login(request: LoginRequest, response: Response, http_request: Request) -> A
     ip_allowed = consume_rate_limit("login", _rate_key("ip", client_ip), LOGIN_RATE_LIMIT_IP, LOGIN_RATE_LIMIT_WINDOW)
     email_allowed = consume_rate_limit("login", _rate_key("email", email), LOGIN_RATE_LIMIT_EMAIL, LOGIN_RATE_LIMIT_WINDOW)
     if not ip_allowed or not email_allowed:
+        from backend.api.telemetry import safe_emit_metric
+        safe_emit_metric("rate_limit_hits_total", 1, {"route": "/api/v1/auth/login"})
         record_security_event("login_rate_limited", email=email, client_ip=client_ip)
         raise HTTPException(status_code=429, detail="Too many login attempts. Please try again later.")
     try:

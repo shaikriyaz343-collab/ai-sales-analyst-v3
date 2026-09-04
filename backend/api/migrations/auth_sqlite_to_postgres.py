@@ -294,8 +294,16 @@ def migrate_sqlite_to_target(source: Path, target: MigrationTarget, *, dry_run: 
 
 def migrate_sqlite_to_postgres(source: Path, database_url: str, *, dry_run: bool = False, verify: bool = True) -> MigrationReport:
     target = PostgresMigrationTarget(database_url)
+    from backend.api.telemetry import safe_emit_metric
     try:
-        return migrate_sqlite_to_target(source, target, dry_run=dry_run, verify=verify)
+        result = migrate_sqlite_to_target(source, target, dry_run=dry_run, verify=verify)
+        if not dry_run:
+            safe_emit_metric("migration_status", 1, {"target_version": "v4_postgres", "status": "success"})
+        return result
+    except Exception:
+        if not dry_run:
+            safe_emit_metric("migration_status", 1, {"target_version": "v4_postgres", "status": "failure"})
+        raise
     finally:
         target.close()
 
