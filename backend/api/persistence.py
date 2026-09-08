@@ -159,7 +159,18 @@ class S3ObjectStore:
     def _cache_path(self,key:str)->Path:
         return self.temp_root/f"{hashlib.sha256(self._key(key).encode()).hexdigest()}{Path(key).suffix}"
     def put_stream(self,key:str,stream:BinaryIO)->Path:
-        self.client.upload_fileobj(stream,self.bucket,self._key(key)); self._cache_path(key).unlink(missing_ok=True); return self.path_for(key)
+        import uuid
+        cache = self._cache_path(key)
+        temp_path = self.temp_root / f"{cache.name}.{uuid.uuid4().hex}.tmp"
+        try:
+            with temp_path.open("wb") as handle:
+                while chunk := stream.read(1024 * 1024):
+                    handle.write(chunk)
+            self.client.upload_file(str(temp_path), self.bucket, self._key(key))
+            temp_path.replace(cache)
+        finally:
+            temp_path.unlink(missing_ok=True)
+        return cache
     def path_for(self,key:str)->Path:
         cache=self._cache_path(key)
         if not cache.exists():
