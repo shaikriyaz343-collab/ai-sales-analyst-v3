@@ -81,8 +81,6 @@ def _connect() -> sqlite3.Connection:
 
 def init_db() -> None:
     if _external_auth_enabled():
-        from .auth_postgres import PostgresAuthStore
-        PostgresAuthStore(settings.database_url)
         return
     with _connect() as conn:
         conn.executescript(

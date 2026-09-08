@@ -308,7 +308,8 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 
 def require_user(request: Request, token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None) -> Principal:
-    route_path = request.scope.get("route").path if "route" in request.scope else request.scope.get("path", "unknown")
+    route = request.scope.get("route")
+    route_path = route.path if route and hasattr(route, "path") else "unmatched_route"
     if not token:
         from backend.api.telemetry import safe_emit_metric
         safe_emit_metric("auth_failures_total", 1, {"route": route_path, "reason": "missing_token"})
@@ -481,8 +482,6 @@ async def profile_upload(
         session = create_session(summary.dataset_id, organization_id=principal.organization_id, workspace_id=selected_workspace)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not understand this file: {exc}") from exc
     return OnboardingResponse(dataset=summary, message="Your dataset is ready for analysis.", session_id=session.session_id)
 
 @app.get("/api/v1/datasets/{dataset_id}")
@@ -498,8 +497,6 @@ def overview(dataset_id: str, session_id: str | None = None, principal: Principa
         raise
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not build overview: {exc}") from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/explore", response_model=ExploreResponse)
@@ -510,8 +507,6 @@ def explore(dataset_id: str, metric: str | None = None, dimension: str | None = 
         raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not build exploration: {exc}") from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/insights", response_model=InsightsResponse)
@@ -522,8 +517,6 @@ def insights(dataset_id: str, session_id: str | None = None, principal: Principa
         raise
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not build insights: {exc}") from exc
 
 
 @app.post("/api/v1/datasets/{dataset_id}/ask", response_model=AskResponse)
@@ -534,8 +527,6 @@ def ask(dataset_id: str, question: str, session_id: str | None = None, principal
         raise
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not answer the question: {exc}") from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/actions", response_model=ActionsResponse)
@@ -546,8 +537,6 @@ def actions(dataset_id: str, session_id: str | None = None, principal: Principal
         raise
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not build actions: {exc}") from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/report", response_model=ReportResponse)
@@ -558,8 +547,6 @@ def report(dataset_id: str, session_id: str | None = None, principal: Principal 
         raise
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not build report: {exc}") from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/alerts", response_model=AlertsResponse)

@@ -213,7 +213,8 @@ class CorrelationMiddleware:
         finally:
             duration_ms = (time.perf_counter() - start_time) * 1000
 
-            route_path = scope.get("route").path if "route" in scope else scope.get("path", "unknown")
+            route = scope.get("route")
+            route_path = route.path if route and hasattr(route, "path") else "unmatched_route"
             method = scope.get("method", "GET")
 
             http_info = {

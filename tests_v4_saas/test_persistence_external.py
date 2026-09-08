@@ -8,7 +8,9 @@ class FakeS3:
     def upload_fileobj(self,s,b,k): self.objects[(b,k)]=s.read()
     def download_file(self,b,k,f): Path(f).write_bytes(self.objects[(b,k)])
     def head_object(self,Bucket,Key):
-        if (Bucket,Key) not in self.objects: raise KeyError(Key)
+        if (Bucket,Key) not in self.objects:
+            import botocore.exceptions
+            raise botocore.exceptions.ClientError({"Error": {"Code": "404"}}, "HeadObject")
     def delete_object(self,Bucket,Key): self.objects.pop((Bucket,Key),None)
 
 def test_s3_adapter_round_trip(tmp_path):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Any
 
 from business_type_detector_v1 import detect_business_type
 from data_quality_engine_v1 import run_data_quality_checks
@@ -45,9 +45,36 @@ def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:
     return SemanticSummary(fields=fields, concepts=concepts, metrics=metrics, dimensions=dimensions)
 
 
+class BoundedStream:
+    def __init__(self, stream: BinaryIO, max_bytes: int):
+        self._stream = stream
+        self._max_bytes = max_bytes
+        self._bytes_read = 0
+
+    def read(self, size: int = -1) -> bytes:
+        remaining_allowed = self._max_bytes - self._bytes_read
+        if remaining_allowed < 0:
+            raise ValueError("File exceeds maximum allowed upload size.")
+
+        if size == -1 or size > remaining_allowed:
+            safe_size = remaining_allowed + 1
+        else:
+            safe_size = size
+
+        chunk = self._stream.read(safe_size)
+        if chunk:
+            self._bytes_read += len(chunk)
+            if self._bytes_read > self._max_bytes:
+                raise ValueError("File exceeds maximum allowed upload size.")
+        return chunk
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
+
 def _save_upload(file_name: str, stream: BinaryIO, dataset_id: str) -> Path:
     suffix = Path(file_name).suffix.lower()
-    return runtime_object_store(local_root=STORAGE).put_stream(f"{dataset_id}{suffix}", stream)
+    bounded = BoundedStream(stream, settings.upload_max_bytes)
+    return runtime_object_store(local_root=STORAGE).put_stream(f"{dataset_id}{suffix}", bounded)
 
 
 def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary:
@@ -87,8 +114,8 @@ def onboard(file_name: str, stream: BinaryIO, organization_id: str | None = None
         raise ValueError("Supported files are CSV, XLSX, and XLS.")
 
     dataset_id = uuid.uuid4().hex
-    path = _save_upload(file_name, stream, dataset_id)
     try:
+        path = _save_upload(file_name, stream, dataset_id)
         return _profile(path, file_name, dataset_id, organization_id=organization_id, workspace_id=workspace_id)
     except Exception:
         runtime_object_store(local_root=STORAGE).delete(f"{dataset_id}{suffix}")

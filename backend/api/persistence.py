@@ -168,7 +168,10 @@ class S3ObjectStore:
         return cache
     def exists(self,key:str)->bool:
         try: self.client.head_object(Bucket=self.bucket,Key=self._key(key)); return True
-        except Exception: return False
+        except Exception as exc:
+            import botocore.exceptions
+            if isinstance(exc, botocore.exceptions.ClientError) and exc.response.get("Error", {}).get("Code") == "404": return False
+            raise PersistenceConfigurationError(f"Object-store object is unavailable: {key}") from exc
     def delete(self,key:str)->None:
         self.client.delete_object(Bucket=self.bucket,Key=self._key(key)); self._cache_path(key).unlink(missing_ok=True)
 
