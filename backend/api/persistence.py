@@ -163,8 +163,21 @@ class S3ObjectStore:
     def path_for(self,key:str)->Path:
         cache=self._cache_path(key)
         if not cache.exists():
-            try: self.client.download_file(self.bucket,self._key(key),str(cache))
-            except Exception as exc: cache.unlink(missing_ok=True); raise PersistenceConfigurationError(f'Object-store object is unavailable: {key}') from exc
+            import uuid
+            import botocore.exceptions
+            temp_path = self.temp_root/f"{cache.name}.{uuid.uuid4().hex}.tmp"
+            try:
+                self.client.download_file(self.bucket,self._key(key),str(temp_path))
+                temp_path.replace(cache)
+            except (FileExistsError, PermissionError) as exc:
+                if getattr(exc, 'winerror', None) == 32 and cache.exists(): pass
+                else: raise
+            except Exception as exc:
+                if isinstance(exc, botocore.exceptions.ClientError) and exc.response.get("Error", {}).get("Code") == "404":
+                    raise ValueError("Dataset file is no longer available for analysis.") from exc
+                raise
+            finally:
+                temp_path.unlink(missing_ok=True)
         return cache
     def exists(self,key:str)->bool:
         try: self.client.head_object(Bucket=self.bucket,Key=self._key(key)); return True
