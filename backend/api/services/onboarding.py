@@ -78,10 +78,9 @@ def _save_upload(file_name: str, stream: BinaryIO, dataset_id: str) -> Path:
 
 
 def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: str | None = None, workspace_id: str | None = None) -> DatasetSummary:
-    profile = profile_dataframe(file_path)
     from schema_profiler_v2 import load_dataframe
-
     data = load_dataframe(file_path)
+    profile = profile_dataframe(data)
     semantic = build_semantic_model(profile, data=data)
     quality = run_data_quality_checks(data, semantic)
     business_type = detect_business_type(semantic, profile)

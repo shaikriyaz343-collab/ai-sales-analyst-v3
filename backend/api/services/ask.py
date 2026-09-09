@@ -134,7 +134,7 @@ def answer_question(dataset_id: str, question: str, scope=None) -> AskResponse:
         raise ValueError("Dataset file is no longer available for analysis.")
 
     data = load_dataframe(path)
-    profile = profile_dataframe(path)
+    profile = profile_dataframe(data)
     semantic = build_semantic_model(profile, data=data)
     business = detect_business_type(semantic, profile)
     primary = business.get("primary_type") or summary.business_model

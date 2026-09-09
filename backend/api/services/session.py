@@ -27,8 +27,8 @@ def _canonical_fields(dataset_id: str) -> set[str]:
     path = runtime_object_store(local_root=STORAGE).path_for(f"{dataset_id}{suffix}")
     if not path.exists():
         raise ValueError("Dataset file is no longer available for analysis.")
-    profile = profile_dataframe(path)
     data = load_dataframe(path)
+    profile = profile_dataframe(data)
     semantic = build_semantic_model(profile, data=data)
     concepts = set(str(x) for x in semantic.get("available_concepts", []))
     return {str(x) for x in data.columns} | concepts
@@ -107,7 +107,7 @@ def scope_values(session_id: str, field: str, limit: int = 100) -> list[str]:
     suffix = Path(summary.file_name).suffix.lower()
     path = runtime_object_store(local_root=STORAGE).path_for(f"{session.dataset_id}{suffix}")
     data = load_dataframe(path)
-    profile = profile_dataframe(path)
+    profile = profile_dataframe(data)
     canonical = build_semantic_model(profile, data=data)
     # Prefer the canonical semantic field where available, otherwise raw column.
     source = data[field] if field in data.columns else None

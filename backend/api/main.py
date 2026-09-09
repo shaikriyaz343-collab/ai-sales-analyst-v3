@@ -361,7 +361,7 @@ def _scope_for(principal: Principal, dataset_id: str, session_id: str | None):
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
-def health() -> HealthResponse:
+async def health() -> HealthResponse:
     return HealthResponse(status="ok", product="AI Sales Analyst", version="4.1.0-alpha.1")
 
 
