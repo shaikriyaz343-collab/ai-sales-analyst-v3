@@ -162,3 +162,17 @@ def test_production_requires_external_persistence(monkeypatch):
     for key, value in {"V4_ENVIRONMENT":"production","V4_RUNTIME_ROOT":"/srv/ai-sales-analyst","V4_FRONTEND_ORIGINS":"https://app.example.com","V4_TRUSTED_HOSTS":"api.example.com","V4_AUTH_SECURE_COOKIE":"true","V4_AUTH_COOKIE_NAME":"__Host-v4_auth_session","V4_SECURITY_HEADERS_ENABLED":"true","V4_PERSISTENCE_MODE":"local"}.items(): monkeypatch.setenv(key,value)
     with pytest.raises(ConfigurationError, match="must be external"):
         load_settings()
+
+
+def test_cache_max_bytes_cannot_be_less_than_upload_max_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('V4_UPLOAD_MAX_BYTES', '1000')
+    monkeypatch.setenv('V4_CACHE_MAX_BYTES', '500')
+    with pytest.raises(ConfigurationError, match='V4_CACHE_MAX_BYTES cannot be less than V4_UPLOAD_MAX_BYTES.'):
+        load_settings()
+
+def test_cache_max_bytes_equals_upload_max_bytes_is_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('V4_UPLOAD_MAX_BYTES', '1000')
+    monkeypatch.setenv('V4_CACHE_MAX_BYTES', '1000')
+    settings = load_settings()
+    assert settings.cache_max_bytes == 1000
+    assert settings.upload_max_bytes == 1000

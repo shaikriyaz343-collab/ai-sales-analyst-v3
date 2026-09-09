@@ -159,17 +159,13 @@ def test_existing_valid_cache_never_replaced_by_failed_download(materialization_
 
 
 
-def test_expected_concurrent_windows_sharing_violation_with_cache(materialization_harness, monkeypatch):
+def test_simulated_concurrent_publication_wins(materialization_harness, monkeypatch):
     test_settings, fake_s3, store = materialization_harness
     fake_s3.objects[("test-bucket", "test.csv")] = b"amount\n100\n"
 
-    # 1. Pre-create the valid cache (simulating the other worker succeeded)
     cache = store._cache_path("test.csv")
     cache.write_bytes(b"amount\n100\n")
 
-    # 2. To test the suppress path, we must bypass the initial cache.exists() check!
-    # Let's mock Path.exists to return False on the FIRST call (for the initial check),
-    # but True on subsequent calls (for the check in the except block).
     original_exists = Path.exists
     call_count = 0
     def mock_exists(self):
@@ -182,29 +178,26 @@ def test_expected_concurrent_windows_sharing_violation_with_cache(materializatio
 
     monkeypatch.setattr(Path, "exists", mock_exists)
 
-    # 3. Simulate Windows sharing violation during replace
     def mock_replace(*args, **kwargs):
-        exc = PermissionError("Sharing Violation")
-        exc.winerror = 32
+        exc = PermissionError("Access Denied")
+        exc.winerror = 5
         raise exc
 
     monkeypatch.setattr(Path, "replace", mock_replace)
 
-    # 4. Request the path. It should suppress the sharing violation and return the cache.
     path = store.path_for("test.csv")
     assert path == cache
     assert path.read_bytes() == b"amount\n100\n"
 
-    # 5. Temp file should be cleaned up!
     tmps = list(test_settings.object_store_temp_root.glob("*.tmp"))
     assert len(tmps) == 0
 
-def test_genuine_permission_error_with_existing_cache_propagates(materialization_harness, monkeypatch):
+def test_winerror_5_with_stale_cache_propagates(materialization_harness, monkeypatch):
     test_settings, fake_s3, store = materialization_harness
     fake_s3.objects[("test-bucket", "test.csv")] = b"amount\n100\n"
 
     cache = store._cache_path("test.csv")
-    cache.write_bytes(b"amount\n100\n")
+    cache.write_bytes(b"amount\n100\nEXTRA") # DIFFERENT SIZE!
 
     original_exists = Path.exists
     call_count = 0
@@ -217,7 +210,6 @@ def test_genuine_permission_error_with_existing_cache_propagates(materialization
 
     monkeypatch.setattr(Path, "exists", mock_exists)
 
-    # This time it's a genuine PermissionError (e.g., winerror=5 Access Denied, or None on POSIX)
     def mock_replace(*args, **kwargs):
         exc = PermissionError("Access Denied")
         exc.winerror = 5
@@ -232,17 +224,15 @@ def test_genuine_permission_error_with_no_cache_propagates(materialization_harne
     test_settings, fake_s3, store = materialization_harness
     fake_s3.objects[("test-bucket", "test.csv")] = b"amount\n100\n"
 
-    # No cache exists at all
     def mock_replace(*args, **kwargs):
-        exc = PermissionError("Sharing Violation")
-        exc.winerror = 32
+        exc = PermissionError("Access Denied")
+        exc.winerror = 5
         raise exc
 
     monkeypatch.setattr(Path, "replace", mock_replace)
 
-    with pytest.raises(PermissionError, match="Sharing Violation"):
+    with pytest.raises(PermissionError, match="Access Denied"):
         store.path_for("test.csv")
 
-    # Check no temp file leak
     tmps = list(test_settings.object_store_temp_root.glob("*.tmp"))
     assert len(tmps) == 0

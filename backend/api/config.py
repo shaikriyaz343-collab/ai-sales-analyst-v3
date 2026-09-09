@@ -70,6 +70,7 @@ class Settings:
     auth_storage: Path
     data_storage: Path
     upload_max_bytes: int
+    cache_max_bytes: int
     security_headers_enabled: bool
     hsts_max_age: int
     auth_login_ip_limit: int
@@ -212,6 +213,12 @@ def load_settings() -> Settings:
             )
 
     upload_max_bytes = _positive_int_env("V4_UPLOAD_MAX_BYTES", 50 * 1024 * 1024)
+    cache_max_bytes = _positive_int_env("V4_CACHE_MAX_BYTES", 5 * 1024 * 1024 * 1024)
+
+    if cache_max_bytes < upload_max_bytes:
+        raise ConfigurationError(
+            "V4_CACHE_MAX_BYTES cannot be less than V4_UPLOAD_MAX_BYTES."
+        )
 
     security_headers_enabled = _bool_env(
         "V4_SECURITY_HEADERS_ENABLED",
@@ -292,6 +299,7 @@ def load_settings() -> Settings:
         auth_storage=auth_storage,
         data_storage=data_storage,
         upload_max_bytes=upload_max_bytes,
+        cache_max_bytes=cache_max_bytes,
         security_headers_enabled=security_headers_enabled,
         hsts_max_age=hsts_max_age,
         auth_login_ip_limit=auth_login_ip_limit,

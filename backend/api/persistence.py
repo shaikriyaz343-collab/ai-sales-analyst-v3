@@ -136,6 +136,7 @@ class S3ObjectStore:
     def __init__(self,bucket:str,region:str,endpoint_url:str|None=None,access_key:str|None=None,secret_key:str|None=None,prefix:str="",temp_root:Path|None=None,client:Any|None=None)->None:
         if not bucket or not region: raise PersistenceConfigurationError("V4_OBJECT_STORE_BUCKET and V4_OBJECT_STORE_REGION are required for external persistence.")
         self.bucket=bucket; self.region=region; self.prefix=prefix.strip("/"); self.temp_root=(temp_root or Path(tempfile.gettempdir())/"ai-sales-analyst-v4-objects").resolve(); self.temp_root.mkdir(parents=True,exist_ok=True)
+        self._cleanup_orphaned_tmps()
         if client is not None: self.client=client; return
         try:
             import boto3
@@ -158,6 +159,54 @@ class S3ObjectStore:
         return f'{self.prefix}/{clean}' if self.prefix else clean
     def _cache_path(self,key:str)->Path:
         return self.temp_root/f"{hashlib.sha256(self._key(key).encode()).hexdigest()}{Path(key).suffix}"
+
+    def _cleanup_orphaned_tmps(self):
+        for p in self.temp_root.glob("*.tmp"):
+            try:
+                p.unlink()
+            except FileNotFoundError:
+                pass
+            except PermissionError as exc:
+                if getattr(exc, 'winerror', None) == 32:
+                    pass
+                else:
+                    raise
+
+    def _update_recency(self, path: Path):
+        try:
+            import time, os
+            now = time.time()
+            os.utime(path, (now, now))
+        except OSError: pass
+
+    def _evict_if_needed(self):
+        import os
+        from backend.api.config import settings
+        cap = settings.cache_max_bytes
+
+        files_with_stats = []
+        for p in self.temp_root.iterdir():
+            if p.is_file() and not p.name.endswith(".tmp"):
+                try:
+                    stat = p.stat()
+                    files_with_stats.append((p, stat.st_size, stat.st_mtime))
+                except FileNotFoundError: pass
+
+        total_bytes = sum(size for _, size, _ in files_with_stats)
+        if total_bytes <= cap: return
+
+        files_with_stats.sort(key=lambda x: x[2])
+        for p, size, _ in files_with_stats:
+            if total_bytes <= cap: break
+            try:
+                p.unlink()
+                total_bytes -= size
+            except (FileNotFoundError, PermissionError) as exc:
+                if isinstance(exc, PermissionError):
+                    if getattr(exc, 'winerror', None) == 32: continue
+                    raise
+                total_bytes -= size
+
     def put_stream(self,key:str,stream:BinaryIO)->Path:
         import uuid
         cache = self._cache_path(key)
@@ -170,6 +219,8 @@ class S3ObjectStore:
             temp_path.replace(cache)
         finally:
             temp_path.unlink(missing_ok=True)
+        self._update_recency(cache)
+        self._evict_if_needed()
         return cache
     def path_for(self,key:str)->Path:
         cache=self._cache_path(key)
@@ -179,16 +230,21 @@ class S3ObjectStore:
             temp_path = self.temp_root/f"{cache.name}.{uuid.uuid4().hex}.tmp"
             try:
                 self.client.download_file(self.bucket,self._key(key),str(temp_path))
-                temp_path.replace(cache)
-            except (FileExistsError, PermissionError) as exc:
-                if getattr(exc, 'winerror', None) == 32 and cache.exists(): pass
-                else: raise
+                try:
+                    temp_path.replace(cache)
+                except OSError:
+                    if cache.exists() and cache.stat().st_size == temp_path.stat().st_size:
+                        pass
+                    else:
+                        raise
             except Exception as exc:
                 if isinstance(exc, botocore.exceptions.ClientError) and exc.response.get("Error", {}).get("Code") == "404":
                     raise ValueError("Dataset file is no longer available for analysis.") from exc
                 raise
             finally:
                 temp_path.unlink(missing_ok=True)
+        self._update_recency(cache)
+        self._evict_if_needed()
         return cache
     def exists(self,key:str)->bool:
         try: self.client.head_object(Bucket=self.bucket,Key=self._key(key)); return True

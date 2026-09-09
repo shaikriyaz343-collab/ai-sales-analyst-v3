@@ -6,6 +6,7 @@ from backend.api.persistence import S3ObjectStore, PersistenceConfigurationError
 class FakeS3:
     def __init__(self): self.objects={}
     def upload_fileobj(self,s,b,k): self.objects[(b,k)]=s.read()
+    def upload_file(self,f,b,k): self.objects[(b,k)]=Path(f).read_bytes()
     def download_file(self,b,k,f): Path(f).write_bytes(self.objects[(b,k)])
     def head_object(self,Bucket,Key):
         if (Bucket,Key) not in self.objects:
