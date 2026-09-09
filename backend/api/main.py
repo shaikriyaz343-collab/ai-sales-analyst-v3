@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 import enum
 from typing import Annotated
 
+import anyio
+
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 
 class LifecycleState(enum.Enum):
@@ -85,6 +87,7 @@ from .services.saved_intelligence import list_saved, save_intelligence, delete_s
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.analytics_limiter = anyio.CapacityLimiter(settings.analytics_concurrency)
     app_state.lifecycle = LifecycleState.STARTING
     if settings.persistence_mode == "external":
         from . import runtime_persistence
@@ -108,6 +111,7 @@ async def lifespan(app: FastAPI):
             app_state.lifecycle = LifecycleState.SHUTTING_DOWN
             reset_external_auth()
             runtime_persistence.reset_runtime_persistence()
+            app.state.analytics_limiter = None
     else:
         from .runtime_persistence import start_runtime_persistence, reset_runtime_persistence
         try:
@@ -120,6 +124,7 @@ async def lifespan(app: FastAPI):
         finally:
             app_state.lifecycle = LifecycleState.SHUTTING_DOWN
             reset_runtime_persistence()
+            app.state.analytics_limiter = None
 
 app = FastAPI(title="AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan)
 app.add_middleware(
@@ -173,6 +178,22 @@ app.add_middleware(SecurityHeadersMiddleware)
 import logging
 import traceback
 import psycopg
+
+async def require_analysis_capacity(request: Request):
+    limiter = request.app.state.analytics_limiter
+    try:
+        limiter.acquire_nowait()
+    except anyio.WouldBlock:
+        raise HTTPException(
+            status_code=503,
+            detail="Analytics engine is currently at maximum capacity."
+        )
+
+    try:
+        yield
+    finally:
+        limiter.release()
+
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
@@ -490,7 +511,7 @@ def dataset(dataset_id: str, principal: Principal = Depends(require_user)):
 
 
 @app.get("/api/v1/datasets/{dataset_id}/overview", response_model=OverviewResponse)
-def overview(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> OverviewResponse:
+def overview(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> OverviewResponse:
     try:
         return build_overview(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
@@ -500,7 +521,7 @@ def overview(dataset_id: str, session_id: str | None = None, principal: Principa
 
 
 @app.get("/api/v1/datasets/{dataset_id}/explore", response_model=ExploreResponse)
-def explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8, session_id: str | None = None, principal: Principal = Depends(require_user)) -> ExploreResponse:
+def explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ExploreResponse:
     try:
         return build_explore(dataset_id, metric, dimension, limit, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
@@ -510,7 +531,7 @@ def explore(dataset_id: str, metric: str | None = None, dimension: str | None = 
 
 
 @app.get("/api/v1/datasets/{dataset_id}/insights", response_model=InsightsResponse)
-def insights(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> InsightsResponse:
+def insights(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> InsightsResponse:
     try:
         return build_insights(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
@@ -520,7 +541,7 @@ def insights(dataset_id: str, session_id: str | None = None, principal: Principa
 
 
 @app.post("/api/v1/datasets/{dataset_id}/ask", response_model=AskResponse)
-def ask(dataset_id: str, question: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> AskResponse:
+def ask(dataset_id: str, question: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> AskResponse:
     try:
         return answer_question(dataset_id, question, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
@@ -530,7 +551,7 @@ def ask(dataset_id: str, question: str, session_id: str | None = None, principal
 
 
 @app.get("/api/v1/datasets/{dataset_id}/actions", response_model=ActionsResponse)
-def actions(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> ActionsResponse:
+def actions(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ActionsResponse:
     try:
         return build_actions(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
@@ -540,7 +561,7 @@ def actions(dataset_id: str, session_id: str | None = None, principal: Principal
 
 
 @app.get("/api/v1/datasets/{dataset_id}/report", response_model=ReportResponse)
-def report(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> ReportResponse:
+def report(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ReportResponse:
     try:
         return build_report(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
@@ -584,7 +605,7 @@ def remove_alert(dataset_id: str, rule_id: str, session_id: str | None = None, p
 
 
 @app.post("/api/v1/datasets/{dataset_id}/alerts/evaluate", response_model=AlertsResponse)
-def evaluate_dataset_alerts(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> AlertsResponse:
+def evaluate_dataset_alerts(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> AlertsResponse:
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
     _session_for(principal, session_id, dataset_id)
@@ -656,7 +677,7 @@ def session_scope_reset(session_id: str, principal: Principal = Depends(require_
 
 
 @app.get("/api/v1/datasets/{dataset_id}/saved", response_model=SavedIntelligenceResponse)
-def saved(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user)) -> SavedIntelligenceResponse:
+def saved(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> SavedIntelligenceResponse:
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
     _session_for(principal, session_id, dataset_id)
@@ -667,7 +688,7 @@ def saved(dataset_id: str, session_id: str | None = None, principal: Principal =
 
 
 @app.post("/api/v1/datasets/{dataset_id}/saved", response_model=SavedIntelligence)
-def save(dataset_id: str, request: SavedIntelligenceCreate, session_id: str | None = None, principal: Principal = Depends(require_user)) -> SavedIntelligence:
+def save(dataset_id: str, request: SavedIntelligenceCreate, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> SavedIntelligence:
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
     _session_for(principal, session_id, dataset_id)

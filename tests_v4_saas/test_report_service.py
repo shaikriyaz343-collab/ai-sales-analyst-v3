@@ -63,18 +63,18 @@ def test_report_missing_dataset_rejected():
 
 
 def test_report_api_endpoint_returns_composed_report():
-    client = TestClient(__import__("backend.api.main", fromlist=["app"]).app)
-    signup = client.post("/api/v1/auth/signup", json={"email": f"report-{uuid4().hex}@example.com", "password": "StrongPassword1!", "name": "Report User", "organization_name": "Report Org"})
-    assert signup.status_code == 200
-    sample = SAMPLES / "pipeline.csv"
-    with sample.open("rb") as fh:
-        uploaded = client.post("/api/v1/onboarding/profile", files={"file": ("pipeline.csv", fh, "text/csv")})
-    assert uploaded.status_code == 200, uploaded.text
-    summary = uploaded.json()["dataset"]
-    response = client.get(f"/api/v1/datasets/{summary['dataset_id']}/report", params={"session_id": uploaded.json()["session_id"]})
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["dataset_id"] == summary["dataset_id"]
-    assert body["business_model"] == "sales_pipeline"
-    assert body["metrics"]
-    assert body["actions"] or body["attention"] or body["opportunities"]
+    with TestClient(__import__("backend.api.main", fromlist=["app"]).app) as client:
+        signup = client.post("/api/v1/auth/signup", json={"email": f"report-{uuid4().hex}@example.com", "password": "StrongPassword1!", "name": "Report User", "organization_name": "Report Org"})
+        assert signup.status_code == 200
+        sample = SAMPLES / "pipeline.csv"
+        with sample.open("rb") as fh:
+            uploaded = client.post("/api/v1/onboarding/profile", files={"file": ("pipeline.csv", fh, "text/csv")})
+        assert uploaded.status_code == 200, uploaded.text
+        summary = uploaded.json()["dataset"]
+        response = client.get(f"/api/v1/datasets/{summary['dataset_id']}/report", params={"session_id": uploaded.json()["session_id"]})
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["dataset_id"] == summary["dataset_id"]
+        assert body["business_model"] == "sales_pipeline"
+        assert body["metrics"]
+        assert body["actions"] or body["attention"] or body["opportunities"]

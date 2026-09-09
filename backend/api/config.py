@@ -86,6 +86,7 @@ class Settings:
     database_timeout_connect: int
     database_timeout_statement: int
     database_timeout_pool: int
+    analytics_concurrency: int
     object_store_timeout_connect: int
     object_store_timeout_read: int
     persistence_mode: str
@@ -315,6 +316,7 @@ def load_settings() -> Settings:
         database_timeout_connect=database_timeout_connect,
         database_timeout_statement=database_timeout_statement,
         database_timeout_pool=database_timeout_pool,
+        analytics_concurrency=_positive_int_env("V4_ANALYTICS_CONCURRENCY", 4),
         object_store_timeout_connect=object_store_timeout_connect,
         object_store_timeout_read=object_store_timeout_read,
         persistence_mode=persistence_mode,

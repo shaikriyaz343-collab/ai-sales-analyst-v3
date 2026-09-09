@@ -35,6 +35,7 @@ def _settings(tmp_path):
         object_store_secret_key=None,
         object_store_prefix="v4",
         object_store_temp_root=tmp_path / "cache",
+        analytics_concurrency=4,
     )
 
 
