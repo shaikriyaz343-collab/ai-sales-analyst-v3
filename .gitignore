@@ -30,3 +30,6 @@ runtime_monitoring/
 runtime_saved_intelligence/
 runtime_sessions/
 runtime_saas/
+
+# V4 Playwright output at repository root
+/test-results/
