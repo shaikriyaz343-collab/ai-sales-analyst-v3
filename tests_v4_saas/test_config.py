@@ -56,6 +56,7 @@ def test_production_requires_secure_host_cookie(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app?sslmode=require")
     monkeypatch.setenv("V4_OBJECT_STORE_BUCKET", "app-data")
     monkeypatch.setenv("V4_OBJECT_STORE_REGION", "ap-south-1")
+    monkeypatch.setenv("V4_OBJECT_STORE_ENDPOINT_URL", "https://objects.example.com")
 
     settings = load_settings()
     assert settings.is_production
@@ -143,6 +144,7 @@ def test_production_can_declare_external_persistence(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("V4_DATABASE_URL", "postgresql://user:password@example.com/app?sslmode=require")
     monkeypatch.setenv("V4_OBJECT_STORE_BUCKET", "app-data")
     monkeypatch.setenv("V4_OBJECT_STORE_REGION", "ap-south-1")
+    monkeypatch.setenv("V4_OBJECT_STORE_ENDPOINT_URL", "https://objects.example.com")
 
     settings = load_settings()
 

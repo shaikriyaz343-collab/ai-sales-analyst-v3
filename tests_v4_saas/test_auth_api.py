@@ -30,6 +30,28 @@ def test_auth_signup_me_and_logout(tmp_path, monkeypatch):
     assert client.get("/api/v1/auth/me").status_code == 401
 
 
+
+
+def test_auth_cookie_samesite_configuration(monkeypatch):
+    import backend.api.main as main
+    from dataclasses import replace
+    from starlette.responses import Response
+
+    monkeypatch.setattr(
+        main,
+        "settings",
+        replace(main.settings, auth_cookie_samesite="none"),
+    )
+    monkeypatch.setattr(main, "COOKIE_SECURE", True)
+
+    response = Response()
+    main._set_session_cookie(response, "test-token")
+
+    cookie = response.headers["set-cookie"].lower()
+    assert "samesite=none" in cookie
+    assert "secure" in cookie
+
+
 def test_protected_data_route_requires_auth(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.get("/api/v1/datasets/does-not-exist")

@@ -54,6 +54,11 @@ def _positive_int_env(name: str, default: int) -> int:
         raise ConfigurationError(f"{name} must be greater than zero.")
     return value
 
+def _samesite_env(name: str, default: str) -> str:
+    raw = (_env(name, default) or default).lower()
+    if raw not in {"lax", "strict", "none"}:
+        raise ConfigurationError(f"{name} must be one of: lax, strict, none.")
+    return raw
 
 def _default_runtime_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -65,6 +70,7 @@ class Settings:
     frontend_origins: tuple[str, ...]
     trusted_hosts: tuple[str, ...]
     secure_cookie: bool
+    auth_cookie_samesite: str
     cookie_name: str
     runtime_root: Path
     auth_storage: Path
@@ -184,6 +190,11 @@ def load_settings() -> Settings:
         raise ConfigurationError(
             "V4_AUTH_SECURE_COOKIE must be true in production."
         )
+    auth_cookie_samesite = _samesite_env("V4_AUTH_COOKIE_SAMESITE", "lax")
+    if auth_cookie_samesite == "none" and not secure_cookie:
+        raise ConfigurationError(
+            "V4_AUTH_COOKIE_SAMESITE=none requires V4_AUTH_SECURE_COOKIE=true."
+        )
 
     cookie_name = _env("V4_AUTH_COOKIE_NAME", "v4_auth_session") or "v4_auth_session"
     if environment == "production" and not cookie_name.startswith("__Host-"):
@@ -295,6 +306,7 @@ def load_settings() -> Settings:
         frontend_origins=frontend_origins,
         trusted_hosts=trusted_hosts,
         secure_cookie=secure_cookie,
+        auth_cookie_samesite=auth_cookie_samesite,
         cookie_name=cookie_name,
         runtime_root=runtime_root,
         auth_storage=auth_storage,
