@@ -59,6 +59,7 @@ export type Evidence = {
   calculation: string;
   scope: string;
   source_fields: string[];
+  source_records: string[];
 };
 
 export type OverviewMetric = {
@@ -110,6 +111,7 @@ export type ExploreEvidence = {
   calculation: string;
   scope: string;
   source_fields: string[];
+  source_records: string[];
 };
 export type ExploreRow = {
   key: string;
@@ -167,6 +169,7 @@ export type AskAnswer = { status: string; text: string; confidence: string; evid
 export type AskResponse = {
   dataset_id: string; question: string; business_model: string | null; business_model_label: string | null;
   answer: AskAnswer; follow_ups: AskFollowUp[]; explore_metric?: string | null; explore_dimension?: string | null; supported_summary?: string | null;
+  analytical_plan?: { intent: string; metric?: string | null; dimension?: string | null; direction?: string | null; evidence_requested?: boolean; supported?: boolean; reason?: string } | null;
 };
 
 export type ActionItem = {
