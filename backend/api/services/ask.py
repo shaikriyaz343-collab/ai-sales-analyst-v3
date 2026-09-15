@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from business_type_detector_v1 import detect_business_type
-from schema_profiler_v2 import build_semantic_model
 from schema_profiler_v2 import load_dataframe, profile_dataframe
+from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import AskAnswer, AskEvidence, AskResponse, AskFollowUp
 from .ask_planner import AnalyticalPlan, build_plan
@@ -111,7 +111,7 @@ def _answer_causal(summary, question: str, scope, plan: AnalyticalPlan) -> AskRe
     )
 
 
-def _execute_ranking(summary, overview, question: str, scope, plan: AnalyticalPlan) -> AskResponse:
+def _execute_ranking(summary, question: str, scope, plan: AnalyticalPlan) -> AskResponse:
     if not plan.supported or not plan.metric or not plan.dimension:
         return AskResponse(
             dataset_id=summary.dataset_id,
@@ -202,7 +202,7 @@ def answer_question(dataset_id: str, question: str, scope=None) -> AskResponse:
         return _answer_causal(summary, question, scope, plan)
 
     if plan.intent == "ranking":
-        return _execute_ranking(summary, overview, question, scope, plan)
+        return _execute_ranking(summary, question, scope, plan)
 
     if plan.intent == "metric" and plan.metric:
         answer, followups = _answer_from_overview(summary, overview, question, plan.metric)
