@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { Workspace } from "../lib/types";
 import { getScopeValues, onboardDataset, resetSessionScope, updateSessionScope } from "../lib/api";
 import { useAppState } from "../lib/app-state";
