@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from business_analysis_packs_v1 import analyze_sales_forecast
 from business_type_detector_v1 import detect_business_type
-from schema_profiler_v2 import load_dataframe, profile_dataframe
+from schema_profiler_v2 import load_dataframe, normalize_column_name, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import Evidence, ForecastMonthly, ForecastResponse
 from .onboarding import STORAGE, get_dataset
 from .session import apply_scope, scope_label
+
+
+def _actual_column(data, *aliases: str) -> str | None:
+    wanted = {normalize_column_name(alias) for alias in aliases}
+    return next((str(column) for column in data.columns if normalize_column_name(column) in wanted), None)
 
 
 def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
@@ -39,16 +43,11 @@ def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
 
     probability_available = bool(result["metrics"].get("has_probability"))
     note = "Weighted forecast uses the validated probability field on open opportunities." if probability_available else str(result["notes"][0])
-    source_fields = [
-        field
-        for field in (
-            "expected_close" if "expected_close" in data.columns else "close_date" if "close_date" in data.columns else None,
-            "amount" if "amount" in data.columns else "pipeline_amount" if "pipeline_amount" in data.columns else "revenue" if "revenue" in data.columns else None,
-            "probability" if "probability" in data.columns else "win_probability" if "win_probability" in data.columns else None,
-            "stage" if "stage" in data.columns else "opportunity_stage" if "opportunity_stage" in data.columns else None,
-        )
-        if field
-    ]
+    close_col = _actual_column(data, "expected_close", "expected close", "expected close date", "close date")
+    amount_col = _actual_column(data, "amount", "deal amount", "opportunity amount", "pipeline amount", "revenue")
+    probability_col = _actual_column(data, "probability", "win probability", "close probability")
+    stage_col = _actual_column(data, "stage", "opportunity stage", "deal stage")
+    source_fields = [field for field in (close_col, amount_col, probability_col, stage_col) if field]
 
     weighted_value = float(result["metrics"]["weighted_forecast"])
     open_value = float(result["metrics"]["open_pipeline_value"])
