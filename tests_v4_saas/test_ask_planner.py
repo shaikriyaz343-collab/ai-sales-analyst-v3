@@ -36,11 +36,12 @@ def test_plan_direct_metric_selects_validated_metric() -> None:
     assert plan.supported is True
 
 
-def test_plan_ranking_selects_dimension_and_direction() -> None:
+def test_plan_ranking_selects_validated_dimension_and_direction() -> None:
     plan = build_plan(
         "Which stage has the highest pipeline?",
         "sales_pipeline",
         _overview("pipeline_value", "win_rate"),
+        validated_dimensions=["stage", "salesperson"],
     )
 
     assert plan.intent == "ranking"
@@ -55,6 +56,7 @@ def test_plan_lowest_ranking_is_explicit() -> None:
         "Which salesperson has the lowest win rate?",
         "sales_pipeline",
         _overview("pipeline_value", "win_rate"),
+        validated_dimensions=["stage", "salesperson"],
     )
 
     assert plan.intent == "ranking"
@@ -72,12 +74,30 @@ def test_plan_causal_question_uses_validated_metric_when_present() -> None:
 
 
 def test_plan_refuses_unvalidated_ranking_without_dimension() -> None:
-    plan = build_plan("Which metric is highest?", "sales_pipeline", _overview("pipeline_value"))
+    plan = build_plan(
+        "Which customer has the highest pipeline?",
+        "sales_pipeline",
+        _overview("pipeline_value"),
+        validated_dimensions=["stage"],
+    )
 
     assert plan.intent == "ranking"
     assert plan.supported is False
     assert plan.dimension is None
     assert "validated dimension" in plan.reason
+
+
+def test_plan_refuses_ranking_when_no_validated_dimensions_are_available() -> None:
+    plan = build_plan(
+        "Which stage has the highest pipeline?",
+        "sales_pipeline",
+        _overview("pipeline_value"),
+        validated_dimensions=[],
+    )
+
+    assert plan.intent == "ranking"
+    assert plan.supported is False
+    assert plan.dimension is None
 
 
 def test_plan_refuses_metric_not_exposed_by_overview() -> None:
