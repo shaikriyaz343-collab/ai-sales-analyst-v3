@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+
+import pandas as pd
 
 from business_analysis_packs_v1 import analyze_sales_forecast
 from business_type_detector_v1 import detect_business_type
@@ -12,9 +15,31 @@ from .onboarding import STORAGE, get_dataset
 from .session import apply_scope, scope_label
 
 
-def _actual_column(data, *aliases: str) -> str | None:
+def _actual_column(data: pd.DataFrame, *aliases: str) -> str | None:
     wanted = {normalize_column_name(alias) for alias in aliases}
     return next((str(column) for column in data.columns if normalize_column_name(column) in wanted), None)
+
+
+def _record_ids_by_month(data: pd.DataFrame, stage_col: str | None, close_col: str | None, record_col: str | None) -> dict[str, list[str]]:
+    if not record_col or record_col not in data.columns:
+        return {}
+    working = data.copy()
+    if stage_col and stage_col in working.columns:
+        stage = working[stage_col].astype(str).str.strip().str.lower()
+        working = working[~stage.isin({"closed won", "won", "closed lost", "lost"})]
+    if close_col and close_col in working.columns:
+        dates = pd.to_datetime(working[close_col], errors="coerce")
+        working = working.assign(_forecast_month=dates.dt.to_period("M").astype("string"))
+    else:
+        return {}
+    result: dict[str, list[str]] = {}
+    for _, row in working.dropna(subset=["_forecast_month"]).iterrows():
+        month = str(row["_forecast_month"])
+        record_id = str(row[record_col]).strip()
+        if not record_id or record_id.lower() == "nan":
+            continue
+        result.setdefault(month, []).append(record_id)
+    return {month: sorted(set(ids)) for month, ids in result.items()}
 
 
 def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
@@ -47,7 +72,10 @@ def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
     amount_col = _actual_column(data, "amount", "deal amount", "opportunity amount", "pipeline amount", "revenue")
     probability_col = _actual_column(data, "probability", "win probability", "close probability")
     stage_col = _actual_column(data, "stage", "opportunity stage", "deal stage")
+    record_col = _actual_column(data, "opportunity_id", "opportunity id", "deal_id", "deal id", "record_id", "record id", "id")
     source_fields = [field for field in (close_col, amount_col, probability_col, stage_col) if field]
+    record_by_month = _record_ids_by_month(data, stage_col, close_col, record_col)
+    source_records = sorted({record_id for ids in record_by_month.values() for record_id in ids})
 
     weighted_value = float(result["metrics"]["weighted_forecast"])
     open_value = float(result["metrics"]["open_pipeline_value"])
@@ -57,6 +85,7 @@ def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
         calculation="Sum of open opportunity amount × validated win probability; probabilities are normalized to 0–1 when supplied as percentages.",
         scope=scope_label(scope) if scope is not None else "All data",
         source_fields=source_fields,
+        source_records=source_records,
     )
 
     monthly = [
@@ -71,6 +100,7 @@ def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
                 calculation=f"Open opportunity amount × validated probability for {item['month']}.",
                 scope=scope_label(scope) if scope is not None else "All data",
                 source_fields=source_fields,
+                source_records=record_by_month.get(str(item["month"]), []),
             ),
         )
         for item in result["monthly_forecast"]
