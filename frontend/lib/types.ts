@@ -104,15 +104,7 @@ export type SemanticSummary = {
 };
 
 export type ExploreOption = { id: string; label: string };
-export type ExploreEvidence = {
-  metric: string;
-  value?: number | null;
-  comparison_value?: number | null;
-  calculation: string;
-  scope: string;
-  source_fields: string[];
-  source_records: string[];
-};
+export type ExploreEvidence = Evidence;
 export type ExploreRow = {
   key: string;
   value: number;
@@ -134,6 +126,27 @@ export type ExploreResponse = {
   available_metrics: ExploreOption[];
   available_dimensions: ExploreOption[];
   rows: ExploreRow[];
+};
+
+export type ForecastMonthly = {
+  month: string;
+  expected_value: number;
+  weighted_forecast: number;
+  opportunities: number;
+  evidence: Evidence;
+};
+export type ForecastResponse = {
+  dataset_id: string;
+  business_model: string | null;
+  business_model_label: string | null;
+  scope_label: string;
+  weighted_forecast: number;
+  open_pipeline_value: number;
+  open_opportunities: number;
+  has_probability: boolean;
+  basis_note: string;
+  evidence: Evidence;
+  monthly_forecast: ForecastMonthly[];
 };
 
 export type InsightItem = {
