@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 class SemanticSummary(BaseModel):
     """What the validated dataset means; kept separate from product capabilities."""
-
     fields: list[str] = Field(default_factory=list)
     concepts: list[str] = Field(default_factory=list)
     metrics: list[str] = Field(default_factory=list)
@@ -16,7 +15,6 @@ class SemanticSummary(BaseModel):
 
 class CapabilitySet(BaseModel):
     """Product workspaces and validated business-specific capabilities."""
-
     workspaces: list[str] = Field(default_factory=list)
     analytics: list[str] = Field(default_factory=list)
     modules: list[str] = Field(default_factory=list)
@@ -228,6 +226,28 @@ class ExploreResponse(BaseModel):
     available_metrics: list[ExploreOption] = Field(default_factory=list)
     available_dimensions: list[ExploreOption] = Field(default_factory=list)
     rows: list[ExploreRow] = Field(default_factory=list)
+
+
+class ForecastMonthly(BaseModel):
+    month: str
+    expected_value: float
+    weighted_forecast: float
+    opportunities: int
+    evidence: Evidence
+
+
+class ForecastResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    scope_label: str = "All data"
+    weighted_forecast: float
+    open_pipeline_value: float
+    open_opportunities: int
+    has_probability: bool
+    basis_note: str
+    evidence: Evidence
+    monthly_forecast: list[ForecastMonthly] = Field(default_factory=list)
 
 
 class InsightItem(BaseModel):
