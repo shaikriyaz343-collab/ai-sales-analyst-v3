@@ -328,6 +328,10 @@ class ActionItem(BaseModel):
     source_insight_id: str
 
 
+class ActionStatusUpdate(BaseModel):
+    status: str
+
+
 class ActionsResponse(BaseModel):
     dataset_id: str
     business_model: str | None
