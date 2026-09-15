@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 
 from backend.api.services.onboarding import onboard
@@ -26,13 +25,17 @@ def test_retail_direct_metric_and_evidence() -> None:
     assert result.analytical_plan["intent"] == "metric"
 
 
-def test_retail_ranking_has_explore_target() -> None:
+def test_retail_ranking_has_explore_target_and_source_records() -> None:
     dataset = upload("retail.csv")
     result = answer_question(dataset.dataset_id, "Which product has the highest revenue?")
     assert result.answer.status == "answered"
     assert "Phone" in result.answer.text
     assert result.explore_metric == "revenue"
     assert result.explore_dimension == "product"
+    assert result.answer.evidence is not None
+    assert result.answer.evidence.source_records
+    assert "order_id=1" in result.answer.evidence.source_records
+    assert "order_id=3" in result.answer.evidence.source_records
     assert result.analytical_plan is not None
     assert result.analytical_plan["intent"] == "ranking"
 
