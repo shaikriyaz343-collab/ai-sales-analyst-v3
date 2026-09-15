@@ -16,6 +16,23 @@ export type ScopeFilter = { field: string; operator: "in" | "not_in" | "eq" | "n
 export type ScopeState = { filters: ScopeFilter[] };
 export type AnalysisSession = { session_id: string; dataset_id: string; organization_id?: string | null; workspace_id?: string | null; scope: ScopeState; active_analysis?: Record<string, unknown> | null; comparison?: Record<string, unknown> | null };
 
+export type DataQualityIssue = {
+  severity: string;
+  code: string;
+  message: string;
+  affected_rows: number;
+  recommendation: string;
+};
+export type DataQualitySummary = {
+  row_count: number;
+  issue_count: number;
+  critical_count: number;
+  warning_count: number;
+  info_count: number;
+  quality_status: string;
+  issues: DataQualityIssue[];
+};
+
 export type DatasetSummary = {
   dataset_id: string;
   organization_id?: string | null;
@@ -29,6 +46,7 @@ export type DatasetSummary = {
   business_model_label: string | null;
   business_model_confidence: number;
   quality_issues: number;
+  quality?: DataQualitySummary | null;
   capabilities: CapabilitySet;
   supported_concepts: string[];
   semantic?: SemanticSummary | Record<string, unknown> | null;
@@ -85,7 +103,6 @@ export type SemanticSummary = {
 };
 
 export type ExploreOption = { id: string; label: string };
-
 export type ExploreEvidence = {
   metric: string;
   value?: number | null;
@@ -94,7 +111,6 @@ export type ExploreEvidence = {
   scope: string;
   source_fields: string[];
 };
-
 export type ExploreRow = {
   key: string;
   value: number;
@@ -102,7 +118,6 @@ export type ExploreRow = {
   share_pct?: number | null;
   evidence: ExploreEvidence;
 };
-
 export type ExploreResponse = {
   dataset_id: string;
   scope_label: string;
@@ -136,7 +151,6 @@ export type InsightItem = {
   urgency_score?: number | null;
   evidence_score?: number | null;
 };
-
 export type InsightsResponse = {
   dataset_id: string;
   business_model: string | null;
@@ -169,7 +183,6 @@ export type ActionItem = {
   evidence: Evidence;
   source_insight_id: string;
 };
-
 export type ActionsResponse = {
   dataset_id: string;
   business_model: string | null;
