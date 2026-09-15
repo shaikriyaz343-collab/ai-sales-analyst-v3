@@ -2,21 +2,22 @@
 
 ## Current branch
 
-v4/saas-foundation
+`v4/saas-foundation`
 
 ## Current checkpoint
 
-Commit:
-e5ed122
+`3ac4b2d` — Fix cross-site auth cookie SameSite configuration
 
-Tag:
-No tag created for C4-F deployment foundation yet.
+This is the protected engineering baseline for the current V4 work.
 
-Previous protected baseline:
-c1c825f
-v4-phase-c4e2e2-analysis-capacity-guard
+## Durable project documents
 
-## Completed phases
+- `V4_PROJECT_STATE.md` — authoritative engineering state and release evidence
+- `V4_C4F_DEPLOYMENT.md` — deployment topology/configuration contract
+- `V4_PRODUCT_STRATEGY_2026.md` — product/market strategy and operating plan
+- `V4_COMPETITIVE_AUDIT_2026-09-15.md` — September 2026 competitive and market audit
+
+## Completed engineering phases
 
 C4-D4a
 - Request correlation
@@ -43,40 +44,58 @@ C4-E2c
 
 C4-E2d
 - Disposable bounded cache
-- V4_CACHE_MAX_BYTES
+- `V4_CACHE_MAX_BYTES`
 - Recency-based eviction
-- Startup orphan .tmp cleanup
-- V4_CACHE_MAX_BYTES >= V4_UPLOAD_MAX_BYTES invariant
+- Startup orphan `.tmp` cleanup
+- `V4_CACHE_MAX_BYTES >= V4_UPLOAD_MAX_BYTES` invariant
 
 C4-E2e-1
 - Analytical DataFrame loaded once
-- profile_dataframe(data)
-- /health converted to async
-- /ready intentionally remains synchronous
+- `profile_dataframe(data)`
+- `/health` converted to async
+- `/ready` intentionally remains synchronous
 
 C4-E2e-2
-- V4_ANALYTICS_CONCURRENCY=4
-- Process-local anyio.CapacityLimiter
+- `V4_ANALYTICS_CONCURRENCY=4`
+- Process-local anyio `CapacityLimiter`
 - Created during FastAPI lifespan
-- acquire_nowait()
-- exhausted capacity -> HTTP 503
-- /health and /ready remain outside limiter
+- `acquire_nowait()`
+- Exhausted capacity -> HTTP 503
+- `/health` and `/ready` remain outside limiter
 
 C4-F deployment foundation
-- Production FastAPI process entrypoint: python -m backend.run_production
+- Production FastAPI process entrypoint: `python -m backend.run_production`
 - Non-reload Uvicorn process configuration
-- Current C4-F deployment/rehearsal contract documented in V4_C4F_DEPLOYMENT.md
+- Deployment/rehearsal contract documented in `V4_C4F_DEPLOYMENT.md`
 - C4-F production-runner tests
+- Real Railway deployment
+- External PostgreSQL in Railway
+- Cloudflare R2-backed object persistence
+- Deployed health/readiness verification
+- Deployed browser acceptance
+- Restart/recovery rehearsal
+- Rollback/recover-forward rehearsal in an isolated Railway environment
+
+Auth hardening
+- Cross-site frontend/API deployment explicitly supports configurable auth-cookie SameSite policy
+- `V4_AUTH_COOKIE_SAMESITE` accepts `lax`, `strict`, or `none`
+- `SameSite=None` requires secure cookies
+- Deployed cross-site login verified with `SameSite=None; Secure`
+- CORS credentials and explicit frontend origin verified
 
 ## Verified regression and build gates
 
-Current full V4 backend/regression suite:
+Latest full V4 backend/regression suite:
 
-253 passed
+`254 passed`
 
-Current C4-F deployment tests:
+Latest focused auth suite:
 
-3 passed
+`5 passed`
+
+C4-F deployment tests:
+
+`3 passed` in the recorded deployment-test checkpoint.
 
 Frontend production build:
 
@@ -84,109 +103,105 @@ PASS
 
 V4 Playwright browser acceptance:
 
-7 passed
+`7 passed` in the recorded deployed-browser checkpoint.
 
-The repository's deployed-URL browser workflow remains the browser gate for
-an externally deployed application.
+`git diff --check` was clean after the latest auth-cookie fix.
 
-## Real external persistence rehearsal
+## Real external persistence evidence
 
-### PostgreSQL
+### Railway + PostgreSQL
 
-Real disposable PostgreSQL rehearsal database:
+Production Railway environment:
 
-v4_auth_rehearsal
+- Project: `satisfied-enthusiasm`
+- Environment: `production`
+- Backend service: `ai-sales-analyst-v3`
+- Frontend service: `peaceful-mindfulness`
+- PostgreSQL database: online
 
-C3-F PostgreSQL rehearsal:
+The deployed backend `/api/v1/health` and `/api/v1/ready` returned HTTP 200 during the verified production-like runs.
 
-PASS
+A disposable tenant and dataset were created through the deployed API. Authenticated Overview retrieval succeeded with deterministic values including:
 
-The external V4 suite was run with the rehearsal PostgreSQL database active.
+- pipeline value: $300
+- win rate: 100%
+- open pipeline value: $200
 
-### S3-compatible object storage
+The dataset remained readable after backend restart.
 
-A disposable SeaweedFS 4.46 Windows AMD64 instance was used for local
-networked S3-compatible rehearsal.
+A second disposable tenant could not access the first tenant's dataset; unauthenticated dataset access returned 401; authenticated access to a nonexistent dataset returned 404.
+
+### Cloudflare R2
+
+The deployed object path used Cloudflare R2 with a private bucket and scoped access credentials.
+
+Verified during the C4-F production-like rehearsal:
+
+- dataset upload through deployed API
+- object persisted in R2
+- expected `v4/<dataset_id>.csv` object naming
+- object readback
+- durable PostgreSQL dataset metadata
+- authenticated Overview rebuilt from persisted data
+
+This is real R2 integration evidence, not merely a mocked object store.
+
+### SeaweedFS S3-compatible rehearsal
+
+A disposable SeaweedFS 4.46 Windows AMD64 instance was used for networked S3-compatible rehearsal.
 
 Endpoint:
 
-http://127.0.0.1:8333
+`http://127.0.0.1:8333`
 
 Bucket:
 
-v4-s3-rehearsal
-
-The real boto3 client was exercised against the network endpoint.
+`v4-s3-rehearsal`
 
 Verified:
 
-- S3 bucket access
-- object upload
-- object HEAD
-- object GET
-- object DELETE
-- V4 dataset upload through the real S3ObjectStore path
-- V4 dataset retrieval through the real S3ObjectStore path
-- object survival across SeaweedFS restart
-- V4 authenticated Overview retrieval after the storage restart
+- bucket access
+- object upload / HEAD / GET / DELETE
+- V4 dataset upload through the real `S3ObjectStore` path
+- V4 dataset retrieval through the real `S3ObjectStore` path
+- object survival across storage restart
+- authenticated Overview retrieval after restart
 - tenant isolation remained enforced
 
-The rehearsal proves a real networked S3-compatible integration. It does
-not prove AWS S3 or another eventual production object-store provider.
+The SeaweedFS rehearsal is supplementary compatibility evidence; it is not a substitute for the deployed Cloudflare R2 evidence.
 
-## V4 C4-F recovery evidence
+## Rollback / recovery evidence
 
-The same dataset object survived SeaweedFS restart.
+A disposable Railway environment was used to rehearse rollback/recover-forward without touching production.
 
-Dataset:
+Verified sequence:
 
-2cf8dcf61e2a40b9a489c93de0a4496f
+1. deploy older protected V4 build
+2. isolate backend/frontend origins for the temporary environment
+3. authenticate through the isolated frontend
+4. read the persisted dataset and Overview
+5. recover-forward to the current build
+6. verify the same persisted dataset and deterministic Overview values remained readable
+7. delete the temporary Railway environment
+8. remove the temporary Git worktree
 
-Stored object:
+Production remained untouched by the rehearsal.
 
-v4/2cf8dcf61e2a40b9a489c93de0a4496f.csv
+## Browser / authentication caveat
 
-Recovered object size:
+The deployed frontend and API use different Railway hostnames. The backend now emits the required `SameSite=None; Secure` cookie configuration for this cross-site deployment, and the frontend sends credentialed requests.
 
-37 bytes
-
-After storage restart, the V4 application successfully authenticated against
-the external PostgreSQL auth store and successfully rebuilt the Overview from
-the recovered S3-backed dataset.
-
-Observed deterministic values included:
-
-- pipeline_value = $300
-- win_rate = 100%
-- open pipeline value = $200
+The verified Chrome environment had third-party-cookie blocking enabled initially; authenticated browser use required a cookie-policy exception for the deployed frontend. This is an architectural deployment consideration that must be resolved before claiming frictionless browser compatibility across all user privacy configurations.
 
 ## Capacity evidence
 
-V4_ANALYTICS_CONCURRENCY remains 4.
+`V4_ANALYTICS_CONCURRENCY` remains 4.
 
-Prior E2e-3 measurements remain local, single-process Windows measurements.
-They are not production or container capacity certification.
+Prior E2e-3 measurements are local, single-process Windows measurements and are not production/container capacity certification.
 
-Current local evidence does not justify increasing the limiter to 8 or
-lowering it to 2.
+Current evidence does not justify changing the limiter.
 
-## Known limitations / remaining C4-F gates
-
-The following remain unproven until a real deployed environment is exercised:
-
-- production/staging deployment platform behavior
-- real production object-storage provider integration
-- production HTTPS endpoints
-- production secret/environment injection
-- deployed restart and durable-state recovery
-- deployment rollback procedure
-- final deployed Playwright acceptance
-- Linux/container resource accounting and capacity behavior
-
-The SeaweedFS rehearsal is S3-compatible integration evidence, not production
-AWS S3 certification.
-
-## Explicitly deferred
+Explicitly deferred until measured need:
 
 - Redis/distributed limiter
 - Celery/background jobs
@@ -195,47 +210,133 @@ AWS S3 certification.
 - blanket async conversion
 - Pandas chunking rewrite
 
-These are not required merely to establish the current C4-F deployment
-contract.
+## Current known release gaps
 
-## Current working tree policy
+C4-F is not considered fully production-approved merely because the application is deployed.
 
-Intentionally untracked:
+Remaining gates include:
 
-- frontend/AGENTS.md
-- frontend/CLAUDE.md
+- failure rehearsal using real deployed infrastructure without destabilizing production
+- systematic security/data-isolation review after the latest deployment changes
+- production-grade domain/cookie architecture that avoids third-party-cookie friction where practical
+- Linux/container resource and capacity certification
+- automated deployment/release gates so routine releases do not depend on manual shell choreography
+- final production acceptance against a clean browser/profile and representative datasets
+- documented rollback runbook that is executable without ad-hoc operator inference
+- monitoring/alerting thresholds and operational ownership for real production incidents
 
-Generated/runtime artifacts must remain untracked, including local object-store
-data, runtime caches, Playwright output, virtual environments, node_modules,
-and .next.
+## Product direction reset — 2026-09-15
 
-## Next phase
+The product strategy is now governed by `V4_PRODUCT_STRATEGY_2026.md` and `V4_COMPETITIVE_AUDIT_2026-09-15.md`.
 
-C4-F real deployment / production rehearsal.
+The strategic wedge is:
 
-Priority:
+> **The fastest, most trustworthy revenue decision cockpit for sales teams that already have sales data but do not want a Salesforce/RevOps implementation project.**
 
-1. select the real staging/deployment platform using current documented
-   capabilities and costs
-2. provision the minimum required staging infrastructure
-3. configure external PostgreSQL and production-like S3 storage
-4. configure HTTPS, secrets, environment variables and public frontend/API URLs
-5. deploy the existing application without unnecessary architecture changes
-6. exercise /health and /ready
-7. exercise authentication and tenant isolation
-8. exercise dataset persistence and object persistence
-9. exercise restart/recovery
-10. exercise failure behavior
-11. exercise rollback
-12. run deployed Playwright acceptance
+The product must compete on:
+
+- time-to-decision
+- evidence-backed analysis
+- data independence
+- data-quality awareness
+- prioritized decisions rather than dashboard volume
+- explainable forecasting
+- user-controlled action loops
+
+Generic AI chat, generic dashboards, KPI cards, generic risk scoring and generic next actions are not treated as differentiated features.
+
+## Product roadmap
+
+Stage A — Foundation hardening
+- close remaining release/reliability gaps
+
+Stage B — Decision cockpit
+- make Overview a ranked attention and decision feed
+- material-change detection
+- concentrated pipeline risk
+- stalled deals / close-date pressure
+- stage velocity anomalies
+- coverage gaps
+- data-quality blockers
+- impact / urgency / evidence ranking
+
+Stage C — Analyst intelligence
+- structured question planner
+- deterministic analytical execution
+- evidence objects
+- natural-language explanation
+- trend / segmentation / contribution / funnel / velocity / cohort analysis
+- forecast/scenario analysis only when data suffices
+
+Stage D — Action system
+- next-best action
+- task/owner recommendation
+- follow-up drafts
+- manager review queues
+- alerts and recurring briefs
+- opt-in, observable, reversible automation
+
+Stage E — Data network advantage
+- Salesforce
+- HubSpot
+- Pipedrive
+- common CRM/export pathways
+- email/calendar/meeting signals only with strong permission and privacy controls
+
+## Engineering operating model
+
+The AI agent should perform as much repository engineering, testing, review and deployment orchestration as the available tools permit.
+
+User involvement should be concentrated on product/strategy decisions, external authorization, secrets that cannot safely be delegated, irreversible/high-impact infrastructure approvals and final business acceptance.
+
+No manual code editing and no ad-hoc patching. Changes must be deterministic/reviewable, followed by validation.
+
+## Quality rule
+
+> **Development speed may change; quality gates may not.**
+
+No shortcut may knowingly reduce:
+
+- correctness
+- security
+- tenant isolation
+- data integrity
+- observability
+- test coverage
+- recovery
+- rollback capability
+- performance discipline
+- explainability
+- user control over consequential actions
+
+## Next execution order
+
+1. Build the authoritative analytical decision-signal/evidence model.
+2. Apply it without breaking current Overview/Insights/Ask/Actions contracts.
+3. Upgrade Overview into the decision cockpit.
+4. Strengthen Ask into planner → deterministic execution → evidence → explanation.
+5. Add supported forecast/scenario analysis.
+6. Close action-loop gaps.
+7. Improve deployment automation and final release gates.
+8. Add connectors according to measured time-to-decision value.
+
+## Current working-tree policy
+
+Intentionally untracked local instruction files:
+
+- `frontend/AGENTS.md`
+- `frontend/CLAUDE.md`
+
+Generated/runtime artifacts must remain untracked, including local object-store data, caches, Playwright output, virtual environments, `node_modules`, and `.next`.
+
+Secrets must never be checkpointed.
 
 ## Checkpoint policy
 
-Every meaningful V4 implementation, test, configuration, or authoritative
-handoff-state change must be reviewed and validated before it is committed.
+Every meaningful V4 implementation, test, configuration, or authoritative-state change must be reviewed and validated before it is committed.
 
-Generated runtime state, secrets, temporary investigation artifacts, and
-unrelated local developer files must not be checkpointed.
+C4-F / production approval requires applicable real-infrastructure evidence; passing unit/regression tests alone is insufficient.
 
-C4-F is not production-approved until the applicable real infrastructure
-rehearsal passes.
+## Last updated
+
+2026-09-15 — authoritative state reconciled to current `3ac4b2d` checkpoint and September 2026 product strategy reset.
