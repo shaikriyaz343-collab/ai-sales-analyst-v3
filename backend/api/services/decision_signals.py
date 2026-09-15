@@ -21,6 +21,22 @@ _KIND_SCORE = {
 }
 
 
+def _display_value(metric: str, value: float | None) -> str:
+    if value is None:
+        return "—"
+    if metric in {"win_rate", "return_rate", "churn", "average_discount", "customer_revenue_share", "weighted_pipeline_share", "product_revenue_share"} or "share" in metric:
+        return f"{value:.1f}%"
+    if metric == "hours":
+        return f"{value:,.0f}"
+    sign = "-" if value < 0 else ""
+    magnitude = abs(value)
+    if magnitude >= 1_000_000:
+        return f"{sign}${magnitude / 1_000_000:.2f}M"
+    if magnitude >= 1_000:
+        return f"{sign}${magnitude / 1_000:.1f}K"
+    return f"{sign}${magnitude:,.0f}"
+
+
 @dataclass(frozen=True)
 class DecisionSignal:
     """A deterministic, ranked business decision signal.
@@ -110,8 +126,6 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
     urgency = _urgency_score(kind, insight.severity)
     impact = _impact_score(insight)
 
-    # Weighted deliberately toward urgency and evidence. This prevents a weak,
-    # merely interesting opportunity from outranking a well-supported risk.
     priority = round((impact * 0.40) + (urgency * 0.35) + (evidence_score * 0.25), 2)
 
     return DecisionSignal(
@@ -124,7 +138,7 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
         recommendation=insight.recommendation,
         metric=evidence.metric,
         value=evidence.value,
-        display_value=("—" if evidence.value is None else str(evidence.value)),
+        display_value=_display_value(evidence.metric, evidence.value),
         evidence=evidence,
         impact_score=impact,
         urgency_score=urgency,
