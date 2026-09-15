@@ -10,6 +10,10 @@ function tone(severity: string): string {
   return `decision-severity decision-${severity}`;
 }
 
+function score(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : `${value.toFixed(0)}/100`;
+}
+
 export default function DecisionCockpit() {
   const { state } = useAppState();
   const dataset = state.dataset;
@@ -104,8 +108,10 @@ export default function DecisionCockpit() {
                   <div className="decision-reason"><span>Why it matters</span><p>{item.why_it_matters}</p></div>
                   <div className="decision-action"><span>Recommended next step</span><p>{item.recommendation}</p></div>
                   <details className="decision-evidence">
-                    <summary>Show evidence</summary>
+                    <summary>Why this is ranked here</summary>
                     <div className="evidence-box">
+                      <p><strong>Priority:</strong> {score(item.priority_score)}</p>
+                      <p><strong>Impact:</strong> {score(item.impact_score)} · <strong>Urgency:</strong> {score(item.urgency_score)} · <strong>Evidence:</strong> {score(item.evidence_score)}</p>
                       <p><strong>Calculation:</strong> {item.evidence.calculation}</p>
                       <p><strong>Scope:</strong> {item.evidence.scope}</p>
                       <p><strong>Source fields:</strong> {item.evidence.source_fields.join(", ") || "Validated dataset"}</p>
@@ -120,7 +126,7 @@ export default function DecisionCockpit() {
         </>
       )}
 
-      <div className="overview-footer-note"><span>Ranking is deterministic and derived from validated signals; it does not create new metrics.</span><span>Use Evidence to inspect the source fields and calculation.</span></div>
+      <div className="overview-footer-note"><span>Ranking is deterministic and derived from validated signals; it does not create new metrics.</span><span>Priority is a ranking aid, not a claim of causal revenue impact.</span></div>
     </div>
   );
 }
