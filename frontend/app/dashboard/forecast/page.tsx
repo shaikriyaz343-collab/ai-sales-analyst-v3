@@ -1,16 +1,14 @@
+"use client";
+
 import ForecastView from "../../../components/forecast-view";
+import { useAppState } from "../../../lib/app-state";
 
 export default function ForecastPage() {
-  return <ForecastPageClient />;
-}
+  const { state } = useAppState();
 
-function ForecastPageClient() {
-  return <ForecastViewBridge />;
-}
+  if (!state.dataset) {
+    return <div className="empty-state"><span className="empty-icon">↗</span><h1>Upload your business data</h1><p>Start with a validated sales-pipeline CSV or Excel file to build a forecast.</p></div>;
+  }
 
-function ForecastViewBridge() {
-  return <ForecastViewWithState />;
+  return <ForecastView datasetId={state.dataset.dataset_id} sessionId={state.session?.session_id} />;
 }
-
-// Keep the route server-compatible while the workspace state remains client-owned.
-import ForecastViewWithState from "../../../components/forecast-route-view";
