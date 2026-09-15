@@ -52,6 +52,24 @@ class AnalysisSession(BaseModel):
     comparison: dict[str, Any] | None = None
 
 
+class DataQualityIssue(BaseModel):
+    severity: str
+    code: str
+    message: str
+    affected_rows: int = 0
+    recommendation: str = ""
+
+
+class DataQualitySummary(BaseModel):
+    row_count: int = 0
+    issue_count: int = 0
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    quality_status: str = "unknown"
+    issues: list[DataQualityIssue] = Field(default_factory=list)
+
+
 class DatasetSummary(BaseModel):
     dataset_id: str
     organization_id: str | None = None
@@ -65,6 +83,7 @@ class DatasetSummary(BaseModel):
     business_model_label: str | None
     business_model_confidence: float
     quality_issues: int
+    quality: DataQualitySummary = Field(default_factory=DataQualitySummary)
     semantic: SemanticSummary = Field(default_factory=SemanticSummary)
     capabilities: CapabilitySet = Field(default_factory=CapabilitySet)
     supported_concepts: list[str] = Field(default_factory=list)
