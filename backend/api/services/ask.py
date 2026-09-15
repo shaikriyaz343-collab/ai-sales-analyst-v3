@@ -16,24 +16,9 @@ from .insights import build_insights
 
 def _label_metric(metric: str) -> str:
     return {
-        "revenue": "revenue",
-        "orders": "orders",
-        "quantity": "units sold",
-        "aov": "average order value",
-        "return_rate": "return rate",
-        "average_discount": "average discount",
-        "pipeline_value": "pipeline",
-        "weighted_forecast": "weighted forecast",
-        "weighted_pipeline": "weighted pipeline",
-        "opportunities": "opportunities",
-        "win_rate": "win rate",
-        "mrr": "MRR",
-        "arr": "ARR",
-        "churn": "churn",
-        "churn_rate": "churn rate",
-        "billings": "billings",
-        "hours": "hours",
-        "billing_per_hour": "billing per hour",
+        "revenue": "revenue", "orders": "orders", "quantity": "units sold", "aov": "average order value", "return_rate": "return rate", "average_discount": "average discount",
+        "pipeline_value": "pipeline", "weighted_forecast": "weighted forecast", "weighted_pipeline": "weighted pipeline", "opportunities": "opportunities", "win_rate": "win rate",
+        "mrr": "MRR", "arr": "ARR", "churn": "churn", "churn_rate": "churn rate", "billings": "billings", "hours": "hours", "billing_per_hour": "billing per hour",
     }.get(metric, metric.replace("_", " "))
 
 
@@ -45,6 +30,11 @@ def _supported_text(summary) -> str:
     return "Available validated metrics include " + ", ".join(labels[:8]) + "."
 
 
+def _with_plan(response: AskResponse, plan: AnalyticalPlan) -> AskResponse:
+    response.analytical_plan = plan.as_dict()
+    return response
+
+
 def _answer_from_overview(summary, overview, question: str, metric_id: str) -> tuple[AskAnswer, list[AskFollowUp]]:
     metric = next((m for m in overview.metrics if m.id == metric_id), None)
     if metric is None or metric.value is None:
@@ -54,19 +44,16 @@ def _answer_from_overview(summary, overview, question: str, metric_id: str) -> t
             confidence="high",
             evidence=None,
         )
-        return answer, [AskFollowUp(label="What can you calculate?", question="What metrics are available?")]
+        return answer, [AskFollowUp(label="What do you have?", question="What metrics are available?")]
     evidence = AskEvidence(**metric.evidence.model_dump())
     text = f"{metric.label} is {metric.display_value}."
     if metric.delta_label and metric.delta_pct is not None:
         direction = "increased" if metric.delta_pct >= 0 else "decreased"
         text += f" It {direction} {abs(metric.delta_pct):.1f}% versus {metric.delta_label}."
     answer = AskAnswer(status="answered", text=text, confidence="high", evidence=evidence)
-    dim = next((d for d in (summary.semantic.dimensions if summary.semantic else []) if d not in {"date"}), None)
+    dim = next((d for d in (summary.semantic.dimensions if summary.semantic else []) if d != "date"), None)
     followups = [
-        AskFollowUp(
-            label=f"Show {metric.label.lower()} by {dim.replace('_', ' ') if dim else 'dimension'}",
-            question=f"Show me {_label_metric(metric_id)} by {dim.replace('_', ' ') if dim else 'dimension'}.",
-        ),
+        AskFollowUp(label=f"Show {metric.label.lower()} by {dim.replace('_', ' ') if dim else 'dimension'}", question=f"Show me {_label_metric(metric_id)} by {dim.replace('_', ' ') if dim else 'dimension'}."),
         AskFollowUp(label="Show the calculation", question="Show the calculation and evidence."),
     ]
     return answer, followups
@@ -81,32 +68,17 @@ def _answer_causal(summary, question: str, scope, plan: AnalyticalPlan) -> AskRe
         followups = [
             AskFollowUp(
                 label="Explore the driver",
-                question=(
-                    f"Show {_label_metric(selected.metric)} by stage."
-                    if summary.business_model == "sales_pipeline"
-                    else f"Show {_label_metric(selected.metric)} by customer."
-                ),
+                question=(f"Show {_label_metric(selected.metric)} by stage." if summary.business_model == "sales_pipeline" else f"Show {_label_metric(selected.metric)} by customer."),
             ),
             AskFollowUp(label="Show evidence", question="Show the calculation and source fields."),
         ]
         return AskResponse(
-            dataset_id=summary.dataset_id,
-            question=question,
-            business_model=summary.business_model,
-            business_model_label=summary.business_model_label,
-            answer=AskAnswer(status="answered", text=text, confidence="high", evidence=evidence),
-            follow_ups=followups,
+            dataset_id=summary.dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+            answer=AskAnswer(status="answered", text=text, confidence="high", evidence=evidence), follow_ups=followups,
         )
     return AskResponse(
-        dataset_id=summary.dataset_id,
-        question=question,
-        business_model=summary.business_model,
-        business_model_label=summary.business_model_label,
-        answer=AskAnswer(
-            status="unsupported",
-            text="I don't have a validated causal finding for that question in this dataset. I won't invent a reason.",
-            confidence="high",
-        ),
+        dataset_id=summary.dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+        answer=AskAnswer(status="unsupported", text="I don't have a validated causal finding for that question in this dataset. I won't invent a reason.", confidence="high"),
         follow_ups=[AskFollowUp(label="Explore the data", question="What metrics are available?")],
     )
 
@@ -114,35 +86,23 @@ def _answer_causal(summary, question: str, scope, plan: AnalyticalPlan) -> AskRe
 def _execute_ranking(summary, question: str, scope, plan: AnalyticalPlan) -> AskResponse:
     if not plan.supported or not plan.metric or not plan.dimension:
         return AskResponse(
-            dataset_id=summary.dataset_id,
-            question=question,
-            business_model=summary.business_model,
-            business_model_label=summary.business_model_label,
+            dataset_id=summary.dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
             answer=AskAnswer(status="unsupported", text=plan.reason, confidence="high"),
-            follow_ups=[AskFollowUp(label="See available metrics", question="What metrics are available?")],
-            supported_summary=_supported_text(summary),
+            follow_ups=[AskFollowUp(label="See available metrics", question="What metrics are available?")], supported_summary=_supported_text(summary),
         )
 
     try:
         result = build_explore(summary.dataset_id, plan.metric, plan.dimension, 15, scope=scope)
     except ValueError as exc:
         return AskResponse(
-            dataset_id=summary.dataset_id,
-            question=question,
-            business_model=summary.business_model,
-            business_model_label=summary.business_model_label,
-            answer=AskAnswer(status="unsupported", text=str(exc), confidence="high"),
-            follow_ups=[],
+            dataset_id=summary.dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+            answer=AskAnswer(status="unsupported", text=str(exc), confidence="high"), follow_ups=[],
         )
 
     if not result.rows:
         return AskResponse(
-            dataset_id=summary.dataset_id,
-            question=question,
-            business_model=summary.business_model,
-            business_model_label=summary.business_model_label,
-            answer=AskAnswer(status="no_data", text="I couldn't find a matching result in the current dataset.", confidence="high"),
-            follow_ups=[],
+            dataset_id=summary.dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+            answer=AskAnswer(status="no_data", text="I couldn't find a matching result in the current dataset.", confidence="high"), follow_ups=[],
         )
 
     row = result.rows[0] if plan.direction == "highest" else result.rows[-1]
@@ -150,21 +110,13 @@ def _execute_ranking(summary, question: str, scope, plan: AnalyticalPlan) -> Ask
     text = f"The {plan.dimension.replace('_', ' ')} with the {direction} {_label_metric(plan.metric)} is {row.key} at {row.display_value}."
     evidence = AskEvidence(**row.evidence)
     followups = [
-        AskFollowUp(
-            label="Explore this",
-            question=f"Show {_label_metric(plan.metric)} by {plan.dimension.replace('_', ' ')}.",
-        ),
+        AskFollowUp(label="Explore this", question=f"Show {_label_metric(plan.metric)} by {plan.dimension.replace('_', ' ')}."),
         AskFollowUp(label="Show evidence", question="Show the calculation and source fields."),
     ]
     return AskResponse(
-        dataset_id=summary.dataset_id,
-        question=question,
-        business_model=summary.business_model,
-        business_model_label=summary.business_model_label,
-        answer=AskAnswer(status="answered", text=text, confidence="high", evidence=evidence),
-        follow_ups=followups,
-        explore_metric=plan.metric,
-        explore_dimension=plan.dimension,
+        dataset_id=summary.dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+        answer=AskAnswer(status="answered", text=text, confidence="high", evidence=evidence), follow_ups=followups,
+        explore_metric=plan.metric, explore_dimension=plan.dimension,
     )
 
 
@@ -174,14 +126,12 @@ def answer_question(dataset_id: str, question: str, scope=None) -> AskResponse:
         raise ValueError("Dataset not found.")
     question = (question or "").strip()
     if not question:
-        return AskResponse(
-            dataset_id=dataset_id,
-            question="",
-            business_model=summary.business_model,
-            business_model_label=summary.business_model_label,
-            answer=AskAnswer(status="needs_question", text="Enter a question about this dataset.", confidence="high"),
-            follow_ups=[],
+        response = AskResponse(
+            dataset_id=dataset_id, question="", business_model=summary.business_model, business_model_label=summary.business_model_label,
+            answer=AskAnswer(status="needs_question", text="Enter a question about this dataset.", confidence="high"), follow_ups=[],
         )
+        empty_plan = AnalyticalPlan(intent="unsupported", supported=False, reason="Question is empty.")
+        return _with_plan(response, empty_plan)
 
     primary = summary.business_model
     if not primary:
@@ -196,40 +146,25 @@ def answer_question(dataset_id: str, question: str, scope=None) -> AskResponse:
         primary = business.get("primary_type")
 
     overview = build_overview(dataset_id, scope=scope)
-    plan = build_plan(question, primary, overview)
+    validated_dimensions = summary.semantic.dimensions if summary.semantic else None
+    plan = build_plan(question, primary, overview, validated_dimensions=validated_dimensions)
 
     if plan.intent == "causal":
-        return _answer_causal(summary, question, scope, plan)
-
+        return _with_plan(_answer_causal(summary, question, scope, plan), plan)
     if plan.intent == "ranking":
-        return _execute_ranking(summary, question, scope, plan)
-
+        return _with_plan(_execute_ranking(summary, question, scope, plan), plan)
     if plan.intent == "metric" and plan.metric:
         answer, followups = _answer_from_overview(summary, overview, question, plan.metric)
-        return AskResponse(
-            dataset_id=dataset_id,
-            question=question,
-            business_model=summary.business_model,
-            business_model_label=summary.business_model_label,
-            answer=answer,
-            follow_ups=followups,
-            explore_metric=plan.metric,
-            explore_dimension=plan.dimension,
+        response = AskResponse(
+            dataset_id=dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+            answer=answer, follow_ups=followups, explore_metric=plan.metric, explore_dimension=plan.dimension,
         )
+        return _with_plan(response, plan)
 
-    return AskResponse(
-        dataset_id=dataset_id,
-        question=question,
-        business_model=summary.business_model,
-        business_model_label=summary.business_model_label,
-        answer=AskAnswer(
-            status="unsupported",
-            text="I couldn't map that question to a validated metric or analysis for this dataset. I won't guess.",
-            confidence="high",
-        ),
-        follow_ups=[
-            AskFollowUp(label="See available metrics", question="What metrics are available?"),
-            AskFollowUp(label="Open Explore", question="Show me the available analyses."),
-        ],
+    response = AskResponse(
+        dataset_id=dataset_id, question=question, business_model=summary.business_model, business_model_label=summary.business_model_label,
+        answer=AskAnswer(status="unsupported", text="I couldn't map that question to a validated metric or analysis for this dataset. I won't guess.", confidence="high"),
+        follow_ups=[AskFollowUp(label="See available metrics", question="What metrics are available?"), AskFollowUp(label="Open Explore", question="Show me the available analyses.")],
         supported_summary=_supported_text(summary),
     )
+    return _with_plan(response, plan)
