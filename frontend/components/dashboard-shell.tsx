@@ -10,7 +10,6 @@ import { useAuth } from "../lib/auth";
 
 const nav: { id: Workspace; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "decisions", label: "Decision Cockpit" },
   { id: "explore", label: "Explore" },
   { id: "insights", label: "Insights" },
   { id: "ask", label: "Ask Analyst" },
@@ -82,7 +81,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         : "workspace-ready";
 
   const allowed = new Set(state.dataset?.capabilities.workspaces ?? nav.map((item) => item.id));
-  if (state.dataset) allowed.add("decisions");
   const filterableFields = state.dataset?.semantic && "dimensions" in state.dataset.semantic && Array.isArray(state.dataset.semantic.dimensions) ? state.dataset.semantic.dimensions : [];
 
   async function handleUpload(file: File) {
