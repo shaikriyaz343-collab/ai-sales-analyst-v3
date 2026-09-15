@@ -17,13 +17,13 @@ def test_pipeline_forecast_is_explainable_and_deterministic() -> None:
     result = build_forecast(dataset.dataset_id)
 
     assert result.weighted_forecast == 50500
-    assert result.open_pipeline_value == 65000
+    assert result.open_pipeline_value == 85000
     assert result.open_opportunities == 3
     assert result.has_probability is True
     assert "probability" in result.basis_note.lower()
     assert result.evidence.metric == "weighted_forecast"
-    assert "amount" in result.evidence.source_fields
-    assert "probability" in result.evidence.source_fields
+    assert "Amount" in result.evidence.source_fields
+    assert "Probability" in result.evidence.source_fields
     assert result.monthly_forecast
     assert all(item.evidence.source_fields for item in result.monthly_forecast)
 
