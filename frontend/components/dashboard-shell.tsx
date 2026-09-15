@@ -7,6 +7,7 @@ import type { Workspace } from "../lib/types";
 import { getScopeValues, onboardDataset, resetSessionScope, updateSessionScope } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { useAuth } from "../lib/auth";
+import ActionWorkflowPanel from "./action-workflow-panel";
 
 const nav: { id: Workspace | "decisions" | "forecast"; label: string }[] = [
   { id: "decisions", label: "Decisions" },
@@ -203,6 +204,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
           </details>
         </div>
+        {pathname === "/dashboard/actions" && state.dataset && <ActionWorkflowPanel datasetId={state.dataset.dataset_id} sessionId={state.session?.session_id} />}
         <section className="workspace">{children}</section>
       </main>
     </div>
