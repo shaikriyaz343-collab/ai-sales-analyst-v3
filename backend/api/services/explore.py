@@ -182,6 +182,19 @@ def _source_fields(metric: str, dimension: str, data: pd.DataFrame) -> list[str]
     return fields
 
 
+def _source_records(group: pd.DataFrame, *, limit: int = 12) -> list[str]:
+    candidates = [
+        "order_id", "opportunity_id", "customer_id", "subscription_id", "client_id", "employee_id", "id"
+    ]
+    key = next((column for column in candidates if column in group.columns), None)
+    if key is None:
+        key = next((column for column in group.columns if column.endswith("_id")), None)
+    if key is None:
+        return []
+    values = group[key].dropna().astype(str).drop_duplicates().tolist()
+    return [f"{key}={value}" for value in values[:limit]]
+
+
 def build_explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8, scope=None) -> ExploreResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
@@ -244,6 +257,7 @@ def build_explore(dataset_id: str, metric: str | None = None, dimension: str | N
                     "calculation": f"{metric_defs[metric]['label']} calculated for {dim_defs[dimension]} = {label}",
                     "scope": scope_label(scope) if scope is not None else "All data",
                     "source_fields": _source_fields(metric, dimension, canonical),
+                    "source_records": _source_records(group),
                 },
             )
         )
