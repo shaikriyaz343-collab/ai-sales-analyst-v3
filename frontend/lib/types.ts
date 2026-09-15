@@ -119,7 +119,6 @@ export type ExploreResponse = {
   rows: ExploreRow[];
 };
 
-
 export type InsightItem = {
   id: string;
   kind: "risk" | "change" | "opportunity" | string;
@@ -132,6 +131,10 @@ export type InsightItem = {
   value?: number | null;
   display_value: string;
   evidence: Evidence;
+  priority_score?: number | null;
+  impact_score?: number | null;
+  urgency_score?: number | null;
+  evidence_score?: number | null;
 };
 
 export type InsightsResponse = {
@@ -143,7 +146,6 @@ export type InsightsResponse = {
   summary: string;
   insights: InsightItem[];
 };
-
 
 export type AskEvidence = Evidence;
 export type AskFollowUp = { label: string; question: string };
@@ -194,7 +196,6 @@ export type ReportResponse = {
   actions: ActionItem[];
   source_note: string;
 };
-
 
 export type AlertRule = { rule_id: string; dataset_id: string; session_id: string; name: string; metric: string; operator: string; threshold: number; cadence: string; scope_label: string; active: boolean; created_at: string; last_evaluated_at?: string | null; };
 export type AlertEvent = { event_id: string; rule_id: string; dataset_id: string; session_id: string; status: string; metric: string; value?: number | null; threshold: number; operator: string; title: string; message: string; scope_label: string; evidence: Evidence; evaluated_at: string; };
