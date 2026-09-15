@@ -35,6 +35,7 @@ from .contracts import (
     AuthWorkspace,
     CreateWorkspaceRequest,
     ExploreResponse,
+    ForecastResponse,
     HealthResponse,
     InsightsResponse,
     LoginRequest,
@@ -77,6 +78,7 @@ from .services.auth import (
 from .services.onboarding import get_dataset, onboard
 from .services.overview import build_overview
 from .services.explore import build_explore
+from .services.forecast import build_forecast
 from .services.insights import build_insights
 from .services.ask import answer_question
 from .services.actions import build_actions
@@ -95,13 +97,9 @@ async def lifespan(app: FastAPI):
         from .services.auth_postgres import PostgresAuthStore
 
         try:
-            # start_runtime_persistence creates and opens the provider, and builds context
             runtime_persistence.start_runtime_persistence()
-
-            # Use the shared provider for auth
             auth_store = PostgresAuthStore(settings.database_url, provider=runtime_persistence._provider)
             set_external_auth(auth_store)
-
             app_state.lifecycle = LifecycleState.READY
             yield
         except Exception:
@@ -285,7 +283,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         telemetry.safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": failure_type})
 
     tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-
     req_id = request.scope.get("state", {}).get("request_id")
     token = telemetry.request_id_var.set(req_id) if req_id else None
 
@@ -425,7 +422,6 @@ def signup(request: SignupRequest, response: Response, http_request: Request) ->
         record_security_event("signup_success", email=principal.email, client_ip=client_ip, user_id=principal.user_id)
         return AuthResponse(user=_auth_user(principal))
     except ValueError as exc:
-        # Keep the public response generic so account existence cannot be enumerated.
         if "already exists" in str(exc).lower():
             record_security_event("signup_duplicate", email=email, client_ip=client_ip)
             raise HTTPException(status_code=400, detail="Unable to create this account.") from exc
@@ -524,6 +520,16 @@ def overview(dataset_id: str, session_id: str | None = None, principal: Principa
 def explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ExploreResponse:
     try:
         return build_explore(dataset_id, metric, dimension, limit, scope=_scope_for(principal, dataset_id, session_id))
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/datasets/{dataset_id}/forecast", response_model=ForecastResponse)
+def forecast(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ForecastResponse:
+    try:
+        return build_forecast(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
     except HTTPException:
         raise
     except ValueError as exc:
