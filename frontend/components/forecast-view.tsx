@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getForecast } from "../lib/api";
 import type { ForecastResponse } from "../lib/types";
 
@@ -8,6 +8,7 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uplift, setUplift] = useState("10");
 
   useEffect(() => {
     let active = true;
@@ -19,6 +20,21 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [datasetId, sessionId]);
+
+  const scenario = useMemo(() => {
+    if (!data || !data.has_probability) return null;
+    const parsed = Number(uplift);
+    if (!Number.isFinite(parsed)) return null;
+    const rate = Math.max(-100, Math.min(100, parsed));
+    const raw = data.weighted_forecast * (1 + rate / 100);
+    const value = Math.min(data.open_pipeline_value, Math.max(0, raw));
+    return {
+      rate,
+      value,
+      delta: value - data.weighted_forecast,
+      capped: raw > data.open_pipeline_value,
+    };
+  }, [data, uplift]);
 
   if (loading) return <div className="forecast-page"><div className="skeleton-hero"/><div className="skeleton-wide"/></div>;
 
@@ -52,6 +68,35 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
       <ForecastMetric label="Open pipeline" value={formatAmount(data.open_pipeline_value)} detail="Total value still open" />
       <ForecastMetric label="Open opportunities" value={data.open_opportunities.toLocaleString()} detail={data.has_probability ? "Probability field validated" : "No validated probability field"} />
     </section>
+
+    {data.has_probability && scenario && <section className="panel forecast-scenario">
+      <div className="section-heading">
+        <div><span className="eyebrow">SCENARIO ANALYSIS</span><h3>What if the forecast improves?</h3></div>
+        <span className="section-kicker">Illustrative only</span>
+      </div>
+      <p>Model a relative change to the current weighted forecast. This does not alter the uploaded data or claim that the probability will change.</p>
+      <div className="scenario-controls">
+        <label htmlFor="forecast-uplift">Scenario improvement (%)</label>
+        <input id="forecast-uplift" type="number" min="-100" max="100" step="1" value={uplift} onChange={(event) => setUplift(event.target.value)} />
+      </div>
+      <div className="metric-grid">
+        <ForecastMetric label="Scenario forecast" value={formatAmount(scenario.value)} detail={`${scenario.rate}% relative change assumption`} />
+        <ForecastMetric label="Change vs baseline" value={formatAmount(scenario.delta)} detail={scenario.capped ? "Capped at open pipeline" : "Illustrative delta"} />
+      </div>
+      <div className="forecast-evidence-grid">
+        <div><span>Assumption</span><strong>Baseline weighted forecast × (1 + improvement ÷ 100)</strong></div>
+        <div><span>Boundary</span><strong>Scenario cannot exceed the validated open pipeline.</strong></div>
+        <div><span>Truth policy</span><strong>Scenario values are modeled, not observed.</strong></div>
+      </div>
+    </section>}
+
+    {!data.has_probability && <section className="panel forecast-scenario">
+      <div className="section-heading">
+        <div><span className="eyebrow">SCENARIO ANALYSIS</span><h3>Scenario modeling is not available yet</h3></div>
+        <span className="section-kicker">Data-dependent</span>
+      </div>
+      <p>The uploaded dataset has no validated probability field, so we will not invent a probability adjustment.</p>
+    </section>}
 
     <section className="panel forecast-basis">
       <div className="section-heading">
