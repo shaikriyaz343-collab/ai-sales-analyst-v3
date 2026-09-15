@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import Any
@@ -16,6 +15,23 @@ def _pct(numerator, denominator):
     return float(numerator / denominator * 100)
 
 
+def _normalized_column_name(value: str) -> str:
+    return " ".join(str(value).strip().lower().replace("_", " ").split())
+
+
+def _find_column(data: pd.DataFrame, aliases: list[str]) -> str | None:
+    """Find the first available column using exact or normalized aliases."""
+    for alias in aliases:
+        if alias in data.columns:
+            return alias
+    normalized = {_normalized_column_name(column): column for column in data.columns}
+    for alias in aliases:
+        match = normalized.get(_normalized_column_name(alias))
+        if match is not None:
+            return match
+    return None
+
+
 def _group_sum(data, group_col, value_col, limit=10):
     if group_col not in data.columns or value_col not in data.columns:
         return []
@@ -30,9 +46,9 @@ def _group_sum(data, group_col, value_col, limit=10):
 
 def analyze_sales_pipeline(data: pd.DataFrame) -> dict[str, Any]:
     """Analyze opportunity pipeline using open/closed semantics."""
-    stage_col = next((c for c in ["stage", "opportunity_stage"] if c in data.columns), None)
-    amount_col = next((c for c in ["amount", "pipeline_amount", "revenue"] if c in data.columns), None)
-    salesperson_col = "salesperson" if "salesperson" in data.columns else None
+    stage_col = _find_column(data, ["stage", "opportunity_stage"])
+    amount_col = _find_column(data, ["amount", "pipeline_amount", "revenue"])
+    salesperson_col = _find_column(data, ["salesperson"])
 
     available = stage_col is not None and amount_col is not None
     result = {
@@ -53,10 +69,9 @@ def analyze_sales_pipeline(data: pd.DataFrame) -> dict[str, Any]:
     lost = stage_text.str.contains(r"lost|closed lost|failed", regex=True)
     open_mask = ~(won | lost)
 
-    if "opportunity_id" in data.columns:
-        opp_key = data["opportunity_id"]
-    elif "order_id" in data.columns:
-        opp_key = data["order_id"]
+    opp_key_col = _find_column(data, ["opportunity_id", "order_id"])
+    if opp_key_col is not None:
+        opp_key = data[opp_key_col]
     else:
         opp_key = pd.Series(range(len(data)), index=data.index)
 
@@ -93,16 +108,19 @@ def analyze_sales_pipeline(data: pd.DataFrame) -> dict[str, Any]:
 
 def analyze_sales_forecast(data: pd.DataFrame) -> dict[str, Any]:
     """Build an open-pipeline forecast only from open opportunities."""
-    close_col = next((c for c in ["expected_close", "close_date"] if c in data.columns), None)
-    amount_col = next((c for c in ["amount", "pipeline_amount", "revenue"] if c in data.columns), None)
-    probability_col = next((c for c in ["probability", "win_probability"] if c in data.columns), None)
+    close_col = _find_column(
+        data,
+        ["expected_close", "expected_close_date", "expected close", "expected close date", "close_date", "close date"],
+    )
+    amount_col = _find_column(data, ["amount", "pipeline_amount", "pipeline amount", "revenue"])
+    probability_col = _find_column(data, ["probability", "win_probability", "win probability"])
+    stage_col = _find_column(data, ["stage", "opportunity_stage", "opportunity stage"])
 
     result = {"module": "forecast", "title": "Sales Forecast", "available": False,
               "metrics": {}, "monthly_forecast": [], "notes": []}
-    if close_col is None or amount_col is None or "stage" not in data.columns and "opportunity_stage" not in data.columns:
+    if close_col is None or amount_col is None or stage_col is None:
         return result
 
-    stage_col = "stage" if "stage" in data.columns else "opportunity_stage"
     dates = pd.to_datetime(data[close_col], errors="coerce")
     amount = _num(data[amount_col]).fillna(0)
     stage_text = data[stage_col].astype(str).str.strip().str.lower()
@@ -133,7 +151,7 @@ def analyze_sales_forecast(data: pd.DataFrame) -> dict[str, Any]:
         "has_probability": has_probability,
         "open_pipeline_value": float(clean["_amount"].sum()),
         "pipeline_value": float(amount[dates.notna()].sum()),
-        "weighted_forecast": float(clean["_weighted"].sum()),
+        "weighted_forecast": float(clean["weighted"].sum()) if "weighted" in clean.columns else float(clean["_weighted"].sum()),
         "opportunities": int(len(clean)),
         "open_opportunities": int(len(clean)),
     }
@@ -146,6 +164,7 @@ def analyze_sales_forecast(data: pd.DataFrame) -> dict[str, Any]:
     )
     result["monthly_forecast"] = monthly.to_dict("records")
     return result
+
 
 def analyze_subscription_business(data: pd.DataFrame) -> dict[str, Any]:
     """Analyze subscription data using the latest dated snapshot when available."""
@@ -228,41 +247,15 @@ def run_business_type_packs(
     data: pd.DataFrame,
     business_type: dict[str, Any],
 ) -> dict[str, Any]:
-
-    primary = business_type.get(
-        "primary_type"
-    )
-
+    primary = business_type.get("primary_type")
     packs = {}
-
     if primary == "transactional_sales":
-        # Core retail/transactional work is handled by the adaptive analysis
-        # engine. This function still returns a consistent pack container.
-        packs["transactional_sales"] = {
-            "module": "transactional_sales",
-            "available": True,
-            "title": "Transactional Sales",
-        }
-
+        packs["transactional_sales"] = {"module": "transactional_sales", "available": True, "title": "Transactional Sales"}
     elif primary == "sales_pipeline":
-        packs["sales_pipeline"] = analyze_sales_pipeline(
-            data
-        )
-        packs["forecast"] = analyze_sales_forecast(
-            data
-        )
-
+        packs["sales_pipeline"] = analyze_sales_pipeline(data)
+        packs["forecast"] = analyze_sales_forecast(data)
     elif primary == "subscription":
-        packs["subscription"] = analyze_subscription_business(
-            data
-        )
-
+        packs["subscription"] = analyze_subscription_business(data)
     elif primary == "services":
-        packs["services"] = analyze_services_business(
-            data
-        )
-
-    return {
-        "primary_type": primary,
-        "packs": packs,
-    }
+        packs["services"] = analyze_services_business(data)
+    return {"primary_type": primary, "packs": packs}
