@@ -48,8 +48,8 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
     </section>
 
     <section className="metric-grid">
-      <ForecastMetric label="Weighted forecast" value={formatMoney(data.weighted_forecast)} detail="Expected value from open opportunities" />
-      <ForecastMetric label="Open pipeline" value={formatMoney(data.open_pipeline_value)} detail="Total value still open" />
+      <ForecastMetric label="Weighted forecast" value={formatAmount(data.weighted_forecast)} detail="Expected value from open opportunities" />
+      <ForecastMetric label="Open pipeline" value={formatAmount(data.open_pipeline_value)} detail="Total value still open" />
       <ForecastMetric label="Open opportunities" value={data.open_opportunities.toLocaleString()} detail={data.has_probability ? "Probability field validated" : "No validated probability field"} />
     </section>
 
@@ -74,8 +74,8 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
         <div className="forecast-table-row forecast-table-head"><span>Month</span><span>Expected value</span><span>Weighted forecast</span><span>Open opportunities</span></div>
         {data.monthly_forecast.map((item) => <div className="forecast-table-row" key={item.month}>
           <strong>{item.month}</strong>
-          <span>{formatMoney(item.expected_value)}</span>
-          <span>{formatMoney(item.weighted_forecast)}</span>
+          <span>{formatAmount(item.expected_value)}</span>
+          <span>{formatAmount(item.weighted_forecast)}</span>
           <span>{item.opportunities.toLocaleString()}</span>
         </div>)}
       </div> : <div className="empty-signal">No dated open opportunities are available for a monthly outlook.</div>}
@@ -96,6 +96,6 @@ function ForecastMetric({ label, value, detail }: { label: string; value: string
   </article>;
 }
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+function formatAmount(value: number) {
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
 }
