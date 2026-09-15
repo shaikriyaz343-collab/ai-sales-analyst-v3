@@ -24,8 +24,12 @@ def test_pipeline_forecast_is_explainable_and_deterministic() -> None:
     assert result.evidence.metric == "weighted_forecast"
     assert "Amount" in result.evidence.source_fields
     assert "Probability" in result.evidence.source_fields
+    assert result.evidence.source_records == ["O2", "O4", "O5"]
     assert result.monthly_forecast
     assert all(item.evidence.source_fields for item in result.monthly_forecast)
+    by_month = {item.month: item.evidence.source_records for item in result.monthly_forecast}
+    assert by_month["2026-02"] == ["O2"]
+    assert by_month["2026-03"] == ["O4", "O5"]
 
 
 def test_forecast_rejects_non_pipeline_dataset() -> None:
