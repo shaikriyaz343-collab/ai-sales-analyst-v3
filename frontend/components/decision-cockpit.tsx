@@ -14,6 +14,10 @@ function score(value: number | null | undefined): string {
   return value === null || value === undefined ? "—" : `${value.toFixed(0)}/100`;
 }
 
+function qualityLabel(status: string): string {
+  return status === "good" ? "Ready for analysis" : status === "usable_with_warnings" ? "Usable with warnings" : status === "needs_review" ? "Needs review" : "Quality status unknown";
+}
+
 export default function DecisionCockpit() {
   const { state } = useAppState();
   const dataset = state.dataset;
@@ -65,6 +69,7 @@ export default function DecisionCockpit() {
   const risks = items.filter((item) => item.kind === "risk");
   const opportunities = items.filter((item) => item.kind === "opportunity");
   const changes = items.filter((item) => item.kind === "change");
+  const quality = dataset.quality;
 
   return (
     <div className="decision-page">
@@ -80,6 +85,34 @@ export default function DecisionCockpit() {
           <small>{items.length ? `${items.length} validated signal${items.length === 1 ? "" : "s"}` : "No validated signals"}</small>
         </div>
       </section>
+
+      {quality && (
+        <section className="panel decision-quality-card">
+          <div>
+            <span className="eyebrow">DATA READINESS</span>
+            <h3>{qualityLabel(quality.quality_status)}</h3>
+            <p>{quality.issue_count ? `${quality.issue_count} validated data-quality issue${quality.issue_count === 1 ? "" : "s"} detected. The analyst will surface limitations instead of hiding them.` : "No validated data-quality issues were detected during ingestion."}</p>
+          </div>
+          <div className="decision-quality-stats">
+            <span><strong>{quality.critical_count}</strong> critical</span>
+            <span><strong>{quality.warning_count}</strong> warnings</span>
+            <span><strong>{quality.info_count}</strong> info</span>
+          </div>
+          {quality.issues.length > 0 && (
+            <details className="decision-evidence">
+              <summary>Review the data-quality findings</summary>
+              <div className="evidence-box">
+                {quality.issues.map((issue) => (
+                  <div key={issue.code} className="quality-issue">
+                    <p><strong>{issue.code}</strong> · {issue.message}</p>
+                    <p>{issue.affected_rows.toLocaleString()} affected row{issue.affected_rows === 1 ? "" : "s"}. {issue.recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
 
       {items.length === 0 ? (
         <section className="panel empty-signal decision-empty">
