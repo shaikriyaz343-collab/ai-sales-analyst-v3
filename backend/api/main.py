@@ -139,6 +139,164 @@ app.add_middleware(
     allowed_hosts=list(settings.trusted_hosts),
 )
 
+class SecurityHeadersMiddleware:
+    """Add conservative response security headers."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http" or not settings.security_headers_enabled:
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message.get("type") == "http.response.start":
+                headers = list(message.get("headers", []))
+                existing = {name.lower() for name, _ in headers}
+
+                def add(name: str, value: str) -> None:
+                    key = name.lower().encode("latin-1")
+                    if key not in existing:
+                        headers.append((name.encode("latin-1"), value.encode("latin-1")))
+
+                add("X-Content-Type-Options", "nosniff")
+                add("X-Frame-Options", "DENY")
+                add("Referrer-Policy", "strict-origin-when-cross-origin")
+                add("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+                if settings.is_production:
+                    add("Strict-Transport-Security", f"max-age={settings.hsts_max_age}; includeSubDomains")
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+import logging
+import psycopg
+
+async def require_analysis_capacity(request: Request):
+    limiter = request.app.state.analytics_limiter
+    try:
+        limiter.acquire_nowait()
+    except anyio.WouldBlock:
+        raise HTTPException(
+            status_code=503,
+            detail="Analytics engine is currently at maximum capacity."
+        )
+
+    try:
+        yield
+    finally:
+        limiter.release()
+
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+
+from .telemetry import setup_logging, CorrelationMiddleware, user_id_var, org_id_var
+setup_logging()
+app.add_middleware(CorrelationMiddleware)
+
+try:
+    from botocore.exceptions import BotoCoreError, ClientError
+    _has_boto = True
+except ImportError:
+    _has_boto = False
+
+logger = logging.getLogger("ai_sales_analyst.errors")
+
+def _sanitize_log(text: str) -> str:
+    if not text:
+        return text
+    secrets = []
+    if settings.database_url:
+        secrets.append(settings.database_url)
+    if settings.object_store_secret_key:
+        secrets.append(settings.object_store_secret_key)
+    if settings.object_store_access_key:
+        secrets.append(settings.object_store_access_key)
+
+    for s in secrets:
+        if s and len(s) > 4:
+            text = text.replace(s, "***REDACTED***")
+    return text
+
+@app.exception_handler(psycopg.OperationalError)
+async def psycopg_operational_exception_handler(request: Request, exc: psycopg.OperationalError):
+    from backend.api.telemetry import safe_emit_metric
+    try:
+        import psycopg_pool
+        if isinstance(exc, psycopg_pool.PoolTimeout):
+            safe_emit_metric("database_pool_timeouts_total", 1, {"pool_name": "default"})
+        else:
+            op = "transaction" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "query"
+            safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": "connection"})
+    except ImportError:
+        op = "transaction" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "query"
+        safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": "connection"})
+
+    logger.error(_sanitize_log(f"Database dependency failure: {exc}"))
+    return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Database connection failed."})
+
+if _has_boto:
+    @app.exception_handler(BotoCoreError)
+    async def botocore_exception_handler(request: Request, exc: BotoCoreError):
+        from backend.api.telemetry import safe_emit_metric
+        op = "write" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "read"
+        failure_type = "timeout" if "timeout" in str(type(exc)).lower() else "client_error"
+        safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": failure_type})
+        logger.error(_sanitize_log(f"Object storage dependency failure: {exc}"))
+        return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
+
+    @app.exception_handler(ClientError)
+    async def botocore_client_exception_handler(request: Request, exc: ClientError):
+        from backend.api.telemetry import safe_emit_metric
+        op = "write" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "read"
+        failure_type = "timeout" if "timeout" in str(type(exc)).lower() else "client_error"
+        safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": failure_type})
+        logger.error(_sanitize_log(f"Object storage client failure: {exc}"))
+        return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=getattr(exc, "headers", None))
+    if isinstance(exc, RequestValidationError):
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+    import traceback
+    from backend.api import telemetry
+    import psycopg
+
+    try:
+        import psycopg_pool
+        if isinstance(exc, psycopg_pool.PoolTimeout):
+            telemetry.safe_emit_metric("database_pool_timeouts_total", 1, {"pool_name": "default"})
+    except ImportError:
+        pass
+
+    if isinstance(exc, psycopg.Error):
+        op = "transaction" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "query"
+        failure_type = "connection" if isinstance(exc, psycopg.OperationalError) else "statement"
+        telemetry.safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": failure_type})
+
+    tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    req_id = request.scope.get("state", {}).get("request_id")
+    token = telemetry.request_id_var.set(req_id) if req_id else None
+
+    try:
+        logger.error(_sanitize_log(f"Unexpected internal error: {exc}\n{tb_str}"))
+    finally:
+        if token:
+            telemetry.request_id_var.reset(token)
+
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+COOKIE_SECURE = settings.secure_cookie
+COOKIE_NAME = settings.cookie_name
+COOKIE_MAX_AGE = 7 * 24 * 60 * 60
+
 
 def _auth_user(principal: Principal) -> AuthUser:
     workspaces = [AuthWorkspace(**item) for item in principal_workspaces(principal)]
