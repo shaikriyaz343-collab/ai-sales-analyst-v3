@@ -8,9 +8,10 @@ import { getScopeValues, onboardDataset, resetSessionScope, updateSessionScope }
 import { useAppState } from "../lib/app-state";
 import { useAuth } from "../lib/auth";
 
-const nav: { id: Workspace | "decisions"; label: string }[] = [
+const nav: { id: Workspace | "decisions" | "forecast"; label: string }[] = [
   { id: "decisions", label: "Decisions" },
   { id: "overview", label: "Overview" },
+  { id: "forecast", label: "Forecast" },
   { id: "explore", label: "Explore" },
   { id: "insights", label: "Insights" },
   { id: "ask", label: "Ask Analyst" },
@@ -141,7 +142,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <div><strong>Sales Analyst</strong><span>Decision Intelligence</span></div>
         </Link>
         <nav className="nav-list" aria-label="Primary navigation">
-          {nav.filter((item) => item.id === "decisions" || allowed.has(item.id)).map((item) => {
+          {nav.filter((item) => item.id === "decisions" || item.id === "forecast" || allowed.has(item.id)).map((item) => {
             const active = pathname === `/dashboard/${item.id}`;
             return <Link key={item.id} href={`/dashboard/${item.id}`} className={`nav-item ${active ? "active" : ""}`}>{item.label}</Link>;
           })}
