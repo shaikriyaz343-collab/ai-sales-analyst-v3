@@ -66,8 +66,8 @@ def test_rank_decision_signals_gives_supported_money_metrics_a_modest_impact_boo
     signals = rank_decision_signals(overview)
 
     assert signals[0].impact_score > signals[1].impact_score
-    assert signals[0].impact_score == 80.0
-    assert signals[1].impact_score == 73.0
+    assert signals[0].impact_score == 85.0
+    assert signals[1].impact_score == 78.0
 
 
 def test_rank_decision_signals_formats_sales_values_for_ui() -> None:
