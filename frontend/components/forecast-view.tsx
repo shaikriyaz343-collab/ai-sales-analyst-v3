@@ -106,6 +106,7 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
       <div className="forecast-evidence-grid">
         <div><span>Calculation</span><strong>{data.evidence.calculation}</strong></div>
         <div><span>Source fields</span><strong>{data.evidence.source_fields.join(", ") || "Validated dataset"}</strong></div>
+        <div><span>Source records</span><strong>{data.evidence.source_records.join(", ") || "No stable record identifiers available"}</strong></div>
         <div><span>Scope</span><strong>{data.evidence.scope}</strong></div>
       </div>
     </section>
@@ -122,6 +123,7 @@ export default function ForecastView({ datasetId, sessionId }: { datasetId: stri
           <span>{formatAmount(item.expected_value)}</span>
           <span>{formatAmount(item.weighted_forecast)}</span>
           <span>{item.opportunities.toLocaleString()}</span>
+          {item.evidence.source_records.length > 0 && <details className="forecast-row-evidence"><summary>Records</summary><span>{item.evidence.source_records.join(", ")}</span></details>}
         </div>)}
       </div> : <div className="empty-signal">No dated open opportunities are available for a monthly outlook.</div>}
     </section>
