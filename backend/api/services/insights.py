@@ -34,6 +34,10 @@ def _from_overview(dataset_id: str, scope=None) -> InsightsResponse:
                 value=insight.evidence.value,
                 display_value=signal.display_value,
                 evidence=insight.evidence,
+                priority_score=signal.priority_score,
+                impact_score=signal.impact_score,
+                urgency_score=signal.urgency_score,
+                evidence_score=signal.evidence_score,
             )
         )
 
