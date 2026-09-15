@@ -164,6 +164,7 @@ class Evidence(BaseModel):
     calculation: str
     scope: str = "All data"
     source_fields: list[str] = Field(default_factory=list)
+    source_records: list[str] = Field(default_factory=list)
 
 
 class OverviewMetric(BaseModel):
@@ -264,6 +265,7 @@ class AskEvidence(BaseModel):
     calculation: str
     scope: str = "All data"
     source_fields: list[str] = Field(default_factory=list)
+    source_records: list[str] = Field(default_factory=list)
 
 
 class AskFollowUp(BaseModel):
@@ -288,6 +290,7 @@ class AskResponse(BaseModel):
     explore_metric: str | None = None
     explore_dimension: str | None = None
     supported_summary: str | None = None
+    analytical_plan: dict[str, Any] | None = None
 
 
 class ActionItem(BaseModel):
