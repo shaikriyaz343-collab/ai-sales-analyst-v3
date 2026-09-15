@@ -4,6 +4,8 @@ from typing import Any
 
 import pandas as pd
 
+from schema_profiler_v2 import normalize_column_name
+
 
 def _num(series):
     return pd.to_numeric(series, errors="coerce")
@@ -13,23 +15,6 @@ def _pct(numerator, denominator):
     if denominator in (0, None):
         return None
     return float(numerator / denominator * 100)
-
-
-def _normalized_column_name(value: str) -> str:
-    return " ".join(str(value).strip().lower().replace("_", " ").split())
-
-
-def _find_column(data: pd.DataFrame, aliases: list[str]) -> str | None:
-    """Find the first available column using exact or normalized aliases."""
-    for alias in aliases:
-        if alias in data.columns:
-            return alias
-    normalized = {_normalized_column_name(column): column for column in data.columns}
-    for alias in aliases:
-        match = normalized.get(_normalized_column_name(alias))
-        if match is not None:
-            return match
-    return None
 
 
 def _group_sum(data, group_col, value_col, limit=10):
@@ -44,11 +29,21 @@ def _group_sum(data, group_col, value_col, limit=10):
     return grouped.reset_index(name=value_col).to_dict("records")
 
 
+def _resolve_column(data: pd.DataFrame, aliases: list[str]) -> str | None:
+    """Resolve semantic column aliases without requiring raw headers to be normalized."""
+    normalized = {normalize_column_name(str(column)): str(column) for column in data.columns}
+    for alias in aliases:
+        candidate = normalized.get(normalize_column_name(alias))
+        if candidate is not None:
+            return candidate
+    return None
+
+
 def analyze_sales_pipeline(data: pd.DataFrame) -> dict[str, Any]:
     """Analyze opportunity pipeline using open/closed semantics."""
-    stage_col = _find_column(data, ["stage", "opportunity_stage"])
-    amount_col = _find_column(data, ["amount", "pipeline_amount", "revenue"])
-    salesperson_col = _find_column(data, ["salesperson"])
+    stage_col = _resolve_column(data, ["stage", "opportunity stage", "deal stage"])
+    amount_col = _resolve_column(data, ["amount", "deal amount", "opportunity amount", "pipeline amount", "revenue"])
+    salesperson_col = _resolve_column(data, ["salesperson", "sales person", "sales rep", "sales representative", "rep", "account manager"])
 
     available = stage_col is not None and amount_col is not None
     result = {
@@ -69,9 +64,12 @@ def analyze_sales_pipeline(data: pd.DataFrame) -> dict[str, Any]:
     lost = stage_text.str.contains(r"lost|closed lost|failed", regex=True)
     open_mask = ~(won | lost)
 
-    opp_key_col = _find_column(data, ["opportunity_id", "order_id"])
-    if opp_key_col is not None:
-        opp_key = data[opp_key_col]
+    opportunity_col = _resolve_column(data, ["opportunity id", "opportunity number", "deal id", "lead id"])
+    order_id_col = _resolve_column(data, ["order id", "order number", "invoice number", "transaction id"])
+    if opportunity_col:
+        opp_key = data[opportunity_col]
+    elif order_id_col:
+        opp_key = data[order_id_col]
     else:
         opp_key = pd.Series(range(len(data)), index=data.index)
 
@@ -108,16 +106,19 @@ def analyze_sales_pipeline(data: pd.DataFrame) -> dict[str, Any]:
 
 def analyze_sales_forecast(data: pd.DataFrame) -> dict[str, Any]:
     """Build an open-pipeline forecast only from open opportunities."""
-    close_col = _find_column(
-        data,
-        ["expected_close", "expected_close_date", "expected close", "expected close date", "close_date", "close date"],
-    )
-    amount_col = _find_column(data, ["amount", "pipeline_amount", "pipeline amount", "revenue"])
-    probability_col = _find_column(data, ["probability", "win_probability", "win probability"])
-    stage_col = _find_column(data, ["stage", "opportunity_stage", "opportunity stage"])
+    close_col = _resolve_column(data, ["expected close", "expected close date", "close date", "expectedclosedate"])
+    amount_col = _resolve_column(data, ["amount", "deal amount", "opportunity amount", "pipeline amount", "revenue"])
+    probability_col = _resolve_column(data, ["probability", "win probability", "close probability"])
+    stage_col = _resolve_column(data, ["stage", "opportunity stage", "deal stage"])
 
-    result = {"module": "forecast", "title": "Sales Forecast", "available": False,
-              "metrics": {}, "monthly_forecast": [], "notes": []}
+    result = {
+        "module": "forecast",
+        "title": "Sales Forecast",
+        "available": False,
+        "metrics": {},
+        "monthly_forecast": [],
+        "notes": [],
+    }
     if close_col is None or amount_col is None or stage_col is None:
         return result
 
@@ -151,7 +152,7 @@ def analyze_sales_forecast(data: pd.DataFrame) -> dict[str, Any]:
         "has_probability": has_probability,
         "open_pipeline_value": float(clean["_amount"].sum()),
         "pipeline_value": float(amount[dates.notna()].sum()),
-        "weighted_forecast": float(clean["weighted"].sum()) if "weighted" in clean.columns else float(clean["_weighted"].sum()),
+        "weighted_forecast": float(clean["weighted" if "weighted" in clean.columns else "_weighted"].sum()),
         "opportunities": int(len(clean)),
         "open_opportunities": int(len(clean)),
     }
@@ -211,7 +212,6 @@ def analyze_subscription_business(data: pd.DataFrame) -> dict[str, Any]:
             result["metrics"]["churned_customers"] = int(churned_customers)
         result["metrics"]["churned_records"] = int(churned.sum())
 
-    # Keep snapshot data internal for concentration analysis; callers should not render it directly.
     result["_snapshot_data"] = snapshot
     return result
 
