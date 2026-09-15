@@ -148,6 +148,7 @@ export default function DecisionCockpit() {
                       <p><strong>Calculation:</strong> {item.evidence.calculation}</p>
                       <p><strong>Scope:</strong> {item.evidence.scope}</p>
                       <p><strong>Source fields:</strong> {item.evidence.source_fields.join(", ") || "Validated dataset"}</p>
+                      {item.evidence.source_records.length > 0 && <p><strong>Source records:</strong> {item.evidence.source_records.join(", ")}</p>}
                       {item.evidence.comparison_value !== null && item.evidence.comparison_value !== undefined && <p><strong>Comparison:</strong> {item.evidence.comparison_value}</p>}
                     </div>
                   </details>
