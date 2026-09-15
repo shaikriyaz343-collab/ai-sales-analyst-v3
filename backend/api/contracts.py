@@ -22,8 +22,6 @@ class CapabilitySet(BaseModel):
     modules: list[str] = Field(default_factory=list)
 
 
-
-
 class ScopeFilter(BaseModel):
     field: str
     operator: str = "in"
@@ -53,6 +51,7 @@ class AnalysisSession(BaseModel):
     active_analysis: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None
 
+
 class DatasetSummary(BaseModel):
     dataset_id: str
     organization_id: str | None = None
@@ -68,7 +67,6 @@ class DatasetSummary(BaseModel):
     quality_issues: int
     semantic: SemanticSummary = Field(default_factory=SemanticSummary)
     capabilities: CapabilitySet = Field(default_factory=CapabilitySet)
-    # Backward-compatible alias retained for existing clients/tests.
     supported_concepts: list[str] = Field(default_factory=list)
 
 
@@ -76,6 +74,7 @@ class HealthResponse(BaseModel):
     status: str
     product: str
     version: str
+
 
 class ReadyResponse(BaseModel):
     status: str
@@ -223,6 +222,10 @@ class InsightItem(BaseModel):
     value: float | None = None
     display_value: str
     evidence: Evidence
+    priority_score: float | None = None
+    impact_score: float | None = None
+    urgency_score: float | None = None
+    evidence_score: float | None = None
 
 
 class InsightsResponse(BaseModel):
@@ -266,6 +269,7 @@ class AskResponse(BaseModel):
     explore_metric: str | None = None
     explore_dimension: str | None = None
     supported_summary: str | None = None
+
 
 class ActionItem(BaseModel):
     id: str
@@ -355,6 +359,7 @@ class ReportResponse(BaseModel):
     opportunities: list[OverviewInsight] = Field(default_factory=list)
     actions: list[ActionItem] = Field(default_factory=list)
     source_note: str
+
 
 class SavedIntelligence(BaseModel):
     id: str
