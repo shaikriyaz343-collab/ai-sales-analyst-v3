@@ -149,6 +149,12 @@ export async function getActions(datasetId: string, sessionId?: string): Promise
   return response.json();
 }
 
+export async function updateActionStatus(datasetId: string, sessionId: string, actionId: string, status: string): Promise<import("./types").ActionItem> {
+  const response = await apiFetch(`/api/v1/datasets/${datasetId}/actions/${encodeURIComponent(actionId)}/status?session_id=${encodeURIComponent(sessionId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+  if (!response.ok) throw await errorFrom(response, "Action status could not be updated.");
+  return response.json();
+}
+
 export async function getReport(datasetId: string, sessionId?: string): Promise<import("./types").ReportResponse> {
   const response = await apiFetch(`/api/v1/datasets/${datasetId}/report${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`);
   if (!response.ok) throw await errorFrom(response, "Report could not be generated.");
