@@ -7,7 +7,7 @@ from typing import Iterable, Literal
 from ..contracts import OverviewResponse
 
 
-PlanIntent = Literal["metric", "ranking", "causal", "unsupported"]
+PlanIntent = Literal["metric", "ranking", "change", "causal", "unsupported"]
 
 _METRIC_ALIASES = {
     "transactional_sales": {
@@ -34,7 +34,8 @@ _DIMENSION_ALIASES = {
 }
 
 _RANK_WORDS = {"highest", "lowest", "top", "best", "worst", "most", "least"}
-_CAUSAL_WORDS = {"why", "cause", "caused", "changed", "change"}
+_CHANGE_WORDS = {"changed", "change", "movement", "moved", "versus", "compared"}
+_CAUSAL_WORDS = {"why", "cause", "caused"}
 
 
 @dataclass(frozen=True)
@@ -93,7 +94,7 @@ def build_plan(
     overview: OverviewResponse,
     validated_dimensions: Iterable[str] | None = None,
 ) -> AnalyticalPlan:
-    """Translate a question into an execution plan without calculating values."""
+    """Translate a question into a deterministic analytical execution plan."""
     q = _canon(question)
     if not q:
         return AnalyticalPlan(intent="unsupported", supported=False, reason="Question is empty.")
@@ -106,7 +107,17 @@ def build_plan(
     if any(token in q.split() for token in _CAUSAL_WORDS):
         return AnalyticalPlan(
             intent="causal", metric=metric, dimension=dimension, evidence_requested=evidence_requested,
-            reason="Use validated Insights evidence objects for a causal or period-movement question.",
+            reason="Use validated Insights evidence objects for a causal question.",
+        )
+
+    if any(token in q.split() for token in _CHANGE_WORDS):
+        if metric is None:
+            metric = next((item.id for item in overview.metrics if item.delta_pct is not None), None)
+        supported = metric is not None and any(item.id == metric and item.delta_pct is not None for item in overview.metrics)
+        return AnalyticalPlan(
+            intent="change", metric=metric, dimension=dimension, evidence_requested=evidence_requested,
+            supported=supported,
+            reason=("Change questions use the validated period-over-period movement on Overview metrics." if supported else "No validated comparison movement is available for the requested question."),
         )
 
     if any(re.search(rf"\b{re.escape(word)}\b", q) for word in _RANK_WORDS):
