@@ -36,15 +36,20 @@ def _parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _format_timestamp(value: datetime) -> str:
+    return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def _schedule_state(cadence: str, created_at: str, last_evaluated_at: str | None, now: datetime) -> tuple[bool, str | None]:
     if cadence == "manual":
         return True, None
     interval = CADENCE_INTERVALS.get(cadence)
     if interval is None:
         raise ValueError("Alert cadence must be manual, daily, or weekly.")
-    anchor = _parse_timestamp(last_evaluated_at or created_at)
-    next_due = anchor + interval
-    return now >= next_due, next_due.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    if last_evaluated_at is None:
+        return True, created_at
+    next_due = _parse_timestamp(last_evaluated_at) + interval
+    return now >= next_due, _format_timestamp(next_due)
 
 
 def _compare(value: float, operator: str, threshold: float) -> bool:
