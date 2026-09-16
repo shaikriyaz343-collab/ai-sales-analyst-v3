@@ -88,3 +88,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix: map object-store provider failures to 503'
           git push origin HEAD:v4/object-store-503-boundary-clean
+
+# Trigger run after initial workflow publication.
