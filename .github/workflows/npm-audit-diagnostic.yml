@@ -1,0 +1,28 @@
+name: NPM Audit Diagnostic
+
+on:
+  pull_request:
+    branches: [ v4/saas-foundation ]
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Print npm audit findings
+        run: npm audit --audit-level=high
