@@ -5,7 +5,7 @@ import pytest
 from backend.api.contracts import AlertRuleCreate, ScopeFilter
 from backend.api.services.onboarding import onboard
 from backend.api.services.session import create_session, replace_dataset, update_scope
-from backend.api.services.monitoring import _load, create_rule, delete_rule, evaluate_alerts, list_alerts
+from backend.api.services.monitoring import _load as monitoring_state_load, create_rule, delete_rule, evaluate_alerts, list_alerts
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "samples"
@@ -95,4 +95,4 @@ def test_dataset_replacement_clears_prior_monitoring_state():
     replaced = replace_dataset(session.session_id, pipeline.dataset_id)
     assert replaced.dataset_id == pipeline.dataset_id
     assert list_alerts(pipeline.dataset_id, session.session_id).rules == []
-    assert _load(session.session_id)["rules"] == []
+    assert monitoring_state_load(session.session_id)["rules"] == []
