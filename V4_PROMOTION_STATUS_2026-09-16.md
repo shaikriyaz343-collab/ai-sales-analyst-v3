@@ -6,9 +6,9 @@ Date: 2026-09-16
 
 `v4/saas-foundation`
 
-Current merged commit:
+Current commit:
 
-`c946d9fb6824ec498bc40afb360847c1eb3eee3b`
+`f12c3aec2ab7053d4d96b47012b9f30d78d796f8`
 
 Promotion merge:
 
@@ -18,7 +18,7 @@ Release-hardening merge:
 
 `#8` — Release hardening: foundation CI and Next workspace root
 
-The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`; the current foundation tree adds only the release-hardening workflow/configuration changes described below.
+The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`; the current foundation tree adds only the release-hardening workflow/configuration changes and this status refresh.
 
 ## Promotion validation evidence
 
