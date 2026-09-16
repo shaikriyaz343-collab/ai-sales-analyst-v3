@@ -28,6 +28,11 @@ def trigger_error_db():
 def trigger_error_boto():
     raise ClientError({'Error': {'Message': 'storage failed for key ' + str(main_module.settings.object_store_secret_key), 'Code': 'Unknown'}}, 'operation')
 
+@app.get("/api/v1/trigger_error/persistence")
+def trigger_error_persistence():
+    from backend.api.persistence import PersistenceConfigurationError
+    raise PersistenceConfigurationError("Object-store provider unavailable for " + str(main_module.settings.object_store_secret_key))
+
 @app.get("/api/v1/trigger_error/value")
 def trigger_error_value():
     raise ValueError("unexpected failure password=" + str(main_module.settings.database_url))
@@ -95,6 +100,17 @@ def test_boto_core_error(fake_settings, setup_logging):
 
     log_text = setup_logging.messages[0]
     assert "Object storage client failure" in log_text
+    assert fake_settings.object_store_secret_key not in log_text
+    assert "***REDACTED***" in log_text
+
+def test_persistence_configuration_error_returns_503(fake_settings, setup_logging):
+    response = client.get("/api/v1/trigger_error/persistence")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Service Unavailable - Object storage failed."}
+
+    relevant_logs = [message for message in setup_logging.messages if "Object storage configuration/dependency failure" in message]
+    assert len(relevant_logs) == 1
+    log_text = relevant_logs[0]
     assert fake_settings.object_store_secret_key not in log_text
     assert "***REDACTED***" in log_text
 

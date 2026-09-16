@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import settings
+from .persistence import PersistenceConfigurationError
 from .contracts import (
     ActionItem,
     ActionStatusUpdate,
@@ -258,6 +259,14 @@ if _has_boto:
         safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": failure_type})
         logger.error(_sanitize_log(f"Object storage client failure: {exc}"))
         return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
+
+@app.exception_handler(PersistenceConfigurationError)
+async def persistence_configuration_exception_handler(request: Request, exc: PersistenceConfigurationError):
+    from backend.api.telemetry import safe_emit_metric
+    op = "write" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "read"
+    safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": "configuration"})
+    logger.error(_sanitize_log(f"Object storage configuration/dependency failure: {exc}"))
+    return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
