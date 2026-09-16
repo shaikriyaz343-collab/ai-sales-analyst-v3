@@ -1,8 +1,8 @@
 name: V4 Promotion Validation
 
 on:
-  issues:
-    types: [opened]
+  pull_request_target:
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   validate:
-    if: startsWith(github.event.issue.title, '[V4 CI]')
+    if: startsWith(github.event.pull_request.title, '[V4 CI]')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -73,11 +73,3 @@ jobs:
               issue_number: context.issue.number,
               body,
             });
-            if (success) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                state: 'closed',
-              });
-            }
