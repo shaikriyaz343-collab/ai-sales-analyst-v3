@@ -1,6 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 
+from backend.api.contracts import SavedIntelligenceCreate
 from backend.api.services.onboarding import STORAGE, onboard
 from backend.api.services.saved_intelligence import list_saved, save_intelligence
 from backend.api.services.session import create_session
@@ -14,13 +15,13 @@ def test_saved_explore_refresh_recalculates_current_dataset_and_evidence():
     saved = save_intelligence(
         summary.dataset_id,
         session.session_id,
-        {
-            "name": "Revenue by product watch",
-            "source_workspace": "explore",
-            "source_id": "revenue:product",
-            "metric": "revenue",
-            "dimension": "product",
-        },
+        SavedIntelligenceCreate(
+            name="Revenue by product watch",
+            source_workspace="explore",
+            source_id="revenue:product",
+            metric="revenue",
+            dimension="product",
+        ),
     )
     baseline = list_saved(summary.dataset_id, session.session_id)
     item = next(x for x in baseline.items if x.id == saved.id)
