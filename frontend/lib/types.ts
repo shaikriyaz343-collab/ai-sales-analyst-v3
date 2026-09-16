@@ -226,7 +226,22 @@ export type ReportResponse = {
   source_note: string;
 };
 
-export type AlertRule = { rule_id: string; dataset_id: string; session_id: string; name: string; metric: string; operator: string; threshold: number; cadence: string; scope_label: string; active: boolean; created_at: string; last_evaluated_at?: string | null; };
+export type AlertRule = {
+  rule_id: string;
+  dataset_id: string;
+  session_id: string;
+  name: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  cadence: string;
+  scope_label: string;
+  active: boolean;
+  created_at: string;
+  last_evaluated_at?: string | null;
+  due: boolean;
+  next_due_at?: string | null;
+};
 export type AlertEvent = { event_id: string; rule_id: string; dataset_id: string; session_id: string; status: string; metric: string; value?: number | null; threshold: number; operator: string; title: string; message: string; scope_label: string; evidence: Evidence; evaluated_at: string; };
 export type AlertsResponse = { dataset_id: string; business_model: string | null; business_model_label: string | null; scope_label: string; rules: AlertRule[]; events: AlertEvent[]; };
 
