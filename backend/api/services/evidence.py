@@ -21,15 +21,17 @@ def resolve_source_record_column(
     data: pd.DataFrame,
     *extra_aliases: str,
 ) -> str | None:
-    """Resolve a stable source-record identifier from normalized column names."""
+    """Resolve a stable source-record identifier from semantic or normalized aliases."""
     aliases = (*extra_aliases, *SOURCE_RECORD_ALIASES)
+    columns = [str(column) for column in data.columns]
+    exact = {column for column in columns}
+    for alias in aliases:
+        if alias in exact:
+            return alias
     wanted = {normalize_column_name(alias) for alias in aliases}
     return next(
-        (str(column) for column in data.columns if normalize_column_name(column) in wanted),
-        next(
-            (str(column) for column in data.columns if str(column).endswith("_id")),
-            None,
-        ),
+        (column for column in columns if normalize_column_name(column) in wanted),
+        next((column for column in columns if column.endswith("_id")), None),
     )
 
 
