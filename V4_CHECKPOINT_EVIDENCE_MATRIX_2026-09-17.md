@@ -13,11 +13,11 @@ A human/operator statement that an external exercise was performed is **not evid
 ## Release identity
 
 - Production-oriented branch: `v4/saas-foundation`
-- Current branch head: `9736cba660167db8516e9380cea8b79ba2f18f35`
-- Parent/current application-behavior lineage: `9a9c98a3df8bb2416b7eb5bd1d86ef0f13d94f75`
+- Current branch head: `d7cbe68de3cb18c8226cb99d514b6a6624935574`
 - Latest application-behavior checkpoint: `371aa5caf00308b98faeba58bf4c5736bb995b39`
-- PR #29 is documentation-only, so the application-behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
-- The current branch head `9736cba...` is the evidence-matrix documentation commit and does not change application behavior.
+- PR #29 remains a documentation-only merge, so the application-behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
+- PR #28 security review is now merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`; its changes are repository-side security review/tests and do not alter analytical behavior.
+- The current branch head is therefore a security-review merge on top of the documentation/evidence lineage; no analytical behavior checkpoint has changed.
 - Production target recorded in the repository: `https://peaceful-mindfulness-production-51b6.up.railway.app/`
 - Deployment stack: Railway + Cloudflare R2 through the S3-compatible adapter.
 
@@ -34,8 +34,8 @@ A human/operator statement that an external exercise was performed is **not evid
 | Object-store API failure boundary | PR #22 / `371aa5caf...`; disposable `35126592984` targeted + full V4 suite PASS; normal `35126724910` backend/frontend PASS | Complete | Reuse |
 | State reconciliation | PR #23, #24, #25; docs-only reconciliation; application checkpoint remains `371aa5caf...` | Complete | Reuse as authoritative state metadata |
 | Railway/R2 evidence reconciliation | PR #26 / #27 documentation reconciliation | Complete as repository evidence-state update | Reuse as state metadata; do not treat narrative owner assertions as proof of external execution |
-| Cross-site auth architecture contract | PR #29 / merge `9a9c98a3...`; documentation-only | Repository contract complete | Reuse contract; production architecture verification is still open under issue #13 |
-| Post-promotion security review | PR #28 currently open, head `25656474...`, not merged; current head has no commit statuses reported | Not yet complete on foundation branch | Do not count as merged/current checkpoint until PR #28 is actually merged and validated |
+| Cross-site auth architecture contract | PR #29 / merge `9a9c98a...`; documentation-only | Repository contract complete | Reuse contract; production architecture verification is still open under issue #13 |
+| Post-promotion security review | PR #28, merged `d7cbe68de3cb18c8226cb99d514b6a6624935574`; head `25656474...`; backend/frontend checks in run `35132271337` both successful | Complete repository-side gate | Reuse; deployment-dependent evidence remains separate |
 
 ## Product capability checkpoints
 
@@ -65,7 +65,7 @@ A human/operator statement that an external exercise was performed is **not evid
 | Restart / durable state | Execution ledger records authenticated overview reconstruction after backend restart in the accumulated evidence history. No exact-release production restart artifact was found in the reviewed repository evidence. | Repository operational evidence; deployed certification unverified | **Not production-certified.** Tie a reviewable restart/recovery artifact to the release or rerun if none exists. |
 | Rollback / recover-forward | Execution ledger records isolated rollback to a previous build and recover-forward while preserving persisted dataset state. No exact-release production rollback artifact was found in the reviewed repository evidence. | Repository evidence; deployed certification unverified | **Not production-certified.** Locate release-linked rollback evidence or perform the controlled exercise if missing. |
 | Production monitoring | Runbook defines monitoring signal ownership/choreography. No measured production thresholds, observation window, alert output, or ownership artifact was found in the reviewed repository evidence. | Process documented; operational certification unverified | **Not certified.** Obtain the measured monitoring/alert evidence tied to the production release. |
-| Production health/readiness | Repository records `/health` and `/ready`; execution ledger states deployed health/readiness returned 200; current branch history contains successful Railway status checks on relevant commits. Exact release linkage still needs to be preserved in the final evidence package. | Strong historical/deployment-status evidence; final release linkage incomplete | Reuse existing evidence where its deployment/build identity can be established; otherwise do not mark final certification. |
+| Production health/readiness | Repository records `/health` and `/ready`; execution ledger states deployed health/readiness returned 200; relevant commits have successful Railway status checks. Exact release linkage still needs to be preserved in the final evidence package. | Strong historical/deployment-status evidence; final release linkage incomplete | Reuse existing evidence where its deployment/build identity can be established; otherwise do not mark final certification. |
 | Production object-store certification | R2 exercised through application-side S3-compatible testing; repository explicitly distinguishes this from final production-provider certification. | Partial | **Not fully certified.** Link a directly reviewable production-provider artifact for the release. |
 | Production promotion/cutover | Railway status checks are recorded as successful for relevant commits; production target is recorded. A complete release/cutover evidence package is not present in the reviewed repository evidence. | Deployment-status evidence; cutover package incomplete | Preserve the exact deployment/build identity and cutover evidence before final approval. |
 
@@ -74,11 +74,11 @@ A human/operator statement that an external exercise was performed is **not evid
 | Gate | Evidence | Status | Current action |
 |---|---|---|---|
 | Secure production cookie contract | `config.py`/auth tests; supplied chat shows `HttpOnly; ... SameSite=none; Secure` from a deployed response | Implemented + browser-observed historical evidence | Reuse as supporting evidence; final release linkage still matters |
-| SameSite=None security invariant | Production config and repository auth behavior; PR #28 adds explicit contract coverage but is unmerged and its current head has no reported status checks | Implemented in application lineage; review PR open | Keep as open review item until PR #28 is merged and validated |
-| CORS/trusted-host/security headers | Existing production config and repository security tests; PR #28 adds explicit contract tests but is unmerged | Repository controls exist; systematic review gate open | Keep open until the post-promotion review is completed on the foundation branch |
+| SameSite=None security invariant | Production config plus PR #28 security-contract regression, now merged; PR #28 backend/frontend checks in run `35132271337` both successful | Complete repository invariant | Reuse; deployed browser topology remains an issue #13 gate |
+| CORS/trusted-host/security headers | Existing production config + PR #28 explicit contract tests; PR #28 merged with successful backend/frontend checks | Complete repository control/review gate | Reuse; production-provider behavior remains separately evidence-dependent |
 | Tenant/workspace/session authorization | Auth milestone + regression coverage | Complete repository control | Reuse repository evidence; production exercise remains separately unverified |
 | Object-store error redaction / 503 | PR #22 + CI | Complete | Reuse |
-| Systematic post-promotion security review | PR #28 | **Open / not merged** | Genuine current repository blocker; do not count it as complete |
+| Systematic post-promotion security review | PR #28 merged as `d7cbe68...`; review document + security-contract tests included | **Complete repository-side gate** | Reuse; retain deployment-dependent residual items separately |
 | Cross-site domain/cookie architecture | PR #29 merged as docs-only; issue #13 remains open | Contract documented, production architecture not finally closed | Resolve selected production topology + real-browser authenticated behavior |
 
 ## Historical chat evidence incorporated
@@ -99,6 +99,7 @@ The following have direct repository or CI evidence and should not be repeated m
 - Sharp remediation;
 - object-store 503 boundary hardening;
 - release/rollback runbook creation;
+- repository security-review controls/tests from merged PR #28;
 - repository implementation for secure cookie, CORS/trusted-host controls, tenant authorization, and object-store error handling;
 - application-side PostgreSQL and S3-compatible persistence rehearsals already represented by tests/CI;
 - product capability checkpoints already backed by the current application behavior tree and green CI.
@@ -125,16 +126,16 @@ PR #29 is merged and documents the topology options, but issue #13 remains open 
 
 ### 4. Issue #14 — systematic post-promotion security review
 
-PR #28 is currently **open**, not merged, and its current head `25656474...` has no reported commit statuses through the connector. Therefore the repository-side security review is not a completed foundation-branch checkpoint.
+The repository-side portion is now complete: PR #28 merged as `d7cbe68...` after successful backend/frontend checks in run `35132271337`. Issue #14 should remain open only for any deployment-provider evidence it explicitly requires; the merged review closes the repository-side work.
 
 ## Recommended evidence closure sequence
 
-1. Treat `371aa5caf...` as the application-behavior baseline and `9736cba...` as the current branch head whose delta is documentation-only.
+1. Treat `371aa5caf...` as the application-behavior baseline and `d7cbe68...` as the current branch head with repository security-review changes and documentation/evidence updates only; no analytical behavior checkpoint has changed.
 2. Search for direct artifacts corresponding to the outstanding deployment operations and bind each artifact to a Railway deployment/build identity.
 3. Do not close any operational gate from owner comments alone. If a suitable artifact cannot be found, perform only the genuinely missing exercise.
-4. Complete and validate PR #28, then update the authoritative release state for issue #14.
-5. Resolve issue #13 by selecting the final production frontend/API domain topology and verifying authenticated browser behavior.
-6. After exact-release operational evidence and the repository/security/topology gates are closed, produce the final release evidence package and only then make the production-approval determination.
+4. Resolve issue #13 by selecting the final production frontend/API domain topology and verifying authenticated browser behavior.
+5. Close issue #11/#12 only after exact-release operational artifacts are available.
+6. After exact-release operational evidence and the repository/topology gates are closed, produce the final release evidence package and only then make the production-approval determination.
 
 ## Source-of-truth hierarchy
 
@@ -149,4 +150,4 @@ PR #28 is currently **open**, not merged, and its current head `25656474...` has
 
 ## Bottom line
 
-The project has a real checkpoint trail, and substantial engineering work is safely reusable. The application-behavior checkpoint is `371aa5caf...`; the current branch head is `9736cba...`, a documentation-only evidence-matrix update whose parent is the documentation-only PR #29 merge. The outstanding release gates must now be treated strictly by evidence: owner statements are search leads, not certifications. The clearly open repository/architecture items are issue #14 (security review, with PR #28 still open) and issue #13 (final cross-site auth topology), while several operational gates remain open until exact-release artifacts are found or genuinely missing exercises are performed.
+The project has a real checkpoint trail, and substantial engineering work is safely reusable. The application-behavior checkpoint is `371aa5caf...`; the current foundation branch head is `d7cbe68...`, which merges the validated repository-side security review into the evidence/documentation lineage. The remaining release work is evidence-driven: owner statements are search leads, not certifications; issue #14's repository-side review is now complete; issue #13 remains open for final cross-site topology/browser behavior; and the deployment/operations gates in issues #11/#12 remain open until exact-release artifacts are found or genuinely missing exercises are performed.
