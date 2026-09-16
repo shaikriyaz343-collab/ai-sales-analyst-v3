@@ -6,9 +6,9 @@
 
 ## Current checkpoint
 
-`fd286c684ad03ac276bc2a703187d60d453ea52c` — authoritative V4 project state aligned with the promoted foundation and current release evidence.
+The current checkpoint is the latest commit on `v4/saas-foundation`. The authoritative handoff was last synchronized by commit `e04068eb976374808f23710c7f64d3310aac2fc6`.
 
-This is the current promoted engineering/product checkpoint. The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
+The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
 
 ## Durable project documents
 
@@ -205,4 +205,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — authoritative state aligned with the promoted foundation checkpoint and current release gates.
+2026-09-16 — authoritative state aligned with the promoted foundation and current release gates.
