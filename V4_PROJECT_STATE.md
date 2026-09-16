@@ -6,9 +6,17 @@
 
 ## Current checkpoint
 
-`3ac4b2d` — Fix cross-site auth cookie SameSite configuration
+`283838b` — Add V4 backend and frontend regression gate
 
-This is the protected engineering baseline for the current V4 work.
+The protected engineering baseline remains the previously validated `3ac4b2d` checkpoint; subsequent V4 changes are incremental and must retain the same quality gates.
+
+## CI gate status
+
+`v4-ci.yml` is committed on `v4/saas-foundation` and is configured to run on pushes and pull requests targeting the branch, with manual dispatch also enabled.
+
+At the time of this handoff, GitHub had not yet recorded a workflow run for commit `283838b`, so CI execution is not yet claimed as passed.
+
+The next push to `v4/saas-foundation` should provide the first automatic execution evidence for the V4 Regression Gate.
 
 ## Durable project documents
 
@@ -16,6 +24,13 @@ This is the protected engineering baseline for the current V4 work.
 - `V4_C4F_DEPLOYMENT.md` — deployment topology/configuration contract
 - `V4_PRODUCT_STRATEGY_2026.md` — product/market strategy and operating plan
 - `V4_COMPETITIVE_AUDIT_2026-09-15.md` — September 2026 competitive and market audit
+
+## Decision signal foundation
+
+- `backend/api/services/decision_signals.py` defines deterministic `DecisionSignal` objects with evidence and ranking scores.
+- Ranking consumes only validated `OverviewInsight` objects from Overview attention/opportunity collections.
+- Signal kind is preserved when calculating impact; risks/attention are not misclassified as opportunities.
+- Regression coverage exists in `tests_v4_saas/test_decision_signals.py` for ordering, evidence scoring, kind-aware impact, empty inputs and limits.
 
 ## Completed engineering phases
 
@@ -85,7 +100,7 @@ Auth hardening
 
 ## Verified regression and build gates
 
-Latest full V4 backend/regression suite:
+Latest recorded full V4 backend/regression suite:
 
 `254 passed`
 
@@ -339,4 +354,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-15 — authoritative state reconciled to current `3ac4b2d` checkpoint and September 2026 product strategy reset.
+2026-09-16 — CI trigger/status clarified and deterministic decision-signal foundation recorded.
