@@ -17,6 +17,7 @@ The historical pre-promotion baseline `3ac4b2d` remains useful as release eviden
 - `V4_C4F_DEPLOYMENT.md` — deployment topology/configuration contract
 - `V4_PRODUCT_STRATEGY_2026.md` — product/market strategy and operating plan
 - `V4_COMPETITIVE_AUDIT_2026-09-15.md` — September 2026 competitive and market audit
+- `docs/V4_RELEASE_RUNBOOK.md` — release, rollback, monitoring, persistence-safety, and dependency-failure choreography
 
 ## Current promoted product tree
 
@@ -50,6 +51,14 @@ GitHub Actions run `35117016753`
 - Next.js 16.3.3 production build completed successfully
 - foundation push/PR coverage is part of the V4 Development CI workflow
 
+Release-runbook PR #16 validation:
+
+GitHub Actions run `35119910472`
+
+- backend: PASS
+- frontend production build: PASS
+- documentation-only release hardening change merged after CI success
+
 The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted tree and is not treated as exact-tree acceptance evidence.
 
 ## Security / tenant-isolation model
@@ -80,8 +89,8 @@ This checkpoint is not final production approval.
 4. Certify Linux/container resources and capacity.
 5. Complete controlled real dependency-failure rehearsal without destabilizing production.
 6. Improve cross-site domain/cookie architecture where practical to reduce third-party-cookie friction.
-7. Produce an executable rollback/release runbook and reduce ad-hoc deployment choreography.
-8. Define production monitoring thresholds, alerts, and operational ownership.
+7. Repository-side release/rollback choreography is documented in `docs/V4_RELEASE_RUNBOOK.md`; measured production monitoring thresholds, deployment execution, and final operational evidence remain open under issue #12.
+8. Define production monitoring thresholds, alerts, and operational ownership from measured baselines.
 
 ## Product strategy
 
@@ -127,4 +136,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — authoritative state aligned with the promoted foundation and current release gates.
+2026-09-16 — release runbook checkpoint recorded; deployment-dependent production gates remain open.
