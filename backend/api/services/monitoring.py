@@ -1,24 +1,20 @@
 from __future__ import annotations
 
-import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from ..contracts import AlertEvent, AlertRule, AlertsResponse, AlertRuleCreate, Evidence
-from ..config import settings
 from ..runtime_persistence import runtime_document_store
 from .onboarding import get_dataset, STORAGE
 from .overview import build_overview
-from .session import get_session, require_session, scope_label
+from .session import require_session, scope_label
 
 MONITORING_STORAGE = STORAGE.parent / "runtime_monitoring"
 OPS = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "=", "neq": "≠"}
-
-
-def _path(session_id: str) -> Path:
-    return MONITORING_STORAGE / f"{session_id}.json"
+SUPPORTED_CADENCES = {"manual", "daily", "weekly"}
+CADENCE_INTERVALS = {"daily": timedelta(days=1), "weekly": timedelta(days=7)}
 
 
 def _load(session_id: str) -> dict[str, Any]:
@@ -34,6 +30,26 @@ def _save(session_id: str, payload: dict[str, Any]) -> None:
 
 def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _parse_timestamp(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _format_timestamp(value: datetime) -> str:
+    return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _schedule_state(cadence: str, created_at: str, last_evaluated_at: str | None, now: datetime) -> tuple[bool, str | None]:
+    if cadence == "manual":
+        return True, None
+    interval = CADENCE_INTERVALS.get(cadence)
+    if interval is None:
+        raise ValueError("Alert cadence must be manual, daily, or weekly.")
+    if last_evaluated_at is None:
+        return True, created_at
+    next_due = _parse_timestamp(last_evaluated_at) + interval
+    return now >= next_due, _format_timestamp(next_due)
 
 
 def _compare(value: float, operator: str, threshold: float) -> bool:
@@ -60,7 +76,13 @@ def list_alerts(dataset_id: str, session_id: str) -> AlertsResponse:
         raise ValueError("Analysis session does not match the dataset.")
     summary = get_dataset(dataset_id)
     payload = _load(session_id)
-    rules = [AlertRule.model_validate(r) for r in payload.get("rules", []) if r.get("dataset_id") == dataset_id]
+    now = datetime.now(timezone.utc)
+    rules = []
+    for raw in payload.get("rules", []):
+        if raw.get("dataset_id") != dataset_id:
+            continue
+        due, next_due_at = _schedule_state(raw.get("cadence", "manual"), raw["created_at"], raw.get("last_evaluated_at"), now)
+        rules.append(AlertRule.model_validate({**raw, "due": due, "next_due_at": next_due_at}))
     events = [AlertEvent.model_validate(e) for e in payload.get("events", []) if e.get("dataset_id") == dataset_id]
     events.sort(key=lambda e: e.evaluated_at, reverse=True)
     return AlertsResponse(
@@ -79,7 +101,7 @@ def create_rule(dataset_id: str, session_id: str, request: AlertRuleCreate) -> A
         raise ValueError("Analysis session does not match the dataset.")
     if request.operator not in OPS:
         raise ValueError("Alert operator is not supported.")
-    if request.cadence not in {"manual", "daily", "weekly"}:
+    if request.cadence not in SUPPORTED_CADENCES:
         raise ValueError("Alert cadence must be manual, daily, or weekly.")
     metrics = _metric_map(dataset_id, session_id)
     metric = metrics.get(request.metric)
@@ -99,6 +121,8 @@ def create_rule(dataset_id: str, session_id: str, request: AlertRuleCreate) -> A
         scope_label=scope_label(session.scope),
         active=True,
         created_at=now,
+        due=True,
+        next_due_at=None if request.cadence == "manual" else now,
     )
     payload = _load(session_id)
     payload.setdefault("rules", []).append(rule.model_dump())

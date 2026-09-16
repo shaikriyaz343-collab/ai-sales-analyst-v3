@@ -24,6 +24,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from .config import settings
 from .contracts import (
     ActionItem,
+    ActionStatusUpdate,
     ActionsResponse,
     AlertRule,
     AlertRuleCreate,
@@ -35,6 +36,7 @@ from .contracts import (
     AuthWorkspace,
     CreateWorkspaceRequest,
     ExploreResponse,
+    ForecastResponse,
     HealthResponse,
     InsightsResponse,
     LoginRequest,
@@ -77,9 +79,11 @@ from .services.auth import (
 from .services.onboarding import get_dataset, onboard
 from .services.overview import build_overview
 from .services.explore import build_explore
+from .services.forecast import build_forecast
 from .services.insights import build_insights
 from .services.ask import answer_question
 from .services.actions import build_actions
+from .services.action_workflow import update_action_status
 from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
 from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
@@ -95,13 +99,9 @@ async def lifespan(app: FastAPI):
         from .services.auth_postgres import PostgresAuthStore
 
         try:
-            # start_runtime_persistence creates and opens the provider, and builds context
             runtime_persistence.start_runtime_persistence()
-
-            # Use the shared provider for auth
             auth_store = PostgresAuthStore(settings.database_url, provider=runtime_persistence._provider)
             set_external_auth(auth_store)
-
             app_state.lifecycle = LifecycleState.READY
             yield
         except Exception:
@@ -139,7 +139,6 @@ app.add_middleware(
     allowed_hosts=list(settings.trusted_hosts),
 )
 
-
 class SecurityHeadersMiddleware:
     """Add conservative response security headers."""
 
@@ -176,7 +175,6 @@ class SecurityHeadersMiddleware:
 app.add_middleware(SecurityHeadersMiddleware)
 
 import logging
-import traceback
 import psycopg
 
 async def require_analysis_capacity(request: Request):
@@ -285,7 +283,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         telemetry.safe_emit_metric("database_failures_total", 1, {"operation": op, "failure_type": failure_type})
 
     tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-
     req_id = request.scope.get("state", {}).get("request_id")
     token = telemetry.request_id_var.set(req_id) if req_id else None
 
@@ -425,7 +422,6 @@ def signup(request: SignupRequest, response: Response, http_request: Request) ->
         record_security_event("signup_success", email=principal.email, client_ip=client_ip, user_id=principal.user_id)
         return AuthResponse(user=_auth_user(principal))
     except ValueError as exc:
-        # Keep the public response generic so account existence cannot be enumerated.
         if "already exists" in str(exc).lower():
             record_security_event("signup_duplicate", email=email, client_ip=client_ip)
             raise HTTPException(status_code=400, detail="Unable to create this account.") from exc
@@ -530,6 +526,16 @@ def explore(dataset_id: str, metric: str | None = None, dimension: str | None = 
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/api/v1/datasets/{dataset_id}/forecast", response_model=ForecastResponse)
+def forecast(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ForecastResponse:
+    try:
+        return build_forecast(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/v1/datasets/{dataset_id}/insights", response_model=InsightsResponse)
 def insights(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> InsightsResponse:
     try:
@@ -553,11 +559,31 @@ def ask(dataset_id: str, question: str, session_id: str | None = None, principal
 @app.get("/api/v1/datasets/{dataset_id}/actions", response_model=ActionsResponse)
 def actions(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ActionsResponse:
     try:
-        return build_actions(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
+        scope = _scope_for(principal, dataset_id, session_id)
+        return build_actions(dataset_id, scope=scope, session_id=session_id)
     except HTTPException:
         raise
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/datasets/{dataset_id}/actions/{action_id}/status", response_model=ActionItem)
+def update_dataset_action_status(
+    dataset_id: str,
+    action_id: str,
+    request: ActionStatusUpdate,
+    session_id: str | None = None,
+    principal: Principal = Depends(require_user),
+) -> ActionItem:
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for action workflow updates.")
+    _session_for(principal, session_id, dataset_id)
+    try:
+        return update_action_status(dataset_id, session_id, action_id, request.status)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "no longer available" in message.lower() or "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/report", response_model=ReportResponse)

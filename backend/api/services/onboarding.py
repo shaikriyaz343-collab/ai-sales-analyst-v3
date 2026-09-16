@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import uuid
 from pathlib import Path
 from typing import BinaryIO, Any
@@ -11,7 +10,7 @@ from schema_profiler_v2 import profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
 
 from ..config import settings
-from ..contracts import DatasetSummary, SemanticSummary
+from ..contracts import DataQualitySummary, DatasetSummary, SemanticSummary
 from ..runtime_persistence import runtime_object_store, runtime_document_store
 
 
@@ -33,8 +32,6 @@ def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:
     concepts = sorted({str(x) for x in semantic.get("available_concepts", [])})
     fields = [str(x) for x in data.columns]
 
-    # These are conservative classifications from the validated semantic concepts.
-    # The full metric registry will own richer metric/dimension definitions later.
     metric_concepts = {
         "revenue", "quantity", "aov", "price", "discount_pct", "amount",
         "probability", "mrr", "arr", "billings", "hours", "utilization",
@@ -43,6 +40,30 @@ def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:
     metrics = sorted(c for c in concepts if c in metric_concepts)
     dimensions = sorted(c for c in concepts if c not in metric_concepts)
     return SemanticSummary(fields=fields, concepts=concepts, metrics=metrics, dimensions=dimensions)
+
+
+def _quality_summary(result: dict[str, Any]) -> DataQualitySummary:
+    """Persist a bounded, deterministic summary of validated data-quality findings."""
+    raw_issues = result.get("issues") or []
+    issues = [
+        {
+            "severity": str(issue.get("severity", "info")),
+            "code": str(issue.get("code", "UNKNOWN")),
+            "message": str(issue.get("message", "Data-quality issue detected.")),
+            "affected_rows": int(issue.get("affected_rows") or 0),
+            "recommendation": str(issue.get("recommendation", "Review the affected data.")),
+        }
+        for issue in raw_issues[:12]
+    ]
+    return DataQualitySummary(
+        row_count=int(result.get("row_count") or 0),
+        issue_count=int(result.get("issue_count") or len(raw_issues)),
+        critical_count=int(result.get("critical_count") or 0),
+        warning_count=int(result.get("warning_count") or 0),
+        info_count=int(result.get("info_count") or 0),
+        quality_status=str(result.get("quality_status") or "unknown"),
+        issues=issues,
+    )
 
 
 class BoundedStream:
@@ -71,6 +92,7 @@ class BoundedStream:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._stream, name)
 
+
 def _save_upload(file_name: str, stream: BinaryIO, dataset_id: str) -> Path:
     suffix = Path(file_name).suffix.lower()
     bounded = BoundedStream(stream, settings.upload_max_bytes)
@@ -84,6 +106,7 @@ def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: 
     semantic = build_semantic_model(profile, data=data)
     quality = run_data_quality_checks(data, semantic)
     business_type = detect_business_type(semantic, profile)
+    quality_summary = _quality_summary(quality)
 
     summary = DatasetSummary(
         dataset_id=dataset_id,
@@ -97,7 +120,8 @@ def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: 
         business_model=business_type.get("primary_type"),
         business_model_label=business_type.get("primary_label"),
         business_model_confidence=float(business_type.get("confidence") or 0.0),
-        quality_issues=len(quality.get("issues", [])),
+        quality_issues=quality_summary.issue_count,
+        quality=quality_summary,
         semantic=_semantic_summary(profile, semantic, data),
         capabilities=_capabilities(semantic, business_type),
         supported_concepts=sorted(semantic.get("available_concepts", [])),

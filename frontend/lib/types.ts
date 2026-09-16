@@ -16,6 +16,23 @@ export type ScopeFilter = { field: string; operator: "in" | "not_in" | "eq" | "n
 export type ScopeState = { filters: ScopeFilter[] };
 export type AnalysisSession = { session_id: string; dataset_id: string; organization_id?: string | null; workspace_id?: string | null; scope: ScopeState; active_analysis?: Record<string, unknown> | null; comparison?: Record<string, unknown> | null };
 
+export type DataQualityIssue = {
+  severity: string;
+  code: string;
+  message: string;
+  affected_rows: number;
+  recommendation: string;
+};
+export type DataQualitySummary = {
+  row_count: number;
+  issue_count: number;
+  critical_count: number;
+  warning_count: number;
+  info_count: number;
+  quality_status: string;
+  issues: DataQualityIssue[];
+};
+
 export type DatasetSummary = {
   dataset_id: string;
   organization_id?: string | null;
@@ -29,6 +46,7 @@ export type DatasetSummary = {
   business_model_label: string | null;
   business_model_confidence: number;
   quality_issues: number;
+  quality?: DataQualitySummary | null;
   capabilities: CapabilitySet;
   supported_concepts: string[];
   semantic?: SemanticSummary | Record<string, unknown> | null;
@@ -41,6 +59,7 @@ export type Evidence = {
   calculation: string;
   scope: string;
   source_fields: string[];
+  source_records: string[];
 };
 
 export type OverviewMetric = {
@@ -85,16 +104,7 @@ export type SemanticSummary = {
 };
 
 export type ExploreOption = { id: string; label: string };
-
-export type ExploreEvidence = {
-  metric: string;
-  value?: number | null;
-  comparison_value?: number | null;
-  calculation: string;
-  scope: string;
-  source_fields: string[];
-};
-
+export type ExploreEvidence = Evidence;
 export type ExploreRow = {
   key: string;
   value: number;
@@ -102,7 +112,6 @@ export type ExploreRow = {
   share_pct?: number | null;
   evidence: ExploreEvidence;
 };
-
 export type ExploreResponse = {
   dataset_id: string;
   scope_label: string;
@@ -119,6 +128,26 @@ export type ExploreResponse = {
   rows: ExploreRow[];
 };
 
+export type ForecastMonthly = {
+  month: string;
+  expected_value: number;
+  weighted_forecast: number;
+  opportunities: number;
+  evidence: Evidence;
+};
+export type ForecastResponse = {
+  dataset_id: string;
+  business_model: string | null;
+  business_model_label: string | null;
+  scope_label: string;
+  weighted_forecast: number;
+  open_pipeline_value: number;
+  open_opportunities: number;
+  has_probability: boolean;
+  basis_note: string;
+  evidence: Evidence;
+  monthly_forecast: ForecastMonthly[];
+};
 
 export type InsightItem = {
   id: string;
@@ -132,8 +161,11 @@ export type InsightItem = {
   value?: number | null;
   display_value: string;
   evidence: Evidence;
+  priority_score?: number | null;
+  impact_score?: number | null;
+  urgency_score?: number | null;
+  evidence_score?: number | null;
 };
-
 export type InsightsResponse = {
   dataset_id: string;
   business_model: string | null;
@@ -144,13 +176,13 @@ export type InsightsResponse = {
   insights: InsightItem[];
 };
 
-
 export type AskEvidence = Evidence;
 export type AskFollowUp = { label: string; question: string };
 export type AskAnswer = { status: string; text: string; confidence: string; evidence?: AskEvidence | null };
 export type AskResponse = {
   dataset_id: string; question: string; business_model: string | null; business_model_label: string | null;
   answer: AskAnswer; follow_ups: AskFollowUp[]; explore_metric?: string | null; explore_dimension?: string | null; supported_summary?: string | null;
+  analytical_plan?: { intent: string; metric?: string | null; dimension?: string | null; direction?: string | null; evidence_requested?: boolean; supported?: boolean; reason?: string } | null;
 };
 
 export type ActionItem = {
@@ -167,7 +199,6 @@ export type ActionItem = {
   evidence: Evidence;
   source_insight_id: string;
 };
-
 export type ActionsResponse = {
   dataset_id: string;
   business_model: string | null;
@@ -195,8 +226,22 @@ export type ReportResponse = {
   source_note: string;
 };
 
-
-export type AlertRule = { rule_id: string; dataset_id: string; session_id: string; name: string; metric: string; operator: string; threshold: number; cadence: string; scope_label: string; active: boolean; created_at: string; last_evaluated_at?: string | null; };
+export type AlertRule = {
+  rule_id: string;
+  dataset_id: string;
+  session_id: string;
+  name: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  cadence: string;
+  scope_label: string;
+  active: boolean;
+  created_at: string;
+  last_evaluated_at?: string | null;
+  due: boolean;
+  next_due_at?: string | null;
+};
 export type AlertEvent = { event_id: string; rule_id: string; dataset_id: string; session_id: string; status: string; metric: string; value?: number | null; threshold: number; operator: string; title: string; message: string; scope_label: string; evidence: Evidence; evaluated_at: string; };
 export type AlertsResponse = { dataset_id: string; business_model: string | null; business_model_label: string | null; scope_label: string; rules: AlertRule[]; events: AlertEvent[]; };
 

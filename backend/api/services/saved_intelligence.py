@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..contracts import Evidence, SavedIntelligence, SavedIntelligenceCreate, SavedIntelligenceResponse
-from ..config import settings
 from ..runtime_persistence import runtime_document_store
 from .actions import build_actions
 from .explore import build_explore
@@ -17,10 +15,6 @@ from .session import require_session, scope_label
 from .overview import build_overview
 
 SAVED_STORAGE = STORAGE.parent / "runtime_saved_intelligence"
-
-
-def _path(session_id: str) -> Path:
-    return SAVED_STORAGE / f"{session_id}.json"
 
 
 def _load(session_id: str) -> list[dict[str, Any]]:
@@ -61,6 +55,7 @@ def _from_source(dataset_id: str, session_id: str, request: SavedIntelligenceCre
             calculation=f"Total {result.metric_label.lower()} for the selected scope.",
             scope=result.scope_label,
             source_fields=sorted({field for row in result.rows for field in row.evidence.get("source_fields", [])}),
+            source_records=sorted({record for row in result.rows for record in row.evidence.get("source_records", [])})[:12],
         )
         title = request.title.strip() or f"{result.metric_label} by {result.dimension_label}"
         summary_text = request.summary.strip() or f"Explore {result.metric_label.lower()} by {result.dimension_label.lower()} for the current scope."
@@ -129,9 +124,77 @@ def _from_source(dataset_id: str, session_id: str, request: SavedIntelligenceCre
     raise ValueError("Unsupported saved intelligence source.")
 
 
+def _refresh_source(dataset_id: str, session_id: str, item: dict[str, Any]) -> dict[str, Any] | None:
+    """Recalculate a saved item from the current validated dataset and scope."""
+    session, _ = _validate_context(dataset_id, session_id)
+    workspace = item.get("source_workspace")
+    source_id = str(item.get("source_id") or "")
+
+    if workspace == "explore":
+        metric = item.get("metric")
+        dimension = item.get("dimension")
+        if not metric or not dimension:
+            return None
+        result = build_explore(dataset_id, str(metric), str(dimension), 8, scope=session.scope)
+        evidence = Evidence(
+            metric=result.metric,
+            value=result.total_value,
+            comparison_value=None,
+            calculation=f"Total {result.metric_label.lower()} for the selected scope.",
+            scope=result.scope_label,
+            source_fields=sorted({field for row in result.rows for field in row.evidence.get("source_fields", [])}),
+            source_records=sorted({record for row in result.rows for record in row.evidence.get("source_records", [])})[:12],
+        )
+        return {"value": result.total_value, "display_value": result.total_display_value, "evidence": evidence.model_dump()}
+
+    if workspace == "insights":
+        result = build_insights(dataset_id, scope=session.scope)
+        current = next((x for x in result.insights if x.id == source_id), None)
+        if current is None:
+            return None
+        return {"value": current.value, "display_value": current.display_value, "evidence": current.evidence.model_dump()}
+
+    if workspace == "actions":
+        result = build_actions(dataset_id, scope=session.scope, session_id=session_id)
+        current = next((x for x in result.actions if x.id == source_id), None)
+        if current is None:
+            return None
+        return {"value": current.evidence.value, "display_value": current.display_value, "evidence": current.evidence.model_dump()}
+
+    return None
+
+
+def _refresh_items(dataset_id: str, session_id: str) -> list[dict[str, Any]]:
+    """Refresh active saved intelligence before it is returned to the workspace."""
+    items = _load(session_id)
+    changed = False
+    now = _now()
+    for item in items:
+        if item.get("dataset_id") != dataset_id or not item.get("active", True):
+            continue
+        try:
+            refreshed = _refresh_source(dataset_id, session_id, item)
+        except (ValueError, KeyError, TypeError):
+            refreshed = None
+        if refreshed is None:
+            continue
+        for key in ("value", "display_value", "evidence"):
+            if item.get(key) != refreshed.get(key):
+                item[key] = refreshed[key]
+                changed = True
+        item["scope_label"] = scope_label(require_session(session_id).scope)
+        item["scope_filters"] = require_session(session_id).scope.filters
+        item["updated_at"] = now
+        changed = True
+    if changed:
+        _save(session_id, items)
+    return items
+
+
 def list_saved(dataset_id: str, session_id: str) -> SavedIntelligenceResponse:
     session, summary = _validate_context(dataset_id, session_id)
-    items = [SavedIntelligence.model_validate(item) for item in _load(session_id) if item.get("dataset_id") == dataset_id and item.get("active", True)]
+    refreshed_items = _refresh_items(dataset_id, session_id)
+    items = [SavedIntelligence.model_validate(item) for item in refreshed_items if item.get("dataset_id") == dataset_id and item.get("active", True)]
     items.sort(key=lambda item: item.updated_at, reverse=True)
     return SavedIntelligenceResponse(
         dataset_id=dataset_id,

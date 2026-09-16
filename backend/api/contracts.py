@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 class SemanticSummary(BaseModel):
     """What the validated dataset means; kept separate from product capabilities."""
-
     fields: list[str] = Field(default_factory=list)
     concepts: list[str] = Field(default_factory=list)
     metrics: list[str] = Field(default_factory=list)
@@ -16,12 +15,9 @@ class SemanticSummary(BaseModel):
 
 class CapabilitySet(BaseModel):
     """Product workspaces and validated business-specific capabilities."""
-
     workspaces: list[str] = Field(default_factory=list)
     analytics: list[str] = Field(default_factory=list)
     modules: list[str] = Field(default_factory=list)
-
-
 
 
 class ScopeFilter(BaseModel):
@@ -53,6 +49,25 @@ class AnalysisSession(BaseModel):
     active_analysis: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None
 
+
+class DataQualityIssue(BaseModel):
+    severity: str
+    code: str
+    message: str
+    affected_rows: int = 0
+    recommendation: str = ""
+
+
+class DataQualitySummary(BaseModel):
+    row_count: int = 0
+    issue_count: int = 0
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    quality_status: str = "unknown"
+    issues: list[DataQualityIssue] = Field(default_factory=list)
+
+
 class DatasetSummary(BaseModel):
     dataset_id: str
     organization_id: str | None = None
@@ -66,9 +81,9 @@ class DatasetSummary(BaseModel):
     business_model_label: str | None
     business_model_confidence: float
     quality_issues: int
+    quality: DataQualitySummary = Field(default_factory=DataQualitySummary)
     semantic: SemanticSummary = Field(default_factory=SemanticSummary)
     capabilities: CapabilitySet = Field(default_factory=CapabilitySet)
-    # Backward-compatible alias retained for existing clients/tests.
     supported_concepts: list[str] = Field(default_factory=list)
 
 
@@ -76,6 +91,7 @@ class HealthResponse(BaseModel):
     status: str
     product: str
     version: str
+
 
 class ReadyResponse(BaseModel):
     status: str
@@ -146,6 +162,7 @@ class Evidence(BaseModel):
     calculation: str
     scope: str = "All data"
     source_fields: list[str] = Field(default_factory=list)
+    source_records: list[str] = Field(default_factory=list)
 
 
 class OverviewMetric(BaseModel):
@@ -211,6 +228,28 @@ class ExploreResponse(BaseModel):
     rows: list[ExploreRow] = Field(default_factory=list)
 
 
+class ForecastMonthly(BaseModel):
+    month: str
+    expected_value: float
+    weighted_forecast: float
+    opportunities: int
+    evidence: Evidence
+
+
+class ForecastResponse(BaseModel):
+    dataset_id: str
+    business_model: str | None
+    business_model_label: str | None
+    scope_label: str = "All data"
+    weighted_forecast: float
+    open_pipeline_value: float
+    open_opportunities: int
+    has_probability: bool
+    basis_note: str
+    evidence: Evidence
+    monthly_forecast: list[ForecastMonthly] = Field(default_factory=list)
+
+
 class InsightItem(BaseModel):
     id: str
     kind: str
@@ -223,6 +262,10 @@ class InsightItem(BaseModel):
     value: float | None = None
     display_value: str
     evidence: Evidence
+    priority_score: float | None = None
+    impact_score: float | None = None
+    urgency_score: float | None = None
+    evidence_score: float | None = None
 
 
 class InsightsResponse(BaseModel):
@@ -242,6 +285,7 @@ class AskEvidence(BaseModel):
     calculation: str
     scope: str = "All data"
     source_fields: list[str] = Field(default_factory=list)
+    source_records: list[str] = Field(default_factory=list)
 
 
 class AskFollowUp(BaseModel):
@@ -266,6 +310,8 @@ class AskResponse(BaseModel):
     explore_metric: str | None = None
     explore_dimension: str | None = None
     supported_summary: str | None = None
+    analytical_plan: dict[str, Any] | None = None
+
 
 class ActionItem(BaseModel):
     id: str
@@ -280,6 +326,10 @@ class ActionItem(BaseModel):
     display_value: str
     evidence: Evidence
     source_insight_id: str
+
+
+class ActionStatusUpdate(BaseModel):
+    status: str
 
 
 class ActionsResponse(BaseModel):
@@ -304,6 +354,8 @@ class AlertRule(BaseModel):
     active: bool = True
     created_at: str
     last_evaluated_at: str | None = None
+    due: bool = True
+    next_due_at: str | None = None
 
 
 class AlertEvent(BaseModel):
@@ -355,6 +407,7 @@ class ReportResponse(BaseModel):
     opportunities: list[OverviewInsight] = Field(default_factory=list)
     actions: list[ActionItem] = Field(default_factory=list)
     source_note: str
+
 
 class SavedIntelligence(BaseModel):
     id: str
