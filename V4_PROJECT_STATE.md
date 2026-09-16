@@ -6,7 +6,9 @@
 
 ## Current checkpoint
 
-The current checkpoint is the latest commit on `v4/saas-foundation`.
+The current checkpoint is the latest commit on `v4/saas-foundation`:
+
+`c7092d56bf6486b03cc56e86ab60c567f8f8a487`
 
 The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
 
@@ -18,6 +20,7 @@ The historical pre-promotion baseline `3ac4b2d` remains useful as release eviden
 - `V4_PRODUCT_STRATEGY_2026.md` — product/market strategy and operating plan
 - `V4_COMPETITIVE_AUDIT_2026-09-15.md` — September 2026 competitive and market audit
 - `docs/V4_RELEASE_RUNBOOK.md` — release, rollback, monitoring, persistence-safety, and dependency-failure choreography
+- `docs/V4_DEEP_AUDIT_2026-09-16.md` — deep repository audit and remaining-gate reconciliation
 
 ## Current promoted product tree
 
@@ -31,7 +34,7 @@ Promoted tree:
 
 `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`
 
-The promoted tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
+The current foundation tree adds release hardening plus PR #17's decision-signal correctness fix. The product tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
 
 ## Verified CI evidence
 
@@ -59,7 +62,15 @@ GitHub Actions run `35119910472`
 - frontend production build: PASS
 - documentation-only release hardening change merged after CI success
 
-The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted tree and is not treated as exact-tree acceptance evidence.
+Decision-signal correction PR #17:
+
+GitHub Actions run `35122269894`
+
+- backend: PASS
+- frontend: PASS
+- merged as `c7092d56bf6486b03cc56e86ab60c567f8f8a487`
+
+The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted/current foundation tree and is not treated as exact-tree acceptance evidence.
 
 ## Security / tenant-isolation model
 
@@ -67,11 +78,13 @@ Protected API routes require authentication and enforce organization/workspace o
 
 These controls are backed by the V4 auth/security regression suite. Final production approval still requires a systematic post-promotion review and deployed acceptance.
 
+The deep audit also identified an API hardening gap: `PersistenceConfigurationError` from object-store provider failures is not currently mapped by the central exception handler, so some configured persistence outages could surface as HTTP 500 instead of HTTP 503. This remains a repository hardening item.
+
 ## Historical SaaS foundation evidence
 
 Earlier C4-F evidence recorded real Railway deployment, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, deployed browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant isolation checks.
 
-Those are historical milestone evidence, not proof that the latest promoted tree has been re-deployed and re-certified.
+Those are historical milestone evidence, not proof that the latest foundation tree has been re-deployed and re-certified.
 
 ## Capacity / runtime posture
 
@@ -83,14 +96,15 @@ Deferred unless measured need justifies the added architecture: Redis/distribute
 
 This checkpoint is not final production approval.
 
-1. Identify and remediate the high-severity frontend npm audit finding observed during CI. Tracked in GitHub issue #9.
-2. Run final deployed Playwright/browser acceptance against the exact release build.
+1. Remediate the confirmed frontend dependency security finding: the current lockfile contains `sharp` 0.35.3 while patched 0.35.4 is available. Tracked in GitHub issue #9. Do not hand-edit npm integrity metadata; regenerate the lockfile with npm and validate `npm ci`, `npm audit`, and `npm run build`.
+2. Run final deployed Playwright/browser acceptance against the exact current release build.
 3. Complete systematic post-promotion security and tenant-isolation review.
 4. Certify Linux/container resources and capacity.
 5. Complete controlled real dependency-failure rehearsal without destabilizing production.
-6. Improve cross-site domain/cookie architecture where practical to reduce third-party-cookie friction.
+6. Validate production cross-site domain/cookie behavior where practical to reduce third-party-cookie friction.
 7. Repository-side release/rollback choreography is documented in `docs/V4_RELEASE_RUNBOOK.md`; measured production monitoring thresholds, deployment execution, and final operational evidence remain open under issue #12.
 8. Define production monitoring thresholds, alerts, and operational ownership from measured baselines.
+9. Align `PersistenceConfigurationError` with the API's existing HTTP 503 dependency-failure contract and add an API regression test.
 
 ## Product strategy
 
@@ -136,4 +150,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — release runbook checkpoint recorded; deployment-dependent production gates remain open.
+2026-09-16 — reconciled after PR #17 decision-signal correction; deployment and dependency-security gates remain open.
