@@ -6,7 +6,7 @@
 
 ## Current checkpoint
 
-The current checkpoint is the latest commit on `v4/saas-foundation`. The authoritative handoff was last synchronized by commit `49be3db93113051d227404b4b7345e6fd96a359a`.
+The current checkpoint is the latest commit on `v4/saas-foundation`.
 
 The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
 
@@ -30,17 +30,7 @@ Promoted tree:
 
 `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`
 
-The promoted tree includes:
-
-- deterministic decision signals and evidence-aware ranking
-- Decision Cockpit
-- Forecast and explainable scenario presentation
-- structured Ask planner
-- canonical evidence with source records
-- user-controlled Action Workflow
-- monitoring schedule/due semantics
-- first-class data-quality summary
-- associated backend tests and frontend surfaces
+The promoted tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
 
 ## Verified CI evidence
 
@@ -58,57 +48,27 @@ GitHub Actions run `35117016753`
 - backend: `275 passed, 7 skipped`
 - frontend production build: PASS
 - Next.js 16.3.3 production build completed successfully
-- foundation push/PR coverage is now part of the V4 Development CI workflow
+- foundation push/PR coverage is part of the V4 Development CI workflow
 
 The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted tree and is not treated as exact-tree acceptance evidence.
 
 ## Security / tenant-isolation model
 
-The API enforces authenticated organization/workspace boundaries before analytical and user-state access:
+Protected API routes require authentication and enforce organization/workspace ownership before analytical or user-state access. Datasets and sessions are checked against organization and workspace membership; session/dataset mismatches are rejected; action, monitoring, and saved-intelligence mutations require the owning analysis session; workspace creation is restricted to owner/admin roles. CORS, trusted hosts, security headers, HSTS in production, security events, and sanitized error logging are configured.
 
-- authentication is required for protected routes
-- datasets are constrained by organization and workspace membership
-- analysis sessions are constrained by organization and workspace membership
-- session dataset mismatches are rejected
-- action/monitoring/saved-intelligence mutation routes require the owning analysis session
-- workspace creation is restricted to organization owner/admin roles
-- CORS is explicit and credentialed
-- trusted hosts are configured
-- conservative security headers are applied
-- production HSTS is applied when enabled
-- structured security events and sanitized error logging are present
-
-These controls are backed by the V4 auth/security regression suite; final production approval still requires a systematic post-promotion review and deployed acceptance.
+These controls are backed by the V4 auth/security regression suite. Final production approval still requires a systematic post-promotion review and deployed acceptance.
 
 ## Historical SaaS foundation evidence
 
-The earlier C4-F baseline recorded:
-
-- real Railway deployment
-- external PostgreSQL persistence
-- Cloudflare R2 object persistence
-- deployed health/readiness verification
-- deployed browser acceptance
-- restart/recovery rehearsal
-- isolated rollback/recover-forward rehearsal
-- tenant isolation checks
+Earlier C4-F evidence recorded real Railway deployment, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, deployed browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant isolation checks.
 
 Those are historical milestone evidence, not proof that the latest promoted tree has been re-deployed and re-certified.
 
 ## Capacity / runtime posture
 
-`V4_ANALYTICS_CONCURRENCY` remains 4.
+`V4_ANALYTICS_CONCURRENCY` remains 4. The limiter is process-local and created during FastAPI lifespan. `/health` and `/ready` remain outside the limiter. Prior local measurements do not constitute Linux/container production capacity certification.
 
-The limiter is process-local and created during FastAPI lifespan. `/health` and `/ready` remain outside the limiter. Prior local measurements do not constitute Linux/container production capacity certification.
-
-Deferred unless measured need justifies the added architecture:
-
-- Redis/distributed limiter
-- Celery/background jobs
-- process worker architecture
-- DataFrame caching
-- blanket async conversion
-- Pandas chunking rewrite
+Deferred unless measured need justifies the added architecture: Redis/distributed limiter, Celery/background jobs, process worker architecture, DataFrame caching, blanket async conversion, and Pandas chunking rewrite.
 
 ## Current release gates
 
@@ -129,59 +89,23 @@ The strategic wedge is:
 
 > **The fastest, most trustworthy revenue decision cockpit for sales teams that already have sales data but do not want a Salesforce/RevOps implementation project.**
 
-The product competes on:
-
-- time-to-decision
-- evidence-backed analysis
-- data independence
-- data-quality awareness
-- prioritized decisions rather than dashboard volume
-- explainable forecasting
-- user-controlled action loops
-
-Generic AI chat, generic dashboards, KPI cards, generic risk scoring and generic next actions are not treated as differentiated features.
+The product competes on time-to-decision, evidence-backed analysis, data independence, data-quality awareness, prioritized decisions, explainable forecasting, and user-controlled action loops.
 
 ## Product roadmap
 
-Stage A — Foundation hardening
-- close remaining release/reliability gaps
+Stage A — Foundation hardening: close remaining release/reliability gaps.
 
-Stage B — Decision cockpit
-- ranked attention and decision feed
-- material-change detection
-- concentrated pipeline risk
-- stalled deals / close-date pressure
-- stage velocity anomalies
-- coverage gaps
-- data-quality blockers
-- impact / urgency / evidence ranking
+Stage B — Decision cockpit: ranked attention feed, material changes, concentrated pipeline risk, stalled deals/close-date pressure, stage velocity anomalies, coverage gaps, data-quality blockers, impact/urgency/evidence ranking.
 
-Stage C — Analyst intelligence
-- structured question planner
-- deterministic analytical execution
-- evidence objects
-- natural-language explanation
-- trend / segmentation / contribution / funnel / velocity / cohort analysis
-- forecast/scenario analysis only when data suffices
+Stage C — Analyst intelligence: structured question planner, deterministic analytical execution, evidence objects, explanation, trend/segmentation/contribution/funnel/velocity/cohort analysis, and forecast/scenario analysis when data suffices.
 
-Stage D — Action system
-- next-best action
-- task/owner recommendation
-- follow-up drafts
-- manager review queues
-- alerts and recurring briefs
-- opt-in, observable, reversible automation
+Stage D — Action system: next-best action, owner/task recommendations, follow-up drafts, manager review queues, alerts/briefs, and opt-in observable reversible automation.
 
-Stage E — Data network advantage
-- Salesforce
-- HubSpot
-- Pipedrive
-- common CRM/export pathways
-- email/calendar/meeting signals only with strong permission and privacy controls
+Stage E — Data network advantage: Salesforce, HubSpot, Pipedrive, common CRM/export pathways, and email/calendar/meeting signals only with strong permission and privacy controls.
 
 ## Engineering operating model
 
-Repository engineering, testing, review and deployment orchestration should be automated wherever the available tools permit. User involvement should be concentrated on product/strategy decisions, external authorization, secrets that cannot safely be delegated, irreversible/high-impact infrastructure approvals, and final business acceptance.
+Repository engineering, testing, review, and deployment orchestration should be automated wherever available tools permit. User involvement should be concentrated on product/strategy decisions, external authorization, secrets that cannot safely be delegated, irreversible/high-impact infrastructure approvals, and final business acceptance.
 
 No manual code editing or ad-hoc patching. Changes must be deterministic/reviewable and followed by validation.
 
@@ -193,9 +117,7 @@ No shortcut may knowingly reduce correctness, security, tenant isolation, data i
 
 ## Working-tree policy
 
-Generated/runtime artifacts must remain untracked, including local object-store data, caches, Playwright output, virtual environments, `node_modules`, and `.next`.
-
-Secrets must never be checkpointed.
+Generated/runtime artifacts remain untracked, including local object-store data, caches, Playwright output, virtual environments, `node_modules`, and `.next`. Secrets must never be checkpointed.
 
 ## Checkpoint policy
 
