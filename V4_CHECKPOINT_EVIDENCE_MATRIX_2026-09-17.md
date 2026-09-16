@@ -8,12 +8,16 @@ This matrix consolidates durable repository checkpoints, GitHub CI/PR evidence, 
 
 The rule is: **reuse valid evidence first; repair evidence linkage second; rerun an exercise only when existing evidence is invalidated, materially changed, or genuinely missing.**
 
+A human/operator statement that an external exercise was performed is **not evidence by itself**. Such statements may identify where to look for an artifact, but they do not close a release gate unless a machine-verifiable, directly reviewable artifact can be tied to the relevant release/deployment identity.
+
 ## Release identity
 
 - Production-oriented branch: `v4/saas-foundation`
-- Current branch head after documentation-only PR #29: `9a9c98a3df8bb2416b7eb5bd1d86ef0f13d94f75`
+- Current branch head: `9736cba660167db8516e9380cea8b79ba2f18f35`
+- Parent/current application-behavior lineage: `9a9c98a3df8bb2416b7eb5bd1d86ef0f13d94f75`
 - Latest application-behavior checkpoint: `371aa5caf00308b98faeba58bf4c5736bb995b39`
 - PR #29 is documentation-only, so the application-behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
+- The current branch head `9736cba...` is the evidence-matrix documentation commit and does not change application behavior.
 - Production target recorded in the repository: `https://peaceful-mindfulness-production-51b6.up.railway.app/`
 - Deployment stack: Railway + Cloudflare R2 through the S3-compatible adapter.
 
@@ -29,9 +33,9 @@ The rule is: **reuse valid evidence first; repair evidence linkage second; rerun
 | Sharp remediation | PR #21 / `b49ddb224...`; `npm ci`, high-severity audit, build PASS; CI `35126146295` backend/frontend PASS | Complete | Reuse |
 | Object-store API failure boundary | PR #22 / `371aa5caf...`; disposable `35126592984` targeted + full V4 suite PASS; normal `35126724910` backend/frontend PASS | Complete | Reuse |
 | State reconciliation | PR #23, #24, #25; docs-only reconciliation; application checkpoint remains `371aa5caf...` | Complete | Reuse as authoritative state metadata |
-| Railway/R2 evidence reconciliation | PR #26 / #27 documentation reconciliation | Complete as evidence-state update | Reuse; do not repeat external exercises solely because older docs were stale |
+| Railway/R2 evidence reconciliation | PR #26 / #27 documentation reconciliation | Complete as repository evidence-state update | Reuse as state metadata; do not treat narrative owner assertions as proof of external execution |
 | Cross-site auth architecture contract | PR #29 / merge `9a9c98a3...`; documentation-only | Repository contract complete | Reuse contract; production architecture verification is still open under issue #13 |
-| Post-promotion security review | PR #28 currently open, head `25656474...`, not merged | Not yet complete on foundation branch | Do not count as merged/current checkpoint until PR #28 is actually merged and validated |
+| Post-promotion security review | PR #28 currently open, head `25656474...`, not merged; current head has no commit statuses reported | Not yet complete on foundation branch | Do not count as merged/current checkpoint until PR #28 is actually merged and validated |
 
 ## Product capability checkpoints
 
@@ -39,7 +43,7 @@ The rule is: **reuse valid evidence first; repair evidence linkage second; rerun
 |---|---|---|---|
 | Organizations/auth/tenant foundation | `ORGANIZATIONS_AUTH_MILESTONE.md`; auth/session/tenant tests | Completed | Reuse |
 | External PostgreSQL | C3-F rehearsal + external persistence tests | Completed application-side | Reuse; deployed provider evidence remains separate |
-| S3-compatible persistence | C4-E2a external data-plane harness 6/6; S3 adapter regression 3 passed | Completed application-side | Reuse |
+| S3-compatible persistence | C4-E2a external data-plane harness 6/6; S3 adapter regression 3 passed | Completed application-side | Reuse; final production-provider certification remains separate |
 | Decision Cockpit | execution ledger + promoted product tree | Completed | Reuse |
 | Structured Ask planner | execution ledger + promoted product tree | Completed | Reuse |
 | Canonical evidence/source records | execution ledger + promoted product tree | Completed | Reuse |
@@ -52,30 +56,30 @@ The rule is: **reuse valid evidence first; repair evidence linkage second; rerun
 
 ## Deployment / operational gate matrix
 
-| Gate | Existing evidence | Evidence level | Current action |
+| Gate | Directly supported evidence | Evidence level | Current action |
 |---|---|---|---|
-| Deployed browser acceptance | Repository records historical 7/7; supplied chat contains deployed Railway browser screenshots and the SameSite cookie header; deployment owner later confirmed deployed browser acceptance already exercised | Historical/direct screenshot + owner-confirmed, but exact release artifact linkage is incomplete | **Do not rerun merely for stale docs.** Tie existing run/artifacts to the Railway deployment/build identity before final certification |
-| R2 / dependency failure and recovery | C4-E2a real boto3-backed S3-compatible harness 6/6; execution ledger and state docs record R2 persistence; owner confirms R2/dependency failure-recovery exercised | Application-verified + owner-confirmed deployed exercise; raw provider artifact not in repo | **Archive/link existing evidence.** Avoid destructive re-test unless evidence proves to be for a different release or is unavailable |
-| Linux/container resource/capacity | Owner explicitly confirms deployed Linux/container measurement; repo does not contain the raw measurements | Owner-confirmed only | **Obtain/link existing measurements**; do not substitute local measurements |
-| Tenant isolation | Auth milestone + V4 regression coverage; state docs record cross-tenant denial; owner confirms deployed tenant-isolation verification | Strong repository evidence + owner-confirmed deployed check | **Reuse.** Link the deployed verification artifact if needed |
-| Restart / durable state | Execution ledger records authenticated overview reconstructed from persisted data after backend restart; owner confirms deployed recovery exercise | Repository operational evidence + owner-confirmed deployed check | **Reuse/link** exact deployed evidence |
-| Rollback / recover-forward | Execution ledger records isolated rollback to previous build and recover-forward while preserving persisted dataset; owner confirms production rollback evidence | Repository evidence + owner-confirmed deployed exercise | **Reuse/link** existing artifact and Railway identity |
-| Production monitoring | Runbook defines monitoring signal ownership/choreography; owner confirms production monitoring exercised | Repository process + owner-confirmed operational exercise | **Link measured thresholds, ownership, observation window, and evidence** |
-| Production health/readiness | C4-F records `/health` and `/ready`; execution ledger says deployed health/readiness returned 200; current Railway deployment statuses are green | Strong historical/deployed evidence | Reuse and bind to current application checkpoint/deployment identity |
-| Production object-store certification | R2 exercised; repository still distinguishes application S3 harness from final provider certification | Partial | Link real production/provider evidence; no automatic claim of final certification from local/injected harness |
-| Production promotion/cutover | Railway status checks on current branch head are successful; deployment target is recorded | Deployment status evidence, but no complete cutover artifact package in repo | Archive deployment/build identifier with release evidence |
+| Deployed browser acceptance | Historical repository record of 7/7; supplied chat contains deployed Railway screenshots and a deployed response cookie header. No exact-release Playwright artifact tied to the current release identity is present in the repository evidence reviewed. | Historical/direct visual evidence, but release linkage incomplete | **Not certified.** Search for an artifact that identifies both the Playwright run and deployed release/build; rerun only if no suitable exact-release artifact exists. |
+| R2 / dependency failure and recovery | C4-E2a real boto3-backed S3-compatible harness 6/6; repository evidence of R2 persistence/application behavior. No machine-verifiable production outage/recovery artifact tied to the release was found in the reviewed repository evidence. | Application-verified; production exercise unverified | **Not certified.** Locate a directly reviewable production failure/recovery artifact with deployment identity; rerun only if genuinely absent. |
+| Linux/container resource/capacity | No raw production measurement artifact found in the reviewed repository evidence. | Unverified | **Not certified.** Obtain the actual measurement artifact or perform the required production/container measurement. |
+| Tenant isolation | Auth milestone + V4 regression coverage; repository state records cross-tenant denial in the application model/tests. No deployed exact-release artifact was found that independently proves the production exercise. | Strong repository evidence; deployed certification unverified | **Repository-proven, deployment gate open.** Locate exact-release deployed verification before marking the production gate closed. |
+| Restart / durable state | Execution ledger records authenticated overview reconstruction after backend restart in the accumulated evidence history. No exact-release production restart artifact was found in the reviewed repository evidence. | Repository operational evidence; deployed certification unverified | **Not production-certified.** Tie a reviewable restart/recovery artifact to the release or rerun if none exists. |
+| Rollback / recover-forward | Execution ledger records isolated rollback to a previous build and recover-forward while preserving persisted dataset state. No exact-release production rollback artifact was found in the reviewed repository evidence. | Repository evidence; deployed certification unverified | **Not production-certified.** Locate release-linked rollback evidence or perform the controlled exercise if missing. |
+| Production monitoring | Runbook defines monitoring signal ownership/choreography. No measured production thresholds, observation window, alert output, or ownership artifact was found in the reviewed repository evidence. | Process documented; operational certification unverified | **Not certified.** Obtain the measured monitoring/alert evidence tied to the production release. |
+| Production health/readiness | Repository records `/health` and `/ready`; execution ledger states deployed health/readiness returned 200; current branch history contains successful Railway status checks on relevant commits. Exact release linkage still needs to be preserved in the final evidence package. | Strong historical/deployment-status evidence; final release linkage incomplete | Reuse existing evidence where its deployment/build identity can be established; otherwise do not mark final certification. |
+| Production object-store certification | R2 exercised through application-side S3-compatible testing; repository explicitly distinguishes this from final production-provider certification. | Partial | **Not fully certified.** Link a directly reviewable production-provider artifact for the release. |
+| Production promotion/cutover | Railway status checks are recorded as successful for relevant commits; production target is recorded. A complete release/cutover evidence package is not present in the reviewed repository evidence. | Deployment-status evidence; cutover package incomplete | Preserve the exact deployment/build identity and cutover evidence before final approval. |
 
 ## Security / auth gate matrix
 
 | Gate | Evidence | Status | Current action |
 |---|---|---|---|
-| Secure production cookie contract | `config.py`/auth tests; supplied chat shows `HttpOnly; ... SameSite=none; Secure` from deployed response | Implemented + browser-observed | Reuse |
-| SameSite=None security invariant | PR #28 review test design + repository config contract | Implemented in code; PR #28 test file currently lives on unmerged branch | Existing application behavior is present; do not count PR #28 as merged until verified |
-| CORS/trusted-host/security headers | Existing production config + V4 security tests; PR #28 adds explicit contract tests but is unmerged | Repository implementation exists; final review PR is open | Keep as review item until PR #28 is merged/validated |
-| Tenant/workspace/session authorization | Auth milestone + regression coverage | Complete repository control | Reuse |
+| Secure production cookie contract | `config.py`/auth tests; supplied chat shows `HttpOnly; ... SameSite=none; Secure` from a deployed response | Implemented + browser-observed historical evidence | Reuse as supporting evidence; final release linkage still matters |
+| SameSite=None security invariant | Production config and repository auth behavior; PR #28 adds explicit contract coverage but is unmerged and its current head has no reported status checks | Implemented in application lineage; review PR open | Keep as open review item until PR #28 is merged and validated |
+| CORS/trusted-host/security headers | Existing production config and repository security tests; PR #28 adds explicit contract tests but is unmerged | Repository controls exist; systematic review gate open | Keep open until the post-promotion review is completed on the foundation branch |
+| Tenant/workspace/session authorization | Auth milestone + regression coverage | Complete repository control | Reuse repository evidence; production exercise remains separately unverified |
 | Object-store error redaction / 503 | PR #22 + CI | Complete | Reuse |
-| Systematic post-promotion security review | PR #28 | **Open / not merged** | This is a genuine current repository blocker |
-| Cross-site domain/cookie architecture | PR #29 merged as docs-only; issue #13 remains open | Contract documented, production architecture not finally closed | Must resolve selected production topology + real-browser behavior; browser privacy exception remains relevant to split-host Railway topology |
+| Systematic post-promotion security review | PR #28 | **Open / not merged** | Genuine current repository blocker; do not count it as complete |
+| Cross-site domain/cookie architecture | PR #29 merged as docs-only; issue #13 remains open | Contract documented, production architecture not finally closed | Resolve selected production topology + real-browser authenticated behavior |
 
 ## Historical chat evidence incorporated
 
@@ -85,61 +89,64 @@ The supplied partial 139-page conversation is consistent with the repository che
 - A Railway deployment screenshot showed the cross-site cookie fix deployed successfully.
 - Later CI checkpoint text states commit `115fd86c3b311a0b75bf7ad9301b21dd434894c8` was green for backend regression and frontend production build.
 
-These are supporting historical artifacts. They do not supersede the repository's rule that final deployed Playwright certification must be tied to the exact release build.
+These are supporting historical artifacts. They do not supersede the repository's requirement that final deployed Playwright certification be tied to the exact release build.
 
-## What is already safe to NOT repeat
+## Evidence that is safe to reuse without rerunning
 
-Do not repeat these merely because an older document says they were remaining:
+The following have direct repository or CI evidence and should not be repeated merely because older documents were stale:
 
 - decision-signal correction;
 - Sharp remediation;
 - object-store 503 boundary hardening;
 - release/rollback runbook creation;
-- Railway deployment of the SameSite cookie fix;
-- basic deployed browser exercise already evidenced in the prior conversation;
-- R2/dependency recovery exercise already confirmed by the deployment owner;
-- deployed tenant-isolation verification already confirmed by the deployment owner;
-- deployed Linux/container capacity measurement already confirmed by the deployment owner;
-- deployed monitoring/rollback exercise already confirmed by the deployment owner.
+- repository implementation for secure cookie, CORS/trusted-host controls, tenant authorization, and object-store error handling;
+- application-side PostgreSQL and S3-compatible persistence rehearsals already represented by tests/CI;
+- product capability checkpoints already backed by the current application behavior tree and green CI.
 
-The remaining work is primarily **evidence-to-release linkage**, plus the two real architectural/review blockers called out below.
+For externally executed operational gates, **do not use owner confirmation as a reason to skip the exercise**. First locate the actual artifact and tie it to the release/deployment identity. If no suitable artifact exists, the gate remains open and the exercise may need to be repeated.
+
+## Non-evidence leads
+
+Previous deployment-state documents and issue comments contain owner/operator assertions that browser acceptance, R2/dependency recovery, Linux/container capacity measurement, tenant isolation, restart/recovery, monitoring, and rollback were exercised. Those assertions are retained only as **search leads** for the missing artifacts. They do not establish gate completion by themselves.
 
 ## Actual current blockers
 
-### 1. Issue #11 — deployment evidence linkage
+### 1. Issue #11 — deployment evidence gates
 
-Issue #11 is still open, but its latest comment changes the nature of the work: the deployment owner says browser acceptance, R2/dependency recovery, Linux/container capacity measurement, and tenant isolation have already been exercised, and the issue should remain open only to attach/link exact-release artifacts to the Railway deployment/build identity.
+Issue #11 remains open. The repository now treats its owner confirmation only as a lead. The actual closure requirement is machine-verifiable evidence for exact-release deployed browser acceptance, dependency-failure/recovery, Linux/container capacity, and deployed tenant-isolation verification. Restart/durable-state evidence also needs release linkage before production certification.
 
-### 2. Issue #12 — monitoring/rollback evidence linkage
+### 2. Issue #12 — monitoring / rollback evidence
 
-Issue #12 is still open, but its latest comment likewise says monitoring/rollback evidence has already been exercised and the issue should now track archival/linkage of measured monitoring and rollback evidence to Railway deployment identity.
+Issue #12 remains open. Repository choreography is documented, but measured production monitoring evidence and release-linked rollback/recover-forward evidence were not found in the reviewed repository evidence. Owner confirmation is not sufficient to close the gate.
 
 ### 3. Issue #13 — production cross-site auth architecture
 
-PR #29 is merged and documents the topology options, but issue #13 remains open because the final frontend/API domain architecture still needs to be selected and verified in a real browser. The tested split-host Railway topology required a browser third-party-cookie exception in the historical Chrome exercise.
+PR #29 is merged and documents the topology options, but issue #13 remains open because the final frontend/API domain architecture still needs to be selected and verified in a real browser. The historical split-host Railway topology required a browser third-party-cookie exception in the cited Chrome exercise.
 
 ### 4. Issue #14 — systematic post-promotion security review
 
-PR #28 is currently **open**, not merged. Therefore its repository-side security review must not be represented as a completed foundation-branch checkpoint yet.
+PR #28 is currently **open**, not merged, and its current head `25656474...` has no reported commit statuses through the connector. Therefore the repository-side security review is not a completed foundation-branch checkpoint.
 
 ## Recommended evidence closure sequence
 
-1. Treat `371aa5caf...` as the application-behavior baseline and `9a9c98a...` as the current branch head with documentation-only delta.
-2. Reconcile existing external deployment artifacts to the corresponding Railway deployment/build identity instead of rerunning completed operational exercises.
-3. Preserve the existing deployed-browser/R2/capacity/tenant/recovery/monitoring/rollback evidence in the final release record.
+1. Treat `371aa5caf...` as the application-behavior baseline and `9736cba...` as the current branch head whose delta is documentation-only.
+2. Search for direct artifacts corresponding to the outstanding deployment operations and bind each artifact to a Railway deployment/build identity.
+3. Do not close any operational gate from owner comments alone. If a suitable artifact cannot be found, perform only the genuinely missing exercise.
 4. Complete and validate PR #28, then update the authoritative release state for issue #14.
-5. Resolve issue #13 by selecting the final production frontend/API domain topology and verifying its authenticated browser behavior.
-6. Only after those gates are closed, make a final production-approval determination.
+5. Resolve issue #13 by selecting the final production frontend/API domain topology and verifying authenticated browser behavior.
+6. After exact-release operational evidence and the repository/security/topology gates are closed, produce the final release evidence package and only then make the production-approval determination.
 
 ## Source-of-truth hierarchy
 
 1. Current repository code/tests on `v4/saas-foundation`.
-2. `V4_PROJECT_STATE.md` and `V4_PROMOTION_STATUS_2026-09-16.md` for authoritative state/release reconciliation.
+2. `V4_PROJECT_STATE.md` and `V4_PROMOTION_STATUS_2026-09-16.md` for authoritative state/release reconciliation, interpreted using the evidence-only rule in this matrix.
 3. GitHub PR/CI/deployment status attached to exact commits.
-4. `V4_EXECUTION_LEDGER_2026.md` for accumulated execution history.
-5. C3/C4 milestone and recovery documents for detailed historical checkpoints.
-6. Supplied historical chat/screenshots as supporting operational evidence where repository artifacts are unavailable.
+4. Direct machine-verifiable deployment artifacts and measurement/test reports tied to exact releases.
+5. `V4_EXECUTION_LEDGER_2026.md` for accumulated execution history.
+6. C3/C4 milestone and recovery documents for detailed historical checkpoints.
+7. Supplied historical chat/screenshots as supporting operational evidence where repository artifacts are unavailable.
+8. Human/operator statements without corroborating artifacts are non-evidence and cannot close a gate.
 
 ## Bottom line
 
-The project has a real checkpoint trail. The evidence should be **reconciled, not reset**. The application-behavior checkpoint is `371aa5caf...`; the current branch head is a documentation-only continuation. The deployment owner has reported that the major external exercises have already been performed. The two clear repository/architecture items still visible in the project are issue #14 (security review, with PR #28 still open) and issue #13 (final cross-site auth topology).
+The project has a real checkpoint trail, and substantial engineering work is safely reusable. The application-behavior checkpoint is `371aa5caf...`; the current branch head is `9736cba...`, a documentation-only evidence-matrix update whose parent is the documentation-only PR #29 merge. The outstanding release gates must now be treated strictly by evidence: owner statements are search leads, not certifications. The clearly open repository/architecture items are issue #14 (security review, with PR #28 still open) and issue #13 (final cross-site auth topology), while several operational gates remain open until exact-release artifacts are found or genuinely missing exercises are performed.
