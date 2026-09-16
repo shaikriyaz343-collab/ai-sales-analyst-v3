@@ -6,16 +6,17 @@
 
 ## Current checkpoint
 
-The latest application behavior checkpoint on `v4/saas-foundation` is:
+The latest application behavior checkpoint remains:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-Commits after this checkpoint are documentation-only state reconciliations and do not change application behavior.
+The current branch head is `d7cbe68de3cb18c8226cb99d514b6a6624935574`. PR #28 is merged into the foundation branch and adds repository-side security review/test coverage only; it does not change analytical behavior. The latest application-behavior checkpoint therefore remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
 
 ## Durable project documents
 
 - `V4_PROJECT_STATE.md` — authoritative engineering state and release evidence
 - `V4_PROMOTION_STATUS_2026-09-16.md` — promotion/reconciliation status and exact validation evidence
+- `V4_CHECKPOINT_EVIDENCE_MATRIX_2026-09-17.md` — evidence-only checkpoint and release-gate matrix
 - `V4_C4F_DEPLOYMENT.md` — deployment topology/configuration contract
 - `V4_PRODUCT_STRATEGY_2026.md` — product/market strategy and operating plan
 - `V4_COMPETITIVE_AUDIT_2026-09-15.md` — September 2026 competitive and market audit
@@ -34,11 +35,11 @@ Promoted tree:
 
 `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`
 
-The current foundation tree adds release hardening, PR #17's decision-signal correctness fix, PR #21's patched Sharp lockfile, and PR #22's object-store provider-failure HTTP 503 boundary. The product tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
+The current foundation tree adds release hardening, PR #17's decision-signal correctness fix, PR #21's patched Sharp lockfile, PR #22's object-store provider-failure HTTP 503 boundary, PR #29's production cross-site auth architecture contract, and PR #28's repository-side post-promotion security review/test coverage. The product tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
 
 ## Production deployment target
 
-The current production application is deployed on Railway at:
+The production target recorded by the repository is:
 
 `https://peaceful-mindfulness-production-51b6.up.railway.app/`
 
@@ -118,42 +119,54 @@ GitHub Actions run `35127184802`
 - frontend production build: PASS
 - documentation-only merge as `77f6c8c907f6b484fe067f9b75d9b24f2260b189`
 
+Post-promotion security review PR #28:
+
+GitHub Actions run `35132271337`
+
+- backend: PASS
+- frontend: PASS
+- review scope covers authentication/session controls, tenant/workspace authorization, persistence boundaries, CORS/trusted hosts, response security headers, error handling/logging, and explicit security-contract regressions
+- merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`
+
 The historical deployed-browser checkpoint recorded `7 passed`. That run predates the current application behavior checkpoint and is retained as historical evidence only.
 
 ## Security / tenant-isolation model
 
 Protected API routes require authentication and enforce organization/workspace ownership before analytical or user-state access. Datasets and sessions are checked against organization and workspace membership; session/dataset mismatches are rejected; action, monitoring, and saved-intelligence mutations require the owning analysis session; workspace creation is restricted to owner/admin roles. CORS, trusted hosts, security headers, HSTS in production, security events, and sanitized error logging are configured.
 
-These controls are backed by the V4 auth/security regression suite.
+These controls are backed by the V4 auth/security regression suite and the merged PR #28 security-contract tests.
 
-The previously identified API hardening gap is now closed: `PersistenceConfigurationError` from object-store provider failures is centrally mapped to the existing HTTP 503 dependency-failure contract, with sanitized logging and regression coverage in PR #22.
+The previously identified API hardening gap is closed: `PersistenceConfigurationError` from object-store provider failures is centrally mapped to the existing HTTP 503 dependency-failure contract, with sanitized logging and regression coverage in PR #22.
 
 ## Deployment / operational evidence reconciliation
 
-The historical C4-F record already contains real Railway deployment, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, deployed browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant-isolation checks.
+Historical C4-F records describe Railway deployment, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant-isolation checks. The supplied historical conversation also contains deployed screenshots and a browser-observed secure cross-site cookie header.
 
-On 2026-09-16, the deployment owner confirmed that these deployment-level activities have already been exercised for the current production environment: deployed browser acceptance, R2/dependency failure-recovery, Linux/container resource/capacity measurement, tenant isolation, and production monitoring/rollback evidence.
+Previous deployment-state documents and issue comments additionally contain owner/operator statements that browser acceptance, R2/dependency recovery, Linux/container capacity measurement, tenant isolation, restart/recovery, monitoring, and rollback were exercised. **Those statements are non-evidence for release certification.** They are retained only as leads for locating direct artifacts.
 
-This is an evidence-reconciliation update. It does not claim that this repository independently re-executed those provider operations. Existing evidence should be retained and tied to the corresponding Railway deployment/build identity where the final release record requires machine-auditable linkage.
-
-Do not repeat destructive dependency tests solely because an old milestone document used the word `remaining`.
+No external gate may be marked complete here without a machine-verifiable artifact tied to the relevant deployment/release identity. Repository application-side rehearsals do not substitute for production-provider evidence.
 
 ## Capacity / runtime posture
 
 `V4_ANALYTICS_CONCURRENCY` remains 4. The limiter is process-local and created during FastAPI lifespan. `/health` and `/ready` remain outside the limiter.
 
-Prior local measurements are not used as substitutes for deployment measurements. The deployment owner has separately confirmed that Linux/container resource and capacity measurements have already been exercised in the deployed environment; the detailed measurements belong with the production evidence record rather than being recreated here.
+Prior local measurements are not used as substitutes for deployment measurements. No raw production Linux/container capacity measurement artifact has been established in the reviewed repository evidence.
 
 Deferred unless measured need justifies the added architecture: Redis/distributed limiter, Celery/background jobs, process worker architecture, DataFrame caching, blanket async conversion, and Pandas chunking rewrite.
 
 ## Current release gates
 
-This is the authoritative state after deployment-evidence reconciliation. The application behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
+This is the authoritative evidence-only state. The application behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`; the current foundation branch head is `d7cbe68de3cb18c8226cb99d514b6a6624935574`.
 
-1. Deployed browser acceptance, R2/dependency failure-recovery, Linux/container resource/capacity checks, tenant isolation, and production monitoring/rollback checks are recorded as already exercised by the deployment owner. The remaining repository task is to retain/reference their exact artifacts and deployed Railway identity where required for auditability, not to repeat the exercises.
-2. Complete the separate systematic post-promotion security review under issue #14.
-3. Resolve the separate production cross-site domain/cookie architecture review under issue #13.
-4. Preserve measured monitoring thresholds, alert ownership, observation window, and rollback evidence in the release record.
+1. **Deployed browser acceptance:** historical 7/7 and deployed screenshots exist, but no exact-release Playwright artifact tied to the release identity has been established. Open.
+2. **R2/dependency failure-recovery:** application-side S3-compatible rehearsal exists, but no machine-verifiable production failure/recovery artifact tied to the release has been established. Open.
+3. **Linux/container capacity:** no raw production measurement artifact has been established. Open.
+4. **Tenant isolation in production:** repository authorization controls are proven, but exact-release deployed verification is not independently evidenced. Open.
+5. **Restart/durable state:** repository execution history contains recovery evidence, but exact-release production linkage is not established. Open.
+6. **Rollback/recover-forward:** repository execution history contains rehearsal evidence, but exact-release production linkage is not established. Open.
+7. **Production monitoring:** runbook/process is documented, but measured thresholds, observation window, alert output, and ownership evidence are not established. Open.
+8. **Cross-site auth architecture:** PR #29 documents the choices, but issue #13 remains open until the final production topology is selected and authenticated browser behavior is verified.
+9. **Repository-side post-promotion security review:** PR #28 is merged and its backend/frontend checks passed in run `35132271337`. Complete at repository level; deployment-provider residuals remain separate.
 
 Repository-side dependency and API hardening items previously tracked by issues #9 and #19 are remediated and merged. They are no longer outstanding repository release gates.
 
@@ -201,4 +214,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — reconciled after PR #21 Sharp remediation, PR #22 object-store 503 boundary hardening, PR #23-#26 state/documentation reconciliation, and deployment-owner confirmation of the existing Railway + Cloudflare R2 operational evidence.
+2026-09-17 — converted deployment-state reconciliation to an evidence-only standard and recorded merged PR #28 security review. Owner/operator statements are retained as leads only and cannot close external release gates.
