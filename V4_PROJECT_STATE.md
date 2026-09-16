@@ -8,9 +8,9 @@
 
 The current checkpoint is the latest commit on `v4/saas-foundation`:
 
-`c7092d56bf6486b03cc56e86ab60c567f8f8a487`
+`371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
+This merge commit includes the Sharp dependency remediation and the object-store HTTP 503 boundary hardening. The prior application checkpoint `c7092d56bf6486b03cc56e86ab60c567f8f8a487` remains useful as the last pre-security-hardening application checkpoint.
 
 ## Durable project documents
 
@@ -34,7 +34,7 @@ Promoted tree:
 
 `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`
 
-The current foundation tree adds release hardening plus PR #17's decision-signal correctness fix. The product tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
+The current foundation tree adds release hardening, PR #17's decision-signal correctness fix, PR #21's patched Sharp lockfile, and PR #22's object-store provider-failure HTTP 503 boundary. The product tree includes deterministic decision signals and evidence-aware ranking, Decision Cockpit, Forecast/scenario presentation, structured Ask planning, canonical evidence with source records, user-controlled Action Workflow, monitoring schedule/due semantics, first-class data-quality summary, and associated backend/frontend tests.
 
 ## Verified CI evidence
 
@@ -70,6 +70,30 @@ GitHub Actions run `35122269894`
 - frontend: PASS
 - merged as `c7092d56bf6486b03cc56e86ab60c567f8f8a487`
 
+Sharp remediation PR #21:
+
+GitHub Actions run `35126146295`
+
+- backend: PASS
+- frontend production build: PASS
+- exact branch-level npm validation also passed `npm ci`, `npm audit --audit-level=high`, and `npm run build`
+- lockfile resolves `sharp` to `0.35.4`
+- merged as `b49ddb2242dd9929b900c33eea20ec31ecc6c04f`
+
+Object-store API hardening PR #22:
+
+Disposable validation run `35126592984`
+
+- targeted error-handling/persistence tests: PASS
+- full `tests_v4_saas` suite: PASS
+- final diff-scope and whitespace checks: PASS
+
+Foundation PR CI run `35126724910`
+
+- backend regression suite: PASS
+- frontend production build: PASS
+- merged as `371aa5caf00308b98faeba58bf4c5736bb995b39`
+
 The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted/current foundation tree and is not treated as exact-tree acceptance evidence.
 
 ## Security / tenant-isolation model
@@ -78,7 +102,7 @@ Protected API routes require authentication and enforce organization/workspace o
 
 These controls are backed by the V4 auth/security regression suite. Final production approval still requires a systematic post-promotion review and deployed acceptance.
 
-The deep audit also identified an API hardening gap: `PersistenceConfigurationError` from object-store provider failures is not currently mapped by the central exception handler, so some configured persistence outages could surface as HTTP 500 instead of HTTP 503. This remains a repository hardening item.
+The previously identified API hardening gap is now closed: `PersistenceConfigurationError` from object-store provider failures is centrally mapped to the existing HTTP 503 dependency-failure contract, with sanitized logging and regression coverage in PR #22.
 
 ## Historical SaaS foundation evidence
 
@@ -96,15 +120,15 @@ Deferred unless measured need justifies the added architecture: Redis/distribute
 
 This checkpoint is not final production approval.
 
-1. Remediate the confirmed frontend dependency security finding: the current lockfile contains `sharp` 0.35.3 while patched 0.35.4 is available. Tracked in GitHub issue #9. Do not hand-edit npm integrity metadata; regenerate the lockfile with npm and validate `npm ci`, `npm audit`, and `npm run build`.
-2. Run final deployed Playwright/browser acceptance against the exact current release build.
-3. Complete systematic post-promotion security and tenant-isolation review.
-4. Certify Linux/container resources and capacity.
-5. Complete controlled real dependency-failure rehearsal without destabilizing production.
-6. Validate production cross-site domain/cookie behavior where practical to reduce third-party-cookie friction.
-7. Repository-side release/rollback choreography is documented in `docs/V4_RELEASE_RUNBOOK.md`; measured production monitoring thresholds, deployment execution, and final operational evidence remain open under issue #12.
-8. Define production monitoring thresholds, alerts, and operational ownership from measured baselines.
-9. Align `PersistenceConfigurationError` with the API's existing HTTP 503 dependency-failure contract and add an API regression test.
+1. Final deployed Playwright/browser acceptance against the exact current release build.
+2. Complete systematic post-promotion security and tenant-isolation review.
+3. Certify Linux/container resources and capacity.
+4. Complete controlled real dependency-failure rehearsal without destabilizing production.
+5. Validate production cross-site domain/cookie behavior where practical to reduce third-party-cookie friction.
+6. Repository-side release/rollback choreography is documented in `docs/V4_RELEASE_RUNBOOK.md`; measured production monitoring thresholds, deployment execution, and final operational evidence remain open under issue #12.
+7. Define production monitoring thresholds, alerts, and operational ownership from measured baselines.
+
+Repository-side dependency and API hardening items previously tracked by issues #9 and #19 are remediated and merged. They are no longer outstanding repository release gates; deployment and operational evidence remain deployment-dependent.
 
 ## Product strategy
 
@@ -150,4 +174,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — reconciled after PR #17 decision-signal correction; deployment and dependency-security gates remain open.
+2026-09-16 — reconciled after PR #21 Sharp remediation and PR #22 object-store 503 boundary hardening; deployment and operational gates remain open.
