@@ -8,15 +8,19 @@ Date: 2026-09-16
 
 Current merged commit:
 
-`611e0dcd5b04c337ea96927a060a3bd970b7b725`
+`c946d9fb6824ec498bc40afb360847c1eb3eee3b`
 
-Merge PR:
+Promotion merge:
 
 `#7` — Promote validated V4 product tree
 
-The merged tree is `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`.
+Release-hardening merge:
 
-## Validation evidence
+`#8` — Release hardening: foundation CI and Next workspace root
+
+The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`; the current foundation tree adds only the release-hardening workflow/configuration changes described below.
+
+## Promotion validation evidence
 
 GitHub Actions run `35116226306` validated the exact promotion candidate tree before promotion.
 
@@ -29,6 +33,26 @@ Frontend:
 Production `next build` passed successfully.
 
 The run checked out `v4/promotion-merge`, which contained the exact tree later promoted through PR #7.
+
+## Post-promotion release-hardening validation
+
+GitHub Actions run `35117016753` validated the exact post-merge foundation commit `c946d9fb6824ec498bc40afb360847c1eb3eee3b`.
+
+Backend:
+
+`275 passed, 7 skipped, 2 warnings`
+
+Frontend:
+
+Production `next build` passed. The build completed on Next.js `16.3.3` with the expected V4 routes, including `/dashboard`, `/dashboard/[workspace]`, `/dashboard/decisions`, and `/dashboard/forecast`.
+
+The prior Turbopack multi-lockfile root warning is addressed by explicitly setting `turbopack.root` to the frontend workspace.
+
+The npm install phase still reports:
+
+`1 high severity vulnerability`
+
+The CI log does not identify the package/advisory. This remains an open release gate tracked as issue #9 and must not be treated as remediated until `npm audit` identifies and clears or formally exceptions the finding.
 
 ## Promoted product work
 
@@ -63,15 +87,19 @@ Remaining release work includes:
 - production-grade cross-site domain/cookie architecture where practical
 - executable rollback runbook and release automation
 - monitoring/alert ownership and thresholds
-- dependency security cleanup, including the high-severity npm audit finding observed during CI
-- cleanup of Next.js multiple-lockfile/root detection warnings
+- dependency security cleanup; issue #9 is open for the unresolved npm audit finding
 
-## CI infrastructure note
+## CI infrastructure
 
-The foundation regression workflow remains configured on `v4/saas-foundation`.
+The V4 development CI workflow now validates both:
+
+- `v4/product-development`
+- `v4/saas-foundation`
+
+for pushes and pull requests, using the existing backend regression suite and frontend production build.
 
 The temporary CI-only promotion validator used to prove the exact candidate tree was removed from `main` after promotion so it cannot validate a stale fixed branch in the future.
 
 ## Historical baseline
 
-`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current branch checkpoint after the 2026-09-16 promotion.
+`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current branch checkpoint after the 2026-09-16 promotion and release hardening.
