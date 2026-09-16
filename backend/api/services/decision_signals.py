@@ -108,15 +108,15 @@ def _urgency_score(kind: str, severity: str) -> float:
     return min(100.0, base + kind_bonus)
 
 
-def _impact_score(insight: OverviewInsight) -> float:
-    """Estimate decision impact using only validated signal characteristics.
+def _impact_score(insight: OverviewInsight, kind: str) -> float:
+    """Estimate decision impact using validated signal characteristics and kind.
 
-    This deliberately avoids claiming a monetary impact from an arbitrary raw
-    number. Money-like metrics receive a modest boost because they are directly
-    commercial measures; non-monetary metrics remain eligible but cannot gain
-    the money-metric boost.
+    The caller supplies the signal kind derived from the Overview collection so
+    severity cannot accidentally reclassify a high-severity opportunity as a risk.
+    Money-like metrics receive a modest boost because they are directly commercial
+    measures; non-monetary metrics remain eligible but cannot gain that boost.
     """
-    score = _KIND_SCORE.get("risk" if insight.severity in {"critical", "high"} else "opportunity", 40.0)
+    score = _KIND_SCORE.get(kind, 40.0)
     metric = insight.evidence.metric
     if metric in _MONEY_METRICS and insight.evidence.value is not None:
         score += 15.0
@@ -131,7 +131,7 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
     evidence = insight.evidence
     evidence_score = _evidence_score(evidence)
     urgency = _urgency_score(kind, insight.severity)
-    impact = _impact_score(insight)
+    impact = _impact_score(insight, kind)
     priority = round((impact * 0.40) + (urgency * 0.35) + (evidence_score * 0.25), 2)
 
     return DecisionSignal(
