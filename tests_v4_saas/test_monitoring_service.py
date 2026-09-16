@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -5,7 +6,7 @@ import pytest
 from backend.api.contracts import AlertRuleCreate, ScopeFilter
 from backend.api.services.onboarding import onboard
 from backend.api.services.session import create_session, replace_dataset, update_scope
-from backend.api.services.monitoring import _load as monitoring_state_load, create_rule, delete_rule, evaluate_alerts, list_alerts
+from backend.api.services.monitoring import _load as monitoring_state_load, _schedule_state, create_rule, delete_rule, evaluate_alerts, list_alerts
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "samples"
@@ -42,6 +43,39 @@ def test_cadence_contract_allows_only_manual_daily_weekly():
         assert rule.cadence == cadence
     with pytest.raises(ValueError, match="cadence"):
         create_rule(summary.dataset_id, session.session_id, AlertRuleCreate(metric="revenue", operator="gt", threshold=0, cadence="hourly"))
+
+
+def test_schedule_state_marks_manual_always_due():
+    now = datetime(2026, 9, 16, tzinfo=timezone.utc)
+    due, next_due = _schedule_state("manual", "2026-09-01T00:00:00Z", "2026-09-15T00:00:00Z", now)
+    assert due is True
+    assert next_due is None
+
+
+def test_schedule_state_marks_daily_due_after_one_day():
+    last = "2026-09-15T10:00:00Z"
+    before = datetime(2026, 9, 16, 9, 59, 59, tzinfo=timezone.utc)
+    at_due = datetime(2026, 9, 16, 10, 0, 0, tzinfo=timezone.utc)
+    due_before, next_before = _schedule_state("daily", "2026-09-01T00:00:00Z", last, before)
+    due_at, next_at = _schedule_state("daily", "2026-09-01T00:00:00Z", last, at_due)
+    assert due_before is False
+    assert next_before == "2026-09-16T10:00:00Z"
+    assert due_at is True
+    assert next_at == "2026-09-16T10:00:00Z"
+
+
+def test_schedule_state_uses_seven_day_weekly_interval():
+    last = "2026-09-09T08:30:00Z"
+    due, next_due = _schedule_state("weekly", "2026-09-01T00:00:00Z", last, datetime(2026, 9, 16, 8, 30, tzinfo=timezone.utc))
+    assert due is True
+    assert next_due == "2026-09-16T08:30:00Z"
+
+
+def test_schedule_state_first_scheduled_run_is_immediately_due():
+    now = datetime(2026, 9, 16, 12, 0, 0, tzinfo=timezone.utc)
+    due, next_due = _schedule_state("daily", "2026-09-16T11:30:00Z", None, now)
+    assert due is True
+    assert next_due == "2026-09-16T11:30:00Z"
 
 
 def test_evaluation_triggers_using_same_scope_and_metric_evidence():
