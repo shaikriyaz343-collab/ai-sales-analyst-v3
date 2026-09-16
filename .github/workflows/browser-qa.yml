@@ -2,11 +2,12 @@ name: Browser Acceptance QA
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v4/saas-foundation ]
   workflow_dispatch:
 
 jobs:
   browser-qa:
+    if: ${{ vars.APP_URL != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
