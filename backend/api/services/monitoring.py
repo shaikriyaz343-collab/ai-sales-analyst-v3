@@ -1,24 +1,19 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..contracts import AlertEvent, AlertRule, AlertsResponse, AlertRuleCreate, Evidence
-from ..config import settings
 from ..runtime_persistence import runtime_document_store
 from .onboarding import get_dataset, STORAGE
 from .overview import build_overview
-from .session import get_session, require_session, scope_label
+from .session import require_session, scope_label
 
 MONITORING_STORAGE = STORAGE.parent / "runtime_monitoring"
 OPS = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "=", "neq": "≠"}
-
-
-def _path(session_id: str) -> Path:
-    return MONITORING_STORAGE / f"{session_id}.json"
+SUPPORTED_CADENCES = {"manual", "daily", "weekly"}
 
 
 def _load(session_id: str) -> dict[str, Any]:
@@ -79,7 +74,7 @@ def create_rule(dataset_id: str, session_id: str, request: AlertRuleCreate) -> A
         raise ValueError("Analysis session does not match the dataset.")
     if request.operator not in OPS:
         raise ValueError("Alert operator is not supported.")
-    if request.cadence not in {"manual", "daily", "weekly"}:
+    if request.cadence not in SUPPORTED_CADENCES:
         raise ValueError("Alert cadence must be manual, daily, or weekly.")
     metrics = _metric_map(dataset_id, session_id)
     metric = metrics.get(request.metric)
