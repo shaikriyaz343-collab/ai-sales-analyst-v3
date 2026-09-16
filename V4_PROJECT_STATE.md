@@ -6,7 +6,7 @@
 
 ## Current checkpoint
 
-`4acc786e48a5dbe9bdc2735aaca558ce086f1035` — corrected current foundation checkpoint documentation.
+`fd0d74ce9cc9128e7a560536e844cb08d73328eb` — authoritative V4 project state aligned with the promoted foundation and current release evidence.
 
 This is the current promoted engineering/product checkpoint. The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
 
@@ -205,4 +205,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — promoted V4 state reconciled; foundation CI enabled; exact-tree promotion and post-promotion CI evidence recorded; remaining production release gates made explicit.
+2026-09-16 — authoritative state aligned with the promoted foundation checkpoint and current release gates.
