@@ -6,15 +6,11 @@ Date: 2026-09-16
 
 `v4/saas-foundation`
 
-Current branch commit:
-
-`d8bd717edf7e402a862f58cecb94bcd3e488ca94`
-
 Latest application behavior checkpoint:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-PR #23 was documentation-only and reconciled the authoritative state files after the security hardening changes; it does not change application behavior.
+Commits after this checkpoint are documentation-only state reconciliations and do not change application behavior.
 
 Promotion merge:
 
@@ -39,6 +35,10 @@ Object-store API hardening merge:
 State reconciliation merge:
 
 `#23` — Reconcile V4 release state after security hardening
+
+Checkpoint metadata correction merge:
+
+`#24` — Correct V4 branch checkpoint metadata
 
 The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correctness correction, patched Sharp lockfile, and object-store provider-failure API boundary.
 
@@ -144,4 +144,4 @@ The temporary CI-only promotion validator used to prove the exact candidate tree
 
 ## Historical baseline
 
-`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current branch checkpoint after the 2026-09-16 promotion and subsequent release hardening.
+`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current application checkpoint after the 2026-09-16 promotion and subsequent release hardening.
