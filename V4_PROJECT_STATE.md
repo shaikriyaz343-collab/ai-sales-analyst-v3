@@ -6,7 +6,7 @@
 
 ## Current checkpoint
 
-The current checkpoint is the latest commit on `v4/saas-foundation`. The authoritative handoff was last synchronized by commit `e04068eb976374808f23710c7f64d3310aac2fc6`.
+The current checkpoint is the latest commit on `v4/saas-foundation`. The authoritative handoff was last synchronized by commit `49be3db93113051d227404b4b7345e6fd96a359a`.
 
 The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
 
