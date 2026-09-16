@@ -50,6 +50,24 @@ def test_rank_decision_signals_prefers_well_supported_high_risk_signal() -> None
     assert signals[0].evidence_score == 100.0
 
 
+def test_rank_decision_signals_uses_signal_kind_for_impact() -> None:
+    overview = OverviewResponse(
+        dataset_id="d1",
+        business_model="sales_pipeline",
+        business_model_label="Sales pipeline",
+        headline="headline",
+        subheadline="subheadline",
+        attention=[
+            _insight("medium-attention", severity="medium", metric="pipeline_value", value=100000, fields=["amount"]),
+        ],
+    )
+
+    signal = rank_decision_signals(overview)[0]
+
+    assert signal.kind == "risk"
+    assert signal.impact_score == 100.0
+
+
 def test_rank_decision_signals_never_invents_empty_signals() -> None:
     overview = OverviewResponse(
         dataset_id="d1",
