@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 import backend.api.main as main_module
 from backend.api.config import settings
+from backend.api.persistence import PersistenceConfigurationError
 import psycopg
 try:
     from botocore.exceptions import BotoCoreError, ClientError
@@ -27,6 +28,10 @@ def trigger_error_db():
 @app.get("/api/v1/trigger_error/boto")
 def trigger_error_boto():
     raise ClientError({'Error': {'Message': 'storage failed for key ' + str(main_module.settings.object_store_secret_key), 'Code': 'Unknown'}}, 'operation')
+
+@app.get("/api/v1/trigger_error/persistence")
+def trigger_error_persistence():
+    raise PersistenceConfigurationError("object storage provider configuration failed")
 
 @app.get("/api/v1/trigger_error/value")
 def trigger_error_value():
@@ -97,6 +102,14 @@ def test_boto_core_error(fake_settings, setup_logging):
     assert "Object storage client failure" in log_text
     assert fake_settings.object_store_secret_key not in log_text
     assert "***REDACTED***" in log_text
+
+def test_persistence_configuration_error(setup_logging):
+    response = client.get("/api/v1/trigger_error/persistence")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Service Unavailable - Object storage failed."}
+
+    log_text = setup_logging.messages[0]
+    assert "Object storage configuration failure" in log_text
 
 def test_unexpected_value_error(fake_settings, setup_logging):
     response = client.get("/api/v1/trigger_error/value")
