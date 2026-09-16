@@ -6,15 +6,11 @@
 
 ## Current checkpoint
 
-The current branch checkpoint is the latest commit on `v4/saas-foundation`:
-
-`d8bd717edf7e402a862f58cecb94bcd3e488ca94`
-
-The latest application behavior checkpoint is:
+The latest application behavior checkpoint on `v4/saas-foundation` is:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-PR #23 was documentation-only and updated the authoritative state files after the security hardening changes, so it does not change application behavior.
+Commits after this checkpoint are documentation-only state reconciliations and do not change application behavior.
 
 ## Durable project documents
 
@@ -106,6 +102,14 @@ GitHub Actions run `35126948659`
 - frontend production build: PASS
 - documentation-only merge as `d8bd717edf7e402a862f58cecb94bcd3e488ca94`
 
+Checkpoint metadata PR #24:
+
+GitHub Actions run `35127184802`
+
+- backend regression suite: PASS
+- frontend production build: PASS
+- documentation-only merge as `77f6c8c907f6b484fe067f9b75d9b24f2260b189`
+
 The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted/current foundation tree and is not treated as exact-tree acceptance evidence.
 
 ## Security / tenant-isolation model
@@ -186,4 +190,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — reconciled after PR #21 Sharp remediation, PR #22 object-store 503 boundary hardening, and PR #23 authoritative state reconciliation; deployment and operational gates remain open.
+2026-09-16 — reconciled after PR #21 Sharp remediation, PR #22 object-store 503 boundary hardening, PR #23 state reconciliation, and PR #24 checkpoint metadata correction; deployment and operational gates remain open.
