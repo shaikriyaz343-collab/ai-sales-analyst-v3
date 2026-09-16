@@ -25,11 +25,11 @@ def _priority(severity: str) -> str:
     return {"high": "high", "medium": "medium", "info": "normal"}.get(severity, "normal")
 
 
-def _action_from_insight(insight, context: _ActionContext) -> ActionItem:
+def _action_from_insight(insight, context: _ActionContext, status: str = "open") -> ActionItem:
     return ActionItem(
         id=f"action-{insight.id}",
         priority=_priority(insight.severity),
-        status="open",
+        status=status,
         title=insight.title,
         action=insight.recommendation,
         owner=context.owner,
@@ -49,7 +49,7 @@ def _action_from_insight(insight, context: _ActionContext) -> ActionItem:
     )
 
 
-def build_actions(dataset_id: str, scope=None) -> ActionsResponse:
+def build_actions(dataset_id: str, scope=None, session_id: str | None = None) -> ActionsResponse:
     summary = get_dataset(dataset_id)
     if summary is None:
         raise ValueError("Dataset not found.")
@@ -57,8 +57,16 @@ def build_actions(dataset_id: str, scope=None) -> ActionsResponse:
     context = _OWNER_BY_MODEL.get(summary.business_model or "", _ActionContext("Business owner", "Business action"))
     overview = build_overview(dataset_id, scope=scope)
 
+    status_lookup = None
+    if session_id:
+        from .action_workflow import status_for
+        status_lookup = lambda action_id: status_for(session_id, action_id)
+
     source_insights = [*overview.attention, *overview.opportunities]
-    actions = [_action_from_insight(item, context) for item in source_insights]
+    actions = [
+        _action_from_insight(item, context, status=status_lookup(f"action-{item.id}") if status_lookup else "open")
+        for item in source_insights
+    ]
 
     # Deterministic ordering: risk first, then opportunity, then severity.
     priority_rank = {"high": 0, "medium": 1, "normal": 2}
@@ -69,6 +77,6 @@ def build_actions(dataset_id: str, scope=None) -> ActionsResponse:
         business_model=summary.business_model,
         business_model_label=summary.business_model_label,
         headline="Turn insight into action",
-        summary="Prioritized actions derived only from validated risks and opportunities in the current dataset.",
+        summary="Prioritized actions derived only from validated risks and opportunities in the current dataset. Status is user-controlled when a session is active.",
         actions=actions[:8],
     )

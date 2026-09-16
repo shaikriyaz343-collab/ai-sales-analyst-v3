@@ -20,15 +20,35 @@ _KIND_SCORE = {
     "change": 45.0,
 }
 
+_MONEY_METRICS = {
+    "revenue", "pipeline_value", "weighted_forecast", "mrr", "arr", "billings",
+    "aov", "billing_per_hour", "customer_revenue_share", "product_revenue_share",
+    "stage_pipeline_value", "customer_mrr", "client_billings",
+}
+
+
+def _display_value(metric: str, value: float | None) -> str:
+    if value is None:
+        return "—"
+    if metric in {"win_rate", "return_rate", "churn", "average_discount", "customer_revenue_share", "weighted_pipeline_share", "product_revenue_share"} or "share" in metric:
+        return f"{value:.1f}%"
+    if metric == "hours":
+        return f"{value:,.0f}"
+    sign = "-" if value < 0 else ""
+    magnitude = abs(value)
+    if magnitude >= 1_000_000:
+        return f"{sign}${magnitude / 1_000_000:.2f}M"
+    if magnitude >= 1_000:
+        return f"{sign}${magnitude / 1_000:.1f}K"
+    return f"{sign}${magnitude:,.0f}"
+
 
 @dataclass(frozen=True)
 class DecisionSignal:
     """A deterministic, ranked business decision signal.
 
-    This object deliberately separates prioritization from natural-language
-    explanation. Numeric truth still comes from the existing validated
-    Overview/Evidence engine. A future UI/API layer can serialize this object
-    without giving an LLM authority over the underlying numbers.
+    Numeric truth comes from the validated Overview/Evidence engine. This
+    object only scores and orders those existing signals.
     """
 
     signal_id: str
@@ -88,17 +108,20 @@ def _urgency_score(kind: str, severity: str) -> float:
     return min(100.0, base + kind_bonus)
 
 
-def _impact_score(insight: OverviewInsight, kind: str) -> float:
-    """Estimate decision impact from deterministic signal properties only.
+def _impact_score(insight: OverviewInsight) -> float:
+    """Estimate decision impact using only validated signal characteristics.
 
-    This is intentionally conservative: without a validated monetary-impact
-    model, signal kind and availability of a numeric metric are the allowed
-    proxies. The score is a ranking aid, not a claim that the signal causes a
-    particular amount of revenue impact.
+    This deliberately avoids claiming a monetary impact from an arbitrary raw
+    number. Money-like metrics receive a modest boost because they are directly
+    commercial measures; non-monetary metrics remain eligible but cannot gain
+    the money-metric boost.
     """
-    score = _KIND_SCORE.get(kind, 40.0)
-    if insight.evidence.value is not None:
-        score += 10.0
+    score = _KIND_SCORE.get("risk" if insight.severity in {"critical", "high"} else "opportunity", 40.0)
+    metric = insight.evidence.metric
+    if metric in _MONEY_METRICS and insight.evidence.value is not None:
+        score += 15.0
+    elif insight.evidence.value is not None:
+        score += 8.0
     if insight.evidence.source_fields:
         score += 5.0
     return min(100.0, score)
@@ -108,10 +131,7 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
     evidence = insight.evidence
     evidence_score = _evidence_score(evidence)
     urgency = _urgency_score(kind, insight.severity)
-    impact = _impact_score(insight, kind)
-
-    # Weighted deliberately toward urgency and evidence. This prevents a weak,
-    # merely interesting opportunity from outranking a well-supported risk.
+    impact = _impact_score(insight)
     priority = round((impact * 0.40) + (urgency * 0.35) + (evidence_score * 0.25), 2)
 
     return DecisionSignal(
@@ -124,7 +144,7 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
         recommendation=insight.recommendation,
         metric=evidence.metric,
         value=evidence.value,
-        display_value=("—" if evidence.value is None else str(evidence.value)),
+        display_value=_display_value(evidence.metric, evidence.value),
         evidence=evidence,
         impact_score=impact,
         urgency_score=urgency,
@@ -134,11 +154,7 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
 
 
 def rank_decision_signals(overview: OverviewResponse, *, limit: int = 8) -> list[DecisionSignal]:
-    """Rank validated Overview insights into a decision feed.
-
-    The function only consumes already-validated `OverviewInsight` objects. It
-    never creates a signal merely to fill the feed and never fabricates data.
-    """
+    """Rank validated Overview insights into a decision feed."""
     if limit <= 0:
         return []
 

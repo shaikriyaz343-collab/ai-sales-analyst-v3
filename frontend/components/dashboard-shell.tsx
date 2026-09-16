@@ -7,9 +7,12 @@ import type { Workspace } from "../lib/types";
 import { getScopeValues, onboardDataset, resetSessionScope, updateSessionScope } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { useAuth } from "../lib/auth";
+import ActionWorkflowPanel from "./action-workflow-panel";
 
-const nav: { id: Workspace; label: string }[] = [
+const nav: { id: Workspace | "decisions" | "forecast"; label: string }[] = [
+  { id: "decisions", label: "Decisions" },
   { id: "overview", label: "Overview" },
+  { id: "forecast", label: "Forecast" },
   { id: "explore", label: "Explore" },
   { id: "insights", label: "Insights" },
   { id: "ask", label: "Ask Analyst" },
@@ -80,7 +83,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         ? "dataset-ready"
         : "workspace-ready";
 
-  const allowed = new Set(state.dataset?.capabilities.workspaces ?? nav.map((item) => item.id));
+  const allowed = new Set<string>(state.dataset?.capabilities.workspaces ?? nav.map((item) => item.id));
   const filterableFields = state.dataset?.semantic && "dimensions" in state.dataset.semantic && Array.isArray(state.dataset.semantic.dimensions) ? state.dataset.semantic.dimensions : [];
 
   async function handleUpload(file: File) {
@@ -140,7 +143,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <div><strong>Sales Analyst</strong><span>Decision Intelligence</span></div>
         </Link>
         <nav className="nav-list" aria-label="Primary navigation">
-          {nav.filter((item) => allowed.has(item.id)).map((item) => {
+          {nav.filter((item) => item.id === "decisions" || item.id === "forecast" || allowed.has(item.id)).map((item) => {
             const active = pathname === `/dashboard/${item.id}`;
             return <Link key={item.id} href={`/dashboard/${item.id}`} className={`nav-item ${active ? "active" : ""}`}>{item.label}</Link>;
           })}
@@ -201,6 +204,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
           </details>
         </div>
+        {pathname === "/dashboard/actions" && state.dataset && <ActionWorkflowPanel datasetId={state.dataset.dataset_id} sessionId={state.session?.session_id} />}
         <section className="workspace">{children}</section>
       </main>
     </div>

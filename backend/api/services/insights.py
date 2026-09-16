@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..contracts import Evidence, InsightItem, InsightsResponse
+from .decision_signals import rank_decision_signals
 from .onboarding import get_dataset
 from .overview import build_overview
 from .session import scope_label
@@ -11,15 +12,19 @@ def _from_overview(dataset_id: str, scope=None) -> InsightsResponse:
     if summary is None:
         raise ValueError("Dataset not found.")
     overview = build_overview(dataset_id, scope=scope)
+    ranked = rank_decision_signals(overview, limit=8)
+    ranked_ids = {signal.signal_id for signal in ranked}
     items: list[InsightItem] = []
 
     # Reuse the validated Overview insight engine so Insights cannot drift
     # from the metrics and evidence already shown to the user.
-    for insight in overview.attention:
+    by_id = {insight.id: insight for insight in [*overview.attention, *overview.opportunities]}
+    for signal in ranked:
+        insight = by_id[signal.signal_id]
         items.append(
             InsightItem(
                 id=insight.id,
-                kind="risk",
+                kind=signal.kind,
                 severity=insight.severity,
                 title=insight.title,
                 what_changed=insight.summary,
@@ -27,37 +32,30 @@ def _from_overview(dataset_id: str, scope=None) -> InsightsResponse:
                 recommendation=insight.recommendation,
                 metric=insight.evidence.metric,
                 value=insight.evidence.value,
-                display_value=_display(insight.evidence.value, insight.evidence.metric),
+                display_value=signal.display_value,
                 evidence=insight.evidence,
-            )
-        )
-    for insight in overview.opportunities:
-        items.append(
-            InsightItem(
-                id=insight.id,
-                kind="opportunity",
-                severity=insight.severity,
-                title=insight.title,
-                what_changed=insight.summary,
-                why_it_matters=insight.why_it_matters,
-                recommendation=insight.recommendation,
-                metric=insight.evidence.metric,
-                value=insight.evidence.value,
-                display_value=_display(insight.evidence.value, insight.evidence.metric),
-                evidence=insight.evidence,
+                priority_score=signal.priority_score,
+                impact_score=signal.impact_score,
+                urgency_score=signal.urgency_score,
+                evidence_score=signal.evidence_score,
             )
         )
 
     # Promote only validated period-over-period KPI movements into Insights.
+    # Changes remain visible after higher-value risk/opportunity signals, but
+    # are never allowed to displace a ranked risk/opportunity signal.
     for metric in overview.metrics:
         if metric.delta_pct is None:
+            continue
+        movement_id = f"movement-{metric.id}"
+        if movement_id in ranked_ids:
             continue
         direction = "increased" if metric.delta_pct >= 0 else "decreased"
         label = metric.label
         title = f"{label} {direction} {abs(metric.delta_pct):.1f}%"
         items.append(
             InsightItem(
-                id=f"movement-{metric.id}",
+                id=movement_id,
                 kind="change",
                 severity="info" if abs(metric.delta_pct) < 10 else "medium",
                 title=title,
@@ -71,16 +69,13 @@ def _from_overview(dataset_id: str, scope=None) -> InsightsResponse:
             )
         )
 
-    # Deterministic priority order: risks first, then changes, then opportunities.
-    rank = {"high": 0, "medium": 1, "info": 2}
-    items.sort(key=lambda x: (0 if x.kind == "risk" else 1 if x.kind == "change" else 2, rank.get(x.severity, 3)))
     return InsightsResponse(
         dataset_id=summary.dataset_id,
         business_model=summary.business_model,
         business_model_label=summary.business_model_label,
         scope_label=scope_label(scope) if scope is not None else "All data",
         headline="What matters right now",
-        summary="Validated changes, risks and opportunities from the current dataset and scope.",
+        summary="Validated risks and opportunities are ranked by decision priority; changes remain grounded in the same evidence engine.",
         insights=items[:8],
     )
 

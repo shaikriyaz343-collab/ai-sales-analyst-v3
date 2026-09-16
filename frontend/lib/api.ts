@@ -29,22 +29,14 @@ export async function getCurrentUser(): Promise<AuthUser> {
 }
 
 export async function signup(email: string, password: string, name: string, organizationName: string): Promise<AuthUser> {
-  const response = await apiFetch("/api/v1/auth/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, name, organization_name: organizationName }),
-  });
+  const response = await apiFetch("/api/v1/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, name, organization_name: organizationName }) });
   if (!response.ok) throw await errorFrom(response, "Could not create your account.");
   const body = await response.json();
   return body.user as AuthUser;
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
-  const response = await apiFetch("/api/v1/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  const response = await apiFetch("/api/v1/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
   if (!response.ok) throw await errorFrom(response, "Could not sign in.");
   const body = await response.json();
   return body.user as AuthUser;
@@ -62,11 +54,7 @@ export async function getWorkspaces(): Promise<{ organization_id: string; items:
 }
 
 export async function createWorkspace(name: string): Promise<AuthWorkspace> {
-  const response = await apiFetch("/api/v1/workspaces", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
+  const response = await apiFetch("/api/v1/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
   if (!response.ok) throw await errorFrom(response, "Workspace could not be created.");
   return response.json();
 }
@@ -83,11 +71,7 @@ export async function onboardDataset(file: File, workspaceId?: string): Promise<
 }
 
 export async function createSession(datasetId: string, workspaceId?: string): Promise<AnalysisSession> {
-  const response = await apiFetch("/api/v1/sessions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataset_id: datasetId, ...(workspaceId ? { workspace_id: workspaceId } : {}) }),
-  });
+  const response = await apiFetch("/api/v1/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataset_id: datasetId, ...(workspaceId ? { workspace_id: workspaceId } : {}) }) });
   if (!response.ok) throw await errorFrom(response, "Could not create analysis session.");
   return response.json();
 }
@@ -139,6 +123,12 @@ export async function getExplore(datasetId: string, metric?: string, dimension?:
   return response.json();
 }
 
+export async function getForecast(datasetId: string, sessionId?: string): Promise<import("./types").ForecastResponse> {
+  const response = await apiFetch(`/api/v1/datasets/${datasetId}/forecast${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`);
+  if (!response.ok) throw await errorFrom(response, "Forecast could not be loaded.");
+  return response.json();
+}
+
 export async function getInsights(datasetId: string, sessionId?: string): Promise<import("./types").InsightsResponse> {
   const response = await apiFetch(`/api/v1/datasets/${datasetId}/insights${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`);
   if (!response.ok) throw await errorFrom(response, "Insights could not be loaded.");
@@ -156,6 +146,12 @@ export async function askAnalyst(datasetId: string, question: string, sessionId?
 export async function getActions(datasetId: string, sessionId?: string): Promise<import("./types").ActionsResponse> {
   const response = await apiFetch(`/api/v1/datasets/${datasetId}/actions${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`);
   if (!response.ok) throw await errorFrom(response, "Actions could not be loaded.");
+  return response.json();
+}
+
+export async function updateActionStatus(datasetId: string, sessionId: string, actionId: string, status: string): Promise<import("./types").ActionItem> {
+  const response = await apiFetch(`/api/v1/datasets/${datasetId}/actions/${encodeURIComponent(actionId)}/status?session_id=${encodeURIComponent(sessionId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+  if (!response.ok) throw await errorFrom(response, "Action status could not be updated.");
   return response.json();
 }
 
