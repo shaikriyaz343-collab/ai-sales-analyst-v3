@@ -6,7 +6,7 @@
 
 ## Current checkpoint
 
-`fd0d74ce9cc9128e7a560536e844cb08d73328eb` — authoritative V4 project state aligned with the promoted foundation and current release evidence.
+`fd286c684ad03ac276bc2a703187d60d453ea52c` — authoritative V4 project state aligned with the promoted foundation and current release evidence.
 
 This is the current promoted engineering/product checkpoint. The historical pre-promotion baseline `3ac4b2d` remains useful as release evidence but is not the current branch checkpoint.
 
