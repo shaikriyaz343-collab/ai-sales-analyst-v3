@@ -8,7 +8,7 @@ Date: 2026-09-16
 
 Current commit:
 
-`c7092d56bf6486b03cc56e86ab60c567f8f8a487`
+`371aa5caf00308b98faeba58bf4c5736bb995b39`
 
 Promotion merge:
 
@@ -22,7 +22,15 @@ Decision-signal correction merge:
 
 `#17` — Restore decision signal kind semantics
 
-The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correctness correction.
+Sharp dependency remediation merge:
+
+`#21` — Update Sharp to patched release
+
+Object-store API hardening merge:
+
+`#22` — Map object-store provider failures to 503
+
+The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correctness correction, patched Sharp lockfile, and object-store provider-failure API boundary.
 
 ## Promotion validation evidence
 
@@ -52,17 +60,36 @@ Production `next build` passed. The build completed on Next.js `16.3.3` with the
 
 The prior Turbopack multi-lockfile root warning is addressed by explicitly setting `turbopack.root` to the frontend workspace.
 
-The npm install phase still reports:
-
-`1 high severity vulnerability`
-
-This remains an open dependency-security release gate tracked as issue #9. The current frontend lockfile pins `sharp` `0.35.3`; public advisory data identifies versions below `0.35.4` as affected. The release gate is not considered remediated until the repository lockfile is regenerated/validated with the patched dependency and `npm audit` clears or a reviewed, time-bounded exception is recorded.
-
 ## Decision-signal correctness
 
 PR #17 (`c7092d56bf6486b03cc56e86ab60c567f8f8a487`) corrected impact scoring so the actual signal kind is passed into `_impact_score`. This prevents severity from incorrectly reclassifying a high-severity opportunity as a risk. The correction preserved the existing money-metric boost and added regression assertions for risk/opportunity scoring semantics.
 
 PR #17 CI run `35122269894` completed successfully before merge.
+
+## Dependency-security remediation
+
+PR #21 updated the npm-generated frontend lockfile so the transitive `sharp` resolution is `0.35.4`.
+
+Branch-level validation:
+
+- `npm ci`: PASS
+- `npm audit --audit-level=high`: PASS with no high-severity findings
+- `npm run build`: PASS
+
+Normal V4 Development CI for PR #21 was run as GitHub Actions run `35126146295`:
+
+- backend regression suite: PASS
+- frontend production build: PASS
+
+PR #21 merged as `b49ddb2242dd9929b900c33eea20ec31ecc6c04f`. Issue #9 is therefore remediated at repository level.
+
+## Object-store API hardening
+
+PR #22 added a central `PersistenceConfigurationError` handler that returns the existing safe HTTP 503 object-store dependency-failure response, emits `object_store_failures_total` telemetry with operation/failure classification, and preserves sanitized logging.
+
+The disposable validation run `35126592984` passed targeted error-handling/persistence tests, the full `tests_v4_saas` suite, and exact diff-scope/whitespace checks. The normal V4 Development CI run `35126724910` passed both backend regression and frontend production build.
+
+PR #22 merged as `371aa5caf00308b98faeba58bf4c5736bb995b39`. Issue #19 is therefore remediated at repository level.
 
 ## Promoted product work
 
@@ -84,15 +111,15 @@ This promotion is an engineering/product checkpoint, not final production approv
 
 Remaining release work includes:
 
-- final deployed Playwright/browser acceptance against the promoted build
+- final deployed Playwright/browser acceptance against the current release build
 - systematic post-promotion security and tenant-isolation review
 - Linux/container resource and capacity certification
 - controlled real dependency-failure rehearsal
 - production-grade cross-site domain/cookie architecture where practical
 - measured production deployment/cutover and rollback evidence
 - monitoring/alert ownership and thresholds
-- dependency security cleanup; issue #9 is open for the unresolved npm audit finding
-- API hardening for object-store provider failures so `PersistenceConfigurationError` is consistently surfaced as HTTP 503 rather than generic HTTP 500
+
+Repository-side dependency security and object-store API hardening are complete; deployment and operational evidence remain separate gates.
 
 ## CI infrastructure
 
@@ -107,4 +134,4 @@ The temporary CI-only promotion validator used to prove the exact candidate tree
 
 ## Historical baseline
 
-`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current branch checkpoint after the 2026-09-16 promotion and release hardening.
+`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current branch checkpoint after the 2026-09-16 promotion and subsequent release hardening.
