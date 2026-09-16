@@ -50,3 +50,5 @@ jobs:
           fi
           git commit -m 'fix: update sharp to patched release'
           git push origin HEAD:v4/sharp-lockfile-regeneration-final
+
+# Explicitly rerun after the first audit-only generation attempt.
