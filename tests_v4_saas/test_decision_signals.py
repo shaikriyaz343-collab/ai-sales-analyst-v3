@@ -70,6 +70,26 @@ def test_rank_decision_signals_gives_supported_money_metrics_a_modest_impact_boo
     assert signals[1].impact_score == 73.0
 
 
+def test_rank_decision_signals_preserves_high_severity_opportunity_kind() -> None:
+    overview = OverviewResponse(
+        dataset_id="d1",
+        business_model="sales_pipeline",
+        business_model_label="Sales pipeline",
+        headline="headline",
+        subheadline="subheadline",
+        opportunities=[
+            _insight("high-opportunity", severity="high", metric="pipeline_value", value=100000, fields=["amount"]),
+        ],
+    )
+
+    signals = rank_decision_signals(overview)
+
+    assert len(signals) == 1
+    assert signals[0].kind == "opportunity"
+    assert signals[0].impact_score == 80.0
+    assert signals[0].urgency_score == 85.0
+
+
 def test_rank_decision_signals_formats_sales_values_for_ui() -> None:
     overview = OverviewResponse(
         dataset_id="d1",
