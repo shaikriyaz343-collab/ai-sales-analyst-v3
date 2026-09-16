@@ -12,6 +12,15 @@ Latest application behavior checkpoint:
 
 Commits after this checkpoint are documentation-only state reconciliations and do not change application behavior.
 
+Production deployment target:
+
+`https://peaceful-mindfulness-production-51b6.up.railway.app/`
+
+Deployment stack:
+
+- Application hosting/deployment: Railway
+- Uploaded dataset object storage: Cloudflare R2 through the S3-compatible persistence adapter
+
 Promotion merge:
 
 `#7` — Promote validated V4 product tree
@@ -115,21 +124,31 @@ The promoted V4 tree includes the accumulated product-development work for:
 - first-class data-quality summary
 - associated backend tests and frontend surfaces
 
+## Deployment / operational evidence reconciliation
+
+The repository contains earlier C4-F deployment evidence for the same deployment architecture, including Railway hosting, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, deployed browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant-isolation checks.
+
+On 2026-09-16, the deployment owner confirmed that the deployed V4 environment is already operating on Railway with Cloudflare R2 and that the following operational checks have already been exercised: deployed browser acceptance, R2/dependency failure-recovery, Linux/container resource/capacity measurement, tenant isolation, and production monitoring/rollback evidence.
+
+This reconciliation exists to prevent those completed activities from being accidentally repeated merely because the release-state documents were stale. The repository does not currently contain machine-verifiable provider run identifiers or attached measurement artifacts for each external check, so this record distinguishes operator-confirmed completion from independently re-verified certification.
+
+Where the final release process requires an auditable artifact, retain the existing deployment/monitoring evidence and tie it to the deployed Railway deployment identifier and the application behavior checkpoint before closing the corresponding gate. Do not re-run destructive dependency tests solely to repair documentation.
+
 ## Remaining release gates
 
-This promotion is an engineering/product checkpoint, not final production approval.
+This promotion is an engineering/product checkpoint, not a claim that every production artifact is independently archived in Git.
 
-Remaining release work includes:
+The repository-side implementation gates are complete, and the external operational checks are reported by the deployment owner as already exercised. The remaining work is evidence reconciliation rather than repeating the underlying exercises:
 
-- final deployed Playwright/browser acceptance against the current release build
-- systematic post-promotion security and tenant-isolation review
-- Linux/container resource and capacity certification
-- controlled real dependency-failure rehearsal
-- production-grade cross-site domain/cookie architecture where practical
-- measured production deployment/cutover and rollback evidence
-- monitoring/alert ownership and thresholds
+- attach or reference the existing exact-release browser acceptance result and deployed build/deployment identifier
+- attach or reference the existing Linux/container resource and capacity measurements
+- attach or reference the existing dependency-failure, restart/recovery, and rollback/recover-forward evidence
+- attach or reference the existing tenant-isolation verification
+- attach or reference measured production monitoring thresholds, alert ownership, and observation window
+- resolve the separate production cross-site domain/cookie architecture review under issue #13
+- complete the separate systematic post-promotion security review under issue #14
 
-Repository-side dependency security and object-store API hardening are complete; deployment and operational evidence remain separate gates.
+Repository-side dependency security and object-store API hardening are complete; deployment and operational evidence should not be re-executed solely because the historical release notes were not yet reconciled.
 
 ## CI infrastructure
 
