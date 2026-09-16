@@ -34,6 +34,16 @@ def test_rule_rejects_unsupported_metric_and_operator():
         create_rule(summary.dataset_id, session.session_id, AlertRuleCreate(metric="revenue", operator="wat", threshold=10))
 
 
+def test_cadence_contract_allows_only_manual_daily_weekly():
+    summary = _load("retail.csv")
+    session = create_session(summary.dataset_id)
+    for cadence in ("manual", "daily", "weekly"):
+        rule = create_rule(summary.dataset_id, session.session_id, AlertRuleCreate(name=f"{cadence} watch", metric="revenue", operator="gt", threshold=0, cadence=cadence))
+        assert rule.cadence == cadence
+    with pytest.raises(ValueError, match="cadence"):
+        create_rule(summary.dataset_id, session.session_id, AlertRuleCreate(metric="revenue", operator="gt", threshold=0, cadence="hourly"))
+
+
 def test_evaluation_triggers_using_same_scope_and_metric_evidence():
     summary = _load("retail.csv")
     session = create_session(summary.dataset_id)
@@ -85,5 +95,5 @@ def test_dataset_replacement_clears_prior_monitoring_state():
     replaced = replace_dataset(session.session_id, pipeline.dataset_id)
     assert replaced.dataset_id == pipeline.dataset_id
     assert list_alerts(pipeline.dataset_id, session.session_id).rules == []
-    from backend.api.services.monitoring import _path
-    assert not _path(session.session_id).exists()
+    from backend.api.services.monitoring import _load
+    assert _load(session.session_id)["rules"] == []
