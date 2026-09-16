@@ -7,6 +7,9 @@ on:
     branches: [ v4/saas-foundation ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
