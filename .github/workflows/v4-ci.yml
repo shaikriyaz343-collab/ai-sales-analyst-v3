@@ -3,9 +3,12 @@ name: V4 Regression Gate
 on:
   push:
     branches: [ v4/saas-foundation ]
-  pull_request:
+  pull_request_target:
     branches: [ v4/saas-foundation ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   backend:
