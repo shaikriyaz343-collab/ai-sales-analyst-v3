@@ -8,7 +8,7 @@ Date: 2026-09-16
 
 Current commit:
 
-`f12c3aec2ab7053d4d96b47012b9f30d78d796f8`
+`c7092d56bf6486b03cc56e86ab60c567f8f8a487`
 
 Promotion merge:
 
@@ -18,7 +18,11 @@ Release-hardening merge:
 
 `#8` — Release hardening: foundation CI and Next workspace root
 
-The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`; the current foundation tree adds only the release-hardening workflow/configuration changes and this status refresh.
+Decision-signal correction merge:
+
+`#17` — Restore decision signal kind semantics
+
+The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correctness correction.
 
 ## Promotion validation evidence
 
@@ -52,7 +56,13 @@ The npm install phase still reports:
 
 `1 high severity vulnerability`
 
-The CI log does not identify the package/advisory. This remains an open release gate tracked as issue #9 and must not be treated as remediated until `npm audit` identifies and clears or formally exceptions the finding.
+This remains an open dependency-security release gate tracked as issue #9. The current frontend lockfile pins `sharp` `0.35.3`; public advisory data identifies versions below `0.35.4` as affected. The release gate is not considered remediated until the repository lockfile is regenerated/validated with the patched dependency and `npm audit` clears or a reviewed, time-bounded exception is recorded.
+
+## Decision-signal correctness
+
+PR #17 (`c7092d56bf6486b03cc56e86ab60c567f8f8a487`) corrected impact scoring so the actual signal kind is passed into `_impact_score`. This prevents severity from incorrectly reclassifying a high-severity opportunity as a risk. The correction preserved the existing money-metric boost and added regression assertions for risk/opportunity scoring semantics.
+
+PR #17 CI run `35122269894` completed successfully before merge.
 
 ## Promoted product work
 
@@ -68,12 +78,6 @@ The promoted V4 tree includes the accumulated product-development work for:
 - first-class data-quality summary
 - associated backend tests and frontend surfaces
 
-## Decision-signal correctness
-
-`backend/api/services/decision_signals.py` preserves the actual signal kind when calculating impact. Risks/attention are not reclassified as opportunities merely because of severity.
-
-Ranking remains deterministic and consumes only validated Overview insight objects. It does not fabricate signals or numeric values.
-
 ## Remaining release gates
 
 This promotion is an engineering/product checkpoint, not final production approval.
@@ -85,20 +89,21 @@ Remaining release work includes:
 - Linux/container resource and capacity certification
 - controlled real dependency-failure rehearsal
 - production-grade cross-site domain/cookie architecture where practical
-- executable rollback runbook and release automation
+- measured production deployment/cutover and rollback evidence
 - monitoring/alert ownership and thresholds
 - dependency security cleanup; issue #9 is open for the unresolved npm audit finding
+- API hardening for object-store provider failures so `PersistenceConfigurationError` is consistently surfaced as HTTP 503 rather than generic HTTP 500
 
 ## CI infrastructure
 
-The V4 development CI workflow now validates both:
+The V4 development CI workflow validates both:
 
 - `v4/product-development`
 - `v4/saas-foundation`
 
 for pushes and pull requests, using the existing backend regression suite and frontend production build.
 
-The temporary CI-only promotion validator used to prove the exact candidate tree was removed from `main` after promotion so it cannot validate a stale fixed branch in the future.
+The temporary CI-only promotion validator used to prove the exact candidate tree was removed after promotion so it cannot validate a stale fixed branch in the future.
 
 ## Historical baseline
 
