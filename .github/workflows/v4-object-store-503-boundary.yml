@@ -20,9 +20,14 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install backend dependencies
         run: python -m pip install -r requirements.txt
+
+      - name: Install test runner
+        run: python -m pip install "pytest>=8,<9"
 
       - name: Apply targeted API boundary patch
         run: |
@@ -88,5 +93,3 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix: map object-store provider failures to 503'
           git push origin HEAD:v4/object-store-503-boundary-clean
-
-# Trigger run after initial workflow publication.
