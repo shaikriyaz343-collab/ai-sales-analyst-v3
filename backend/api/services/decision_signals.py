@@ -88,15 +88,15 @@ def _urgency_score(kind: str, severity: str) -> float:
     return min(100.0, base + kind_bonus)
 
 
-def _impact_score(insight: OverviewInsight) -> float:
+def _impact_score(insight: OverviewInsight, kind: str) -> float:
     """Estimate decision impact from deterministic signal properties only.
 
     This is intentionally conservative: without a validated monetary-impact
-    model, severity and availability of a numeric metric are the allowed
+    model, signal kind and availability of a numeric metric are the allowed
     proxies. The score is a ranking aid, not a claim that the signal causes a
     particular amount of revenue impact.
     """
-    score = _KIND_SCORE.get("risk" if insight.severity in {"critical", "high"} else "opportunity", 40.0)
+    score = _KIND_SCORE.get(kind, 40.0)
     if insight.evidence.value is not None:
         score += 10.0
     if insight.evidence.source_fields:
@@ -108,7 +108,7 @@ def _signal_from_insight(insight: OverviewInsight, kind: str) -> DecisionSignal:
     evidence = insight.evidence
     evidence_score = _evidence_score(evidence)
     urgency = _urgency_score(kind, insight.severity)
-    impact = _impact_score(insight)
+    impact = _impact_score(insight, kind)
 
     # Weighted deliberately toward urgency and evidence. This prevents a weak,
     # merely interesting opportunity from outranking a well-supported risk.
