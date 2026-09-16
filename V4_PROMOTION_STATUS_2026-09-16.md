@@ -6,9 +6,15 @@ Date: 2026-09-16
 
 `v4/saas-foundation`
 
-Current commit:
+Current branch commit:
+
+`d8bd717edf7e402a862f58cecb94bcd3e488ca94`
+
+Latest application behavior checkpoint:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
+
+PR #23 was documentation-only and reconciled the authoritative state files after the security hardening changes; it does not change application behavior.
 
 Promotion merge:
 
@@ -29,6 +35,10 @@ Sharp dependency remediation merge:
 Object-store API hardening merge:
 
 `#22` — Map object-store provider failures to 503
+
+State reconciliation merge:
+
+`#23` — Reconcile V4 release state after security hardening
 
 The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correctness correction, patched Sharp lockfile, and object-store provider-failure API boundary.
 

@@ -6,11 +6,15 @@
 
 ## Current checkpoint
 
-The current checkpoint is the latest commit on `v4/saas-foundation`:
+The current branch checkpoint is the latest commit on `v4/saas-foundation`:
+
+`d8bd717edf7e402a862f58cecb94bcd3e488ca94`
+
+The latest application behavior checkpoint is:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-This merge commit includes the Sharp dependency remediation and the object-store HTTP 503 boundary hardening. The prior application checkpoint `c7092d56bf6486b03cc56e86ab60c567f8f8a487` remains useful as the last pre-security-hardening application checkpoint.
+PR #23 was documentation-only and updated the authoritative state files after the security hardening changes, so it does not change application behavior.
 
 ## Durable project documents
 
@@ -94,6 +98,14 @@ Foundation PR CI run `35126724910`
 - frontend production build: PASS
 - merged as `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
+State-reconciliation PR #23:
+
+GitHub Actions run `35126948659`
+
+- backend regression suite: PASS
+- frontend production build: PASS
+- documentation-only merge as `d8bd717edf7e402a862f58cecb94bcd3e488ca94`
+
 The historical deployed-browser checkpoint recorded `7 passed`, but that browser run predates the exact promoted/current foundation tree and is not treated as exact-tree acceptance evidence.
 
 ## Security / tenant-isolation model
@@ -174,4 +186,4 @@ C4-F / production approval requires applicable real-infrastructure evidence; pas
 
 ## Last updated
 
-2026-09-16 — reconciled after PR #21 Sharp remediation and PR #22 object-store 503 boundary hardening; deployment and operational gates remain open.
+2026-09-16 — reconciled after PR #21 Sharp remediation, PR #22 object-store 503 boundary hardening, and PR #23 authoritative state reconciliation; deployment and operational gates remain open.
