@@ -354,6 +354,8 @@ class AlertRule(BaseModel):
     active: bool = True
     created_at: str
     last_evaluated_at: str | None = None
+    due: bool = True
+    next_due_at: str | None = None
 
 
 class AlertEvent(BaseModel):
