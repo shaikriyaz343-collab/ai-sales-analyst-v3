@@ -1,0 +1,90 @@
+name: V4 Object Store 503 Boundary Patch
+
+on:
+  push:
+    branches: [v4/object-store-503-boundary-clean]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Apply targeted API boundary patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          main = Path('backend/api/main.py')
+          text = main.read_text(encoding='utf-8')
+
+          import_anchor = 'from .config import settings\n'
+          import_line = 'from .persistence import PersistenceConfigurationError\n'
+          if import_line not in text:
+              if import_anchor not in text:
+                  raise SystemExit('main.py import anchor not found')
+              text = text.replace(import_anchor, import_anchor + import_line, 1)
+
+          handler_anchor = '@app.exception_handler(Exception)\nasync def global_exception_handler'
+          handler = '''@app.exception_handler(PersistenceConfigurationError)\nasync def persistence_configuration_exception_handler(request: Request, exc: PersistenceConfigurationError):\n    from backend.api.telemetry import safe_emit_metric\n    op = "write" if request.method in ("POST", "PUT", "PATCH", "DELETE") else "read"\n    safe_emit_metric("object_store_failures_total", 1, {"operation": op, "failure_type": "configuration"})\n    logger.error(_sanitize_log(f"Object storage configuration/dependency failure: {exc}"))\n    return JSONResponse(status_code=503, content={"detail": "Service Unavailable - Object storage failed."})\n\n''' + handler_anchor
+          if 'async def persistence_configuration_exception_handler' not in text:
+              if handler_anchor not in text:
+                  raise SystemExit('main.py exception-handler anchor not found')
+              text = text.replace(handler_anchor, handler, 1)
+
+          main.write_text(text, encoding='utf-8')
+
+          tests = Path('tests_v4_saas/test_error_handling.py')
+          test_text = tests.read_text(encoding='utf-8')
+
+          route_anchor = '@app.get("/api/v1/trigger_error/value")\n'
+          route = '''@app.get("/api/v1/trigger_error/persistence")\ndef trigger_error_persistence():\n    from backend.api.persistence import PersistenceConfigurationError\n    raise PersistenceConfigurationError("Object-store provider unavailable for " + str(main_module.settings.object_store_secret_key))\n\n'''
+          if '/api/v1/trigger_error/persistence' not in test_text:
+              if route_anchor not in test_text:
+                  raise SystemExit('test route anchor not found')
+              test_text = test_text.replace(route_anchor, route + route_anchor, 1)
+
+          test_anchor = 'def test_unexpected_value_error(fake_settings, setup_logging):\n'
+          regression = '''def test_persistence_configuration_error_returns_503(fake_settings, setup_logging):\n    response = client.get("/api/v1/trigger_error/persistence")\n    assert response.status_code == 503\n    assert response.json() == {"detail": "Service Unavailable - Object storage failed."}\n\n    assert len(setup_logging.messages) == 1\n    log_text = setup_logging.messages[0]\n    assert "Object storage configuration/dependency failure" in log_text\n    assert fake_settings.object_store_secret_key not in log_text\n    assert "***REDACTED***" in log_text\n\n'''
+          if 'def test_persistence_configuration_error_returns_503' not in test_text:
+              if test_anchor not in test_text:
+                  raise SystemExit('test function anchor not found')
+              test_text = test_text.replace(test_anchor, regression + test_anchor, 1)
+
+          tests.write_text(test_text, encoding='utf-8')
+          PY
+
+      - name: Run targeted regression tests
+        run: python -m pytest tests_v4_saas/test_error_handling.py tests_v4_saas/test_persistence.py -q
+
+      - name: Run full V4 backend regression suite
+        run: python -m pytest tests_v4_saas -q
+
+      - name: Verify exact file scope and whitespace
+        run: |
+          git diff --check
+          git diff --name-only
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "backend/api/main.py tests_v4_saas/test_error_handling.py " || { echo 'Unexpected diff scope'; exit 1; }
+
+      - name: Remove disposable workflow and commit
+        run: |
+          git rm .github/workflows/v4-object-store-503-boundary.yml
+          git add backend/api/main.py tests_v4_saas/test_error_handling.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: map object-store provider failures to 503'
+          git push origin HEAD:v4/object-store-503-boundary-clean
