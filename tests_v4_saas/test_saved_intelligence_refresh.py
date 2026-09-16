@@ -32,7 +32,7 @@ def test_saved_explore_refresh_recalculates_current_dataset_and_evidence():
     original = dataset_path.read_text(encoding="utf-8")
     try:
         dataset_path.write_text(
-            original.rstrip("\n") + "\n9999,2026-01-15,Expansion,Expansion,Phone,1000,0,No Return\n",
+            original.rstrip("\n") + "\n9999,2026-01-15,Expansion,Phone,1,1000,1000,North,0,No,Card\n",
             encoding="utf-8",
         )
         refreshed = list_saved(summary.dataset_id, session.session_id)
