@@ -10,6 +10,7 @@ from schema_profiler_v2 import load_dataframe, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import ExploreResponse, ExploreRow
+from .evidence import format_source_records, resolve_source_record_column
 from .onboarding import STORAGE, get_dataset
 from .session import apply_scope, scope_label
 from .overview import _canonicalize
@@ -183,16 +184,10 @@ def _source_fields(metric: str, dimension: str, data: pd.DataFrame) -> list[str]
 
 
 def _source_records(group: pd.DataFrame, *, limit: int = 12) -> list[str]:
-    candidates = [
-        "order_id", "opportunity_id", "customer_id", "subscription_id", "client_id", "employee_id", "id"
-    ]
-    key = next((column for column in candidates if column in group.columns), None)
-    if key is None:
-        key = next((column for column in group.columns if column.endswith("_id")), None)
+    key = resolve_source_record_column(group)
     if key is None:
         return []
-    values = group[key].dropna().astype(str).drop_duplicates().tolist()
-    return [f"{key}={value}" for value in values[:limit]]
+    return format_source_records(group[key], key, limit=limit)
 
 
 def build_explore(dataset_id: str, metric: str | None = None, dimension: str | None = None, limit: int = 8, scope=None) -> ExploreResponse:
