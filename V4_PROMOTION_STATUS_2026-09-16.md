@@ -1,6 +1,6 @@
 # AI Sales Analyst V4 — Promotion Status
 
-Date: 2026-09-16
+Date: 2026-09-17 (evidence-state revision)
 
 ## Current promoted branch
 
@@ -10,7 +10,11 @@ Latest application behavior checkpoint:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-Commits after this checkpoint are documentation-only state reconciliations and do not change application behavior.
+Current foundation branch head:
+
+`d7cbe68de3cb18c8226cb99d514b6a6624935574`
+
+PR #28 is merged into the foundation branch. It adds repository-side security review/test coverage only and does not change analytical behavior, so the application behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
 
 Production deployment target:
 
@@ -41,15 +45,19 @@ Object-store API hardening merge:
 
 `#22` — Map object-store provider failures to 503
 
-State reconciliation merge:
+State reconciliation merges:
 
-`#23` — Reconcile V4 release state after security hardening
+`#23`, `#24`, `#25`, `#26`, `#27` — state/evidence/documentation reconciliation
 
-Checkpoint metadata correction merge:
+Cross-site auth architecture contract:
 
-`#24` — Correct V4 branch checkpoint metadata
+`#29` — documentation-only production auth topology contract
 
-The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correctness correction, patched Sharp lockfile, and object-store provider-failure API boundary.
+Post-promotion security review:
+
+`#28` — repository-side security review and explicit security-contract regression coverage; merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`
+
+The original promoted product tree was `70e7c44a07e1489b9e85f988e6d2ff383ab1cc57`. The current foundation tree includes the release-hardening changes plus the validated decision-signal correction, patched Sharp lockfile, object-store provider-failure API boundary, cross-site auth architecture contract, evidence-only release matrix, and merged repository-side security review.
 
 ## Promotion validation evidence
 
@@ -110,6 +118,23 @@ The disposable validation run `35126592984` passed targeted error-handling/persi
 
 PR #22 merged as `371aa5caf00308b98faeba58bf4c5736bb995b39`. Issue #19 is therefore remediated at repository level.
 
+## Post-promotion security review
+
+PR #28 added the repository-side systematic security review and explicit regression tests covering:
+
+- authentication/session controls and password/session handling
+- tenant/workspace authorization and cross-organization denial coverage
+- production persistence boundaries
+- secure cookie / SameSite invariants
+- credentialed CORS allowlisting
+- trusted-host restrictions
+- security response headers and HSTS behavior
+- sanitized error handling/logging and dependency-failure mapping
+
+GitHub Actions run `35132271337` completed successfully for both backend and frontend on PR #28 head `25656474a2f5acba86e83ae3aba2a6b974a1cb1d`. The PR was then merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`.
+
+This closes the repository-side portion of the systematic post-promotion security review. It does not certify production-provider behavior or the final cross-site browser topology.
+
 ## Promoted product work
 
 The promoted V4 tree includes the accumulated product-development work for:
@@ -126,29 +151,28 @@ The promoted V4 tree includes the accumulated product-development work for:
 
 ## Deployment / operational evidence reconciliation
 
-The repository contains earlier C4-F deployment evidence for the same deployment architecture, including Railway hosting, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, deployed browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant-isolation checks.
+Historical C4-F records describe Railway hosting, external PostgreSQL, Cloudflare R2 persistence, health/readiness verification, browser acceptance, restart/recovery rehearsal, isolated rollback/recover-forward rehearsal, and tenant-isolation checks. The supplied historical conversation also contains deployed screenshots and a browser-observed secure cross-site cookie header.
 
-On 2026-09-16, the deployment owner confirmed that the deployed V4 environment is already operating on Railway with Cloudflare R2 and that the following operational checks have already been exercised: deployed browser acceptance, R2/dependency failure-recovery, Linux/container resource/capacity measurement, tenant isolation, and production monitoring/rollback evidence.
+Previous deployment-state documents and issue comments contain owner/operator statements that additional production exercises were performed. Under the current evidence policy, **those statements are leads only and do not close release gates**.
 
-This reconciliation exists to prevent those completed activities from being accidentally repeated merely because the release-state documents were stale. The repository does not currently contain machine-verifiable provider run identifiers or attached measurement artifacts for each external check, so this record distinguishes operator-confirmed completion from independently re-verified certification.
-
-Where the final release process requires an auditable artifact, retain the existing deployment/monitoring evidence and tie it to the deployed Railway deployment identifier and the application behavior checkpoint before closing the corresponding gate. Do not re-run destructive dependency tests solely to repair documentation.
+For final certification, each external operational gate requires a directly reviewable artifact tied to the relevant release/deployment identity. Repository application-side rehearsals remain reusable but do not substitute for production evidence.
 
 ## Remaining release gates
 
-This promotion is an engineering/product checkpoint, not a claim that every production artifact is independently archived in Git.
+The following production/deployment gates remain open because exact-release artifacts have not been established in the reviewed repository evidence:
 
-The repository-side implementation gates are complete, and the external operational checks are reported by the deployment owner as already exercised. The remaining work is evidence reconciliation rather than repeating the underlying exercises:
+- deployed browser acceptance against the exact release build
+- production R2/dependency-failure and recovery evidence
+- Linux/container resource/capacity measurements
+- deployed tenant-isolation verification
+- deployed restart/durable-state evidence tied to the release
+- rollback/recover-forward evidence tied to the release
+- measured production monitoring thresholds, alert ownership, and observation window
+- final production object-store/provider certification
+- complete release/cutover evidence package
+- final cross-site frontend/API topology and authenticated browser verification under issue #13
 
-- attach or reference the existing exact-release browser acceptance result and deployed build/deployment identifier
-- attach or reference the existing Linux/container resource and capacity measurements
-- attach or reference the existing dependency-failure, restart/recovery, and rollback/recover-forward evidence
-- attach or reference the existing tenant-isolation verification
-- attach or reference measured production monitoring thresholds, alert ownership, and observation window
-- resolve the separate production cross-site domain/cookie architecture review under issue #13
-- complete the separate systematic post-promotion security review under issue #14
-
-Repository-side dependency security and object-store API hardening are complete; deployment and operational evidence should not be re-executed solely because the historical release notes were not yet reconciled.
+Do not rerun a destructive operational exercise merely to repair stale prose when a valid release-linked artifact can be found. Conversely, do not mark an exercise complete merely because an owner previously said it was performed.
 
 ## CI infrastructure
 
@@ -163,4 +187,8 @@ The temporary CI-only promotion validator used to prove the exact candidate tree
 
 ## Historical baseline
 
-`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current application checkpoint after the 2026-09-16 promotion and subsequent release hardening.
+`3ac4b2d` remains the historical protected engineering baseline for the SaaS foundation. It is not the current application checkpoint after the 2026-09-16 promotion and subsequent release hardening/security review.
+
+## Evidence policy
+
+Human/operator confirmation is not a release artifact. Release gates may be considered closed only when the repository contains or directly references machine-verifiable evidence that can be mapped to the corresponding release/deployment identity. Historical screenshots and chat exports are supporting evidence and must be labeled as historical unless the exact release linkage is independently established.
