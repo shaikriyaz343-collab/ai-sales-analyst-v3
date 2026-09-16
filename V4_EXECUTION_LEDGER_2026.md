@@ -1,6 +1,6 @@
 # AI Sales Analyst V4 — Execution Ledger
 
-Date: 2026-09-15
+Date: 2026-09-16
 Active development branch: `v4/product-development`
 Production-oriented branch: `v4/saas-foundation`
 
@@ -15,8 +15,7 @@ The AI agent should perform repository engineering, testing, code generation, re
 - V4 SaaS foundation baseline: `3ac4b2d`
 - Product development branch: `v4/product-development`
 - Existing V4 foundation includes SaaS auth, organization/workspace isolation, external PostgreSQL persistence, S3-compatible object storage, deterministic analytics, monitoring/saved-intelligence surfaces, security middleware, operational metrics, concurrency protection, restart/recovery evidence and rollback/recover-forward rehearsal.
-- Latest previously validated full V4 backend/regression baseline: 254 passed.
-- Development CI now runs the backend regression suite and frontend production build on every push/PR to the product-development branch.
+- Development CI runs the V4 backend regression suite and frontend production build on every push/PR to the product-development branch.
 
 ## Product strategy reset
 
@@ -53,68 +52,44 @@ Primary wedge:
 - formatted values for UI
 - no fabrication / no feed-filling
 
-### Regression coverage
-
-`tests_v4_saas/test_decision_signals.py`
-
-- high-risk prioritization
-- evidence scoring
-- supported money-metric impact behavior
-- empty-feed behavior
-- limit semantics
-- monetary/percentage display formatting
-
-### Analyst decision feed integration
-
-`backend/api/services/insights.py`
-
-Validated risks/opportunities are ranked by the decision-signal layer before presentation; period-over-period changes remain secondary and evidence-backed. Ranking rationale scores are exposed as optional contract fields.
-
-### Initial Decision Cockpit UI
-
-- `frontend/components/decision-cockpit.tsx`
-- `frontend/app/dashboard/decisions/page.tsx`
-
-The UI presents the ranked decision feed, recommendation, evidence, ranking rationale and data-readiness findings without creating a second analytical truth source.
-
 ### Data quality promoted to a first-class contract
 
-`backend/api/services/onboarding.py` now persists a bounded `DataQualitySummary` containing:
-
-- quality status
-- issue counts by severity
-- bounded validated issue details
-- affected-row counts
-- deterministic recommendations
-
-This is derived from the existing `data_quality_engine_v1.py` and does not create new thresholds or claims.
+`backend/api/services/onboarding.py` persists a bounded `DataQualitySummary` containing quality status, issue counts by severity, bounded validated issue details, affected-row counts and deterministic recommendations.
 
 ### Development CI isolation
 
-`.github/workflows/v4-development-ci.yml`
+`.github/workflows/v4-development-ci.yml` runs the V4 backend regression suite and frontend production build on `v4/product-development` pushes/PRs. The workflow now installs its required pytest 8 and backend FastAPI/Uvicorn dependencies explicitly.
 
-Runs the V4 backend regression suite and frontend production build on `v4/product-development` pushes/PRs. The CI initially exposed missing pytest setup and missing FastAPI/Uvicorn runtime dependency declarations; both were corrected.
+### Analyst decision feed and Decision Cockpit
 
-Verified development CI after those corrections:
+Validated risks/opportunities are ranked by the decision-signal layer before presentation; the Decision Cockpit presents the ranking rationale, recommendation, evidence and data-readiness findings without creating a second analytical truth source.
 
-- frontend production build: PASS
-- V4 backend regression suite: PASS on run `34972038177`
+### Structured Analyst planner
 
-## Important validation findings
+The Ask workflow carries an analytical plan alongside deterministic execution and evidence so supported questions can expose intent/metric/dimension/direction decisions without treating free-form model output as the numeric truth source.
 
-The first product-CI execution caught a real TypeScript contract regression introduced by adding a new `decisions` workspace variant. The implementation was corrected by keeping the existing `Workspace` union stable and treating the Decision Cockpit route as an additive navigation item.
+### Canonical evidence and forecast source records
 
-A later CI execution caught that `pytest` was not installed by the workflow. The workflow was corrected to install a bounded pytest 8 release.
+The `Evidence`/`AskEvidence` contracts support `source_fields` and `source_records`. Forecast evidence now resolves stable pipeline record identifiers when available and exposes month-specific contributing records in the UI. Explainable forecast/scenario analysis remains explicitly illustrative when it uses a user-selected uplift rather than a learned probability change.
 
-The next execution then exposed that FastAPI was imported by the backend but absent from `requirements.txt`. FastAPI and Uvicorn are now explicit runtime dependencies.
+### User-controlled action workflow
 
-These findings are examples of the new quality policy: every new product layer must survive automated build/test gates before it is considered a usable checkpoint.
+Actions are derived from validated insights, then exposed as persistent session-scoped workflow items with observable status transitions (`open`, `in_progress`, `done`, `blocked`). Status updates are protected by the same authenticated organization/workspace/session context and do not alter analytical evidence.
+
+## Validation checkpoints
+
+- Earlier full V4 regression baseline: 254 passed.
+- Forecast source-record checkpoint and illustrative scenario UI passed development CI.
+- Temporary integration regression in `main.py` was caught by CI as a missing `require_analysis_capacity` name; the API safety layer was restored before proceeding.
+- Latest action-workflow CI run `35004388091` / run #65 on the action workflow integration was ultimately green: frontend production build PASS and V4 backend regression suite PASS.
+
+The quality policy remains: no capability is treated as a durable product checkpoint until automated build/test validation passes.
 
 ## Railway/deployment safety finding
 
 The previous deployment-oriented branch is coupled to the Railway production service configuration. Direct development commits there therefore risk production deployment.
 
-The `v4/product-development` branch is now the working area for ongoing product engineering. Production promotion must be deliberate and validated.
+The `v4/product-development` branch is the working area for ongoing product engineering. Production promotion must be deliberate and validated.
 
 A temporary Railway environment duplication attempt for failure rehearsal was cancelled after it stalled during environment configuration fetch; the partially created empty environment was removed. Production remained intact.
 
@@ -131,7 +106,7 @@ Production-like Railway evidence already established:
 - unauthenticated and missing-dataset access returned expected 401/404 semantics
 - isolated rollback to the previous build and recover-forward to the current build preserved persisted dataset state
 
-The cross-site auth cookie configuration is now explicit and supports `SameSite=None` + `Secure` for the split Railway frontend/API topology. Browser verification in the tested Chrome environment still required allowing third-party cookies for the deployed frontend because browser privacy policy can otherwise block cross-site cookies.
+The cross-site auth cookie configuration is explicit and supports `SameSite=None` + `Secure` for the split Railway frontend/API topology. Browser verification in the tested Chrome environment still required allowing third-party cookies for the deployed frontend because browser privacy policy can otherwise block cross-site cookies.
 
 ## Remaining release gates
 
@@ -163,9 +138,13 @@ These are not required merely to establish the current product and deployment co
 3. Build the structured Analyst planner: intent → analytical plan → deterministic execution → evidence object → explanation.
 4. Expand the canonical evidence model so important answers can cite source records as well as source fields.
 5. Add explainable forecast/scenario analysis only where historical coverage and data quality justify it.
-6. Convert recommended actions into user-controlled workflow with observable state transitions.
+6. Convert recommended actions into user-controlled workflow with observable state transitions. **Completed on `v4/product-development`.**
 7. Add recurring intelligence and high-value connectors after the CSV/XLSX activation path is measurably strong.
 8. Establish automated release/promotion gates so routine product development does not require user-operated deployment steps.
+
+## Current checkpoint
+
+The development branch now has a validated Decision Cockpit → evidence-backed forecast → source-record traceability → user-controlled action workflow path. The next product slice should extend the intelligence loop without weakening the deterministic evidence contract or the deployment safety boundary.
 
 ## Chat-continuity rule
 
