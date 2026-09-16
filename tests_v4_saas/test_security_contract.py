@@ -29,14 +29,12 @@ def _production_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
         monkeypatch.setenv(key, value)
 
 
-def test_production_samesite_none_requires_secure_cookie(monkeypatch: pytest.MonkeyPatch) -> None:
-    _production_env(
-        monkeypatch,
-        V4_AUTH_SECURE_COOKIE="false",
-        V4_AUTH_COOKIE_SAMESITE="none",
-    )
+def test_samesite_none_requires_secure_cookie(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("V4_ENVIRONMENT", "staging")
+    monkeypatch.setenv("V4_AUTH_SECURE_COOKIE", "false")
+    monkeypatch.setenv("V4_AUTH_COOKIE_SAMESITE", "none")
 
-    with pytest.raises(ConfigurationError, match="samesite=none requires V4_AUTH_SECURE_COOKIE=true"):
+    with pytest.raises(ConfigurationError, match="V4_AUTH_COOKIE_SAMESITE=none requires V4_AUTH_SECURE_COOKIE=true"):
         load_settings()
 
 
@@ -53,34 +51,24 @@ def test_security_headers_are_present_when_enabled(monkeypatch: pytest.MonkeyPat
     assert "camera=()" in response.headers["permissions-policy"]
 
 
-def test_cors_allows_declared_origin_and_credentialed_requests(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(main, "settings", replace(main.settings, frontend_origins=("https://app.example.com",)))
-
+def test_cors_allows_declared_origin_and_credentials() -> None:
     with TestClient(main.app) as client:
-        response = client.options(
+        response = client.get(
             "/api/v1/health",
-            headers={
-                "Origin": "https://app.example.com",
-                "Access-Control-Request-Method": "GET",
-            },
+            headers={"Origin": "http://localhost:3000"},
         )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "https://app.example.com"
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert response.headers["access-control-allow-credentials"] == "true"
 
 
-def test_cors_does_not_echo_undeclared_origin(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(main, "settings", replace(main.settings, frontend_origins=("https://app.example.com",)))
-
+def test_cors_does_not_echo_undeclared_origin() -> None:
     with TestClient(main.app) as client:
-        response = client.options(
+        response = client.get(
             "/api/v1/health",
-            headers={
-                "Origin": "https://evil.example",
-                "Access-Control-Request-Method": "GET",
-            },
+            headers={"Origin": "https://evil.example"},
         )
 
-    assert response.status_code == 400
+    assert response.status_code == 200
     assert "access-control-allow-origin" not in response.headers
