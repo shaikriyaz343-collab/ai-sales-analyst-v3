@@ -11,6 +11,7 @@ from schema_profiler_v2 import load_dataframe, normalize_column_name, profile_da
 from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import Evidence, ForecastMonthly, ForecastResponse
+from .evidence import resolve_source_record_column
 from .onboarding import STORAGE, get_dataset
 from .session import apply_scope, scope_label
 
@@ -72,7 +73,10 @@ def build_forecast(dataset_id: str, scope=None) -> ForecastResponse:
     amount_col = _actual_column(data, "amount", "deal amount", "opportunity amount", "pipeline amount", "revenue")
     probability_col = _actual_column(data, "probability", "win probability", "close probability")
     stage_col = _actual_column(data, "stage", "opportunity stage", "deal stage")
-    record_col = _actual_column(data, "opportunity_id", "opportunity id", "deal_id", "deal id", "record_id", "record id", "id")
+    record_col = resolve_source_record_column(
+        data,
+        "opportunity_id", "opportunity id", "deal_id", "deal id", "record_id", "record id"
+    )
     source_fields = [field for field in (close_col, amount_col, probability_col, stage_col) if field]
     record_by_month = _record_ids_by_month(data, stage_col, close_col, record_col)
     source_records = sorted({record_id for ids in record_by_month.values() for record_id in ids})
