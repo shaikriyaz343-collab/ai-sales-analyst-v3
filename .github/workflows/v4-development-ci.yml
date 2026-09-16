@@ -2,9 +2,9 @@ name: V4 Development CI
 
 on:
   push:
-    branches: [ v4/product-development ]
+    branches: [ v4/product-development, v4/saas-foundation ]
   pull_request:
-    branches: [ v4/product-development ]
+    branches: [ v4/product-development, v4/saas-foundation ]
   workflow_dispatch:
 
 jobs:

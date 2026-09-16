@@ -9,6 +9,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  turbopack: {
+    root: __dirname,
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
