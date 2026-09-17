@@ -10,6 +10,7 @@ from schema_profiler_v2 import load_dataframe, profile_dataframe
 from semantic_business_model_v2 import build_semantic_model
 
 from ..contracts import ExploreResponse, ExploreRow
+from ..runtime_persistence import runtime_object_store
 from .evidence import format_source_records, resolve_source_record_column
 from .onboarding import STORAGE, get_dataset
 from .session import apply_scope, scope_label
@@ -195,7 +196,7 @@ def build_explore(dataset_id: str, metric: str | None = None, dimension: str | N
     if summary is None:
         raise ValueError("Dataset not found.")
     suffix = Path(summary.file_name).suffix.lower()
-    path = STORAGE / f"{dataset_id}{suffix}"
+    path = runtime_object_store(local_root=STORAGE).path_for(f"{dataset_id}{suffix}")
     if not path.exists():
         raise ValueError("Dataset file is no longer available for analysis.")
 
