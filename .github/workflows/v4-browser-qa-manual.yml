@@ -1,30 +1,35 @@
-name: V4 Browser Acceptance QA (Manual)
+name: V4 Browser Acceptance QA (Manual / Explicit Target)
 
 on:
+  push:
+    branches: [ v4/saas-foundation ]
   workflow_dispatch:
     inputs:
       v4_app_url:
         description: "Deployed V4 frontend origin"
-        required: true
+        required: false
+        default: "https://peaceful-mindfulness-production-51b6.up.railway.app"
         type: string
       v4_e2e_api_url:
         description: "Deployed V4 FastAPI origin"
-        required: true
+        required: false
+        default: "https://ai-sales-analyst-v3-production.up.railway.app"
         type: string
 
 jobs:
   v4-browser-qa:
     if: ${{ github.ref_name == 'v4/saas-foundation' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+
+    env:
+      V4_APP_URL: ${{ inputs.v4_app_url || 'https://peaceful-mindfulness-production-51b6.up.railway.app' }}
+      V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url || 'https://ai-sales-analyst-v3-production.up.railway.app' }}
 
     steps:
       - name: Validate V4 browser target
-        env:
-          V4_APP_URL: ${{ inputs.v4_app_url }}
-          V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url }}
         run: |
-          set -e
+          set -euo pipefail
           case "${V4_APP_URL}" in
             https://*.streamlit.app|http://*.streamlit.app)
               echo "::error::V4_APP_URL points to the legacy Streamlit deployment, not the V4 SaaS frontend."
@@ -56,6 +61,23 @@ jobs:
         with:
           node-version: 24
 
+      - name: Wait for deployed V4 services
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            api_health=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_E2E_API_URL}/health" || true)
+            api_ready=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_E2E_API_URL}/ready" || true)
+            app_status=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_APP_URL}/" || true)
+            echo "attempt=${attempt} api_health=${api_health} api_ready=${api_ready} app=${app_status}"
+            if [ "${api_health}" = "200" ] && [ "${api_ready}" = "200" ] && [ "${app_status}" = "200" ]; then
+              echo "Deployed V4 services are reachable."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Timed out waiting for the deployed V4 frontend/API to become healthy."
+          exit 1
+
       - name: Install V4 browser QA dependencies
         working-directory: e2e
         run: npm install --no-audit --no-fund
@@ -66,16 +88,10 @@ jobs:
 
       - name: Verify V4 Playwright test discovery
         working-directory: e2e
-        env:
-          V4_APP_URL: ${{ inputs.v4_app_url }}
-          V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url }}
         run: npx playwright test --list --config=v4-playwright.config.js
 
       - name: Run V4 browser acceptance suite
         working-directory: e2e
-        env:
-          V4_APP_URL: ${{ inputs.v4_app_url }}
-          V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url }}
         run: npx playwright test --config=v4-playwright.config.js
 
       - name: Upload V4 browser QA artifacts
