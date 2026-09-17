@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect, request: playwrightRequest } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
 const fixtures = path.join(__dirname, "..", "fixtures");
@@ -93,9 +93,9 @@ test("V4 saved intelligence persists across refresh and can reopen an analysis",
   await expect(page).toHaveURL(/\/dashboard\/explore/);
 });
 
-test("V4 deployed tenant isolation rejects cross-organization dataset access", async ({ request }) => {
-  const first = await request.newContext({ baseURL: apiURL });
-  const second = await request.newContext({ baseURL: apiURL });
+test("V4 deployed tenant isolation rejects cross-organization dataset access", async () => {
+  const first = await playwrightRequest.newContext({ baseURL: apiURL });
+  const second = await playwrightRequest.newContext({ baseURL: apiURL });
   const suffix = Date.now();
   const firstEmail = `v4-tenant-a-${suffix}@example.com`;
   const secondEmail = `v4-tenant-b-${suffix}@example.com`;
