@@ -103,7 +103,7 @@ jobs:
         run: |
           set -eu
           for attempt in $(seq 1 30); do
-            if curl -fsS "${V4_E2E_API_URL}/health" >/tmp/v4-api-health.json 2>/dev/null && \
+            if curl -fsS "${V4_E2E_API_URL}/api/v1/health" >/tmp/v4-api-health.json 2>/dev/null && \
                curl -fsS "${V4_APP_URL}/" >/dev/null 2>&1; then
               echo "V4 frontend/API are reachable."
               cat /tmp/v4-api-health.json
