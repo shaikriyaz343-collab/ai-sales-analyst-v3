@@ -62,7 +62,7 @@ jobs:
             e2e/playwright-report/**
 
   v4-browser-qa:
-    if: ${{ github.ref_name == 'v4/saas-foundation' || github.event_name == 'workflow_dispatch' && vars.V4_APP_URL != '' }}
+    if: ${{ github.ref_name == 'v4/saas-foundation' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
