@@ -7,59 +7,116 @@ Branch: `v4/saas-foundation`
 
 Current repository head:
 
-`f7da0c028556b0930855453582a788b02c25781b`
+`ff67e2e495407646732079ff6a90a55438ed8fb1`
 
 Latest application-behavior checkpoint remains:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-The commits after that application checkpoint are documentation / release-QA reconciliation only; no analytical behavior change is recorded here.
+The commits after that application checkpoint are release-QA / evidence / test-hardening changes; the latest application behavior remains anchored at `371aa5caf...` except for the deployed tenant-isolation browser-test fix recorded in `ff67e2e...`.
 
-## Current CI state
+## Current production targets
 
-For commit `f7da0c028556b0930855453582a788b02c25781b`:
+V4 frontend:
 
-- backend check: PASS
-- frontend production-build check: PASS
-- legacy browser-QA job: SKIPPED on `v4/saas-foundation`
-- dedicated `v4-browser-qa`: FAILS at target validation because the required `V4_APP_URL` and `V4_E2E_API_URL` repository variables are not configured; no V4 Playwright tests execute in that run.
+`https://peaceful-mindfulness-production-51b6.up.railway.app`
 
-This browser-job failure is a configuration/input failure, not evidence of a V4 browser acceptance failure.
+V4 FastAPI:
 
-## Current Railway state
+`https://ai-sales-analyst-v3-production.up.railway.app`
 
-Both Railway deployment statuses associated with the current commit report `success`:
+The deployed API was directly reachable from the GitHub Actions runner at `/api/v1/health` and returned:
 
-- service `731a2cff-42db-4bc0-bc21-073d64ebfc34`, deployment `36c58696-0692-481b-ba1a-2434f82c78c4`
-- service `c1446578-b14e-4ef9-b3cb-bbf3156ccb1d`, deployment `25fd983a-952c-40da-afa1-d15262cae3db`
+`{"status":"ok","product":"AI Sales Analyst","version":"4.1.0-alpha.1"}`
 
-These deployment statuses establish successful Railway deployment processing for the commit. They do not by themselves certify browser acceptance, dependency recovery, capacity, tenant isolation, restart/recovery, rollback, or monitoring.
+## Current CI / deployed browser acceptance
 
-## Evidence policy
+The exact deployed V4 Playwright suite ran against the public V4 frontend/API targets on commit `ff67e2e495407646732079ff6a90a55438ed8fb1`.
 
-Owner/operator statements are leads only. A release gate closes only when a directly reviewable, machine-verifiable artifact can be tied to the relevant release/deployment identity.
+Workflow run:
 
-Historical V4 browser 7/7 evidence remains supporting historical evidence only unless its exact release linkage is independently established.
+`35190811161`
 
-## Current open gates
+Browser job:
 
-The external/deployment gates remain open for:
+`105102746309`
 
-- exact-release V4 browser acceptance
-- production R2/provider failure-and-recovery evidence
-- Linux/container resource/capacity measurements
-- deployed tenant-isolation verification
-- deployed restart/durable-state evidence
-- release-linked rollback/recover-forward evidence
-- measured production monitoring/alert evidence and ownership
-- final cross-site frontend/API topology verification under issue #13
-- complete release/cutover evidence package
+The job completed successfully. All 8 V4 acceptance tests passed:
 
-## Repository-side completed gates
+1. onboarding creates a dataset-backed workspace
+2. scope persists across workspaces
+3. dataset replacement creates a clean analytical session
+4. executive report uses the current session and survives replacement
+5. monitoring creates and evaluates a session-scoped alert
+6. saved intelligence persists across refresh and can reopen an analysis
+7. deployed tenant isolation rejects cross-organization dataset access
+8. authentication lifecycle supports sign-up, sign-out, and sign-in
 
-- repository security review from PR #28 is complete
-- secure cookie/CORS/trusted-host/security-header controls have repository regression coverage
-- object-store provider failures have the centralized HTTP 503 boundary from PR #22
-- V4 browser-QA workflow is separated from legacy Streamlit QA and uses dedicated V4 variables/configuration
+Result: **8 passed**.
 
-This amendment supplements older state/reconciliation documents whose historical branch-head fields may refer to earlier commits.
+The tenant-isolation test used two independent API contexts against the deployed FastAPI service and verified that the second organization received `404` for both the first organization's dataset and overview access.
+
+Browser artifact:
+
+`v4-browser-qa-results` — artifact ID `10483038543`
+
+Artifact SHA-256:
+
+`6790bac31d6dc07e934e50793deaec951fdf56405685e10ac6f9583517acd1b4`
+
+Artifact URL:
+
+`https://github.com/shaikriyaz343-collab/ai-sales-analyst-v3/actions/runs/35190811161/artifacts/10483038543`
+
+## Railway deployment identity
+
+Both Railway deployment statuses for commit `ff67e2e495407646732079ff6a90a55438ed8fb1` are `success`:
+
+- Frontend service `731a2cff-42db-4bc0-bc21-073d64ebfc34`; deployment `ba611fa3-4c30-4467-9a3a-70f1312a1028`; hostname `peaceful-mindfulness-production-51b6.up.railway.app`.
+- API service `c1446578-b14e-4ef9-b3cb-bbf3156ccb1d`; deployment `5e9c2dbf-f789-4934-8594-56433c420b3a`; hostname `ai-sales-analyst-v3-production.up.railway.app`.
+
+The browser job checked out commit `ff67e2e...`, successfully reached both deployed services, and then completed the full V4 suite.
+
+## R2 production visual evidence
+
+A current Cloudflare dashboard capture records:
+
+- bucket `ai-sales-analyst-v4-prod`;
+- prefix `v4/`;
+- four visible CSV objects;
+- Public Access `Disabled`;
+- Standard storage class;
+- non-zero stored data and operation counts.
+
+The capture is preserved in `V4_R2_VISUAL_EVIDENCE_2026-09-17.md` as supporting visual evidence.
+
+It supports production bucket existence, private posture, and persisted CSV presence. It does **not** by itself prove provider-failure injection, HTTP 503 behavior during outage, or recovery after restoration.
+
+## Gate status
+
+### Closed with exact deployed evidence
+
+- Exact-release V4 browser acceptance: **CLOSED** — 8/8 passed on the deployed V4 frontend/API with Railway deployment identities tied to the same commit.
+- Deployed tenant-isolation browser verification: **CLOSED** — the deployed acceptance suite passed the cross-organization denial scenario.
+- Repository-side post-promotion security review: **CLOSED**.
+- Repository-side object-store provider-failure HTTP 503 contract: **CLOSED**.
+
+### Still open
+
+- Controlled production R2/provider failure → HTTP 503 → recovery evidence.
+- Linux/container resource/capacity measurements.
+- Deployed restart/durable-state recovery evidence tied to the release.
+- Release-linked rollback/recover-forward evidence.
+- Measured production monitoring/alert evidence and ownership.
+- Final cross-site frontend/API topology decision and verification under issue #13.
+- Complete production cutover/release evidence package.
+
+Owner/operator statements remain search leads only and do not close any of these gates without directly reviewable evidence.
+
+## Browser workflow hardening
+
+The normal V4 browser workflow uses the recorded production frontend/API targets as fallbacks when repository variables are absent, while still allowing `V4_APP_URL` and `V4_E2E_API_URL` to override them. The dedicated explicit-target workflow is dispatch-only.
+
+The V4 health contract is `/api/v1/health`; `/api/v1/ready` remains the readiness endpoint. Legacy Streamlit browser QA remains isolated to `main` and is not a V4 release gate.
+
+This amendment supersedes older state snapshots that still list earlier branch heads or the pre-certification browser state.
