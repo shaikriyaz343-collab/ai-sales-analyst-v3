@@ -13,13 +13,14 @@ A human/operator statement that an external exercise was performed is **not evid
 ## Release identity
 
 - Production-oriented branch: `v4/saas-foundation`
-- Current branch head: `d7cbe68de3cb18c8226cb99d514b6a6624935574`
+- Current branch head: `403764a2801aca7b406059e95d5baedfa1eea466`
 - Latest application-behavior checkpoint: `371aa5caf00308b98faeba58bf4c5736bb995b39`
 - PR #29 remains a documentation-only merge, so the application-behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
-- PR #28 security review is now merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`; its changes are repository-side security review/tests and do not alter analytical behavior.
-- The current branch head is therefore a security-review merge on top of the documentation/evidence lineage; no analytical behavior checkpoint has changed.
+- PR #28 security review is merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`; its changes are repository-side security review/tests and do not alter analytical behavior.
+- The current branch head adds browser-QA workflow hardening and deployed-QA evidence documentation on top of that security-review lineage; the analytical application checkpoint remains `371aa5caf...`.
 - Production target recorded in the repository: `https://peaceful-mindfulness-production-51b6.up.railway.app/`
 - Deployment stack: Railway + Cloudflare R2 through the S3-compatible adapter.
+- Current commit `403764...` has two successful Railway deployment statuses tied directly to the commit: service `c1446578-b14e-4ef9-b3cb-bbf3156ccb1d` deployment `d5f965e1-bd23-43ab-a07e-d3e89ec38a55`, and service `731a2cff-42db-4bc0-bc21-073d64ebfc34` deployment `78c58200-6148-4518-b28d-8d570bb6390e`.
 
 ## Durable implementation / CI checkpoints
 
@@ -36,6 +37,7 @@ A human/operator statement that an external exercise was performed is **not evid
 | Railway/R2 evidence reconciliation | PR #26 / #27 documentation reconciliation | Complete as repository evidence-state update | Reuse as state metadata; do not treat narrative owner assertions as proof of external execution |
 | Cross-site auth architecture contract | PR #29 / merge `9a9c98a...`; documentation-only | Repository contract complete | Reuse contract; production architecture verification is still open under issue #13 |
 | Post-promotion security review | PR #28, merged `d7cbe68de3cb18c8226cb99d514b6a6624935574`; head `25656474...`; backend/frontend checks in run `35132271337` both successful | Complete repository-side gate | Reuse; deployment-dependent evidence remains separate |
+| V4 browser-QA workflow correction | Commit `403764...`; V4 job uses dedicated `v4-playwright.config.js`, validates explicit V4 targets, and rejects legacy Streamlit targets | Complete repository QA architecture | Reuse; requires V4 deployment variables to execute acceptance |
 
 ## Product capability checkpoints
 
@@ -58,16 +60,16 @@ A human/operator statement that an external exercise was performed is **not evid
 
 | Gate | Directly supported evidence | Evidence level | Current action |
 |---|---|---|---|
-| Deployed browser acceptance | Historical repository record of 7/7; supplied chat contains deployed Railway screenshots and a deployed response cookie header. No exact-release Playwright artifact tied to the current release identity is present in the repository evidence reviewed. | Historical/direct visual evidence, but release linkage incomplete | **Not certified.** Search for an artifact that identifies both the Playwright run and deployed release/build; rerun only if no suitable exact-release artifact exists. |
-| R2 / dependency failure and recovery | C4-E2a real boto3-backed S3-compatible harness 6/6; repository evidence of R2 persistence/application behavior. No machine-verifiable production outage/recovery artifact tied to the release was found in the reviewed repository evidence. | Application-verified; production exercise unverified | **Not certified.** Locate a directly reviewable production failure/recovery artifact with deployment identity; rerun only if genuinely absent. |
+| Deployed browser acceptance | Current V4 browser job `35184297215` is directly tied to commit `403764...` but failed at target validation because `V4_APP_URL` is unset and therefore ran zero browser tests. Earlier V4-branch run `35141240326` used the legacy Streamlit `APP_URL` and was cancelled after repeated timeouts. | Machine-verifiable CI result; no V4 browser acceptance executed yet | **Not certified.** Configure the real V4 frontend/API URLs, then execute the dedicated V4 browser suite; retain the resulting artifact and deployment identity. |
+| R2 / dependency failure and recovery | C4-E2a real boto3-backed S3-compatible harness 6/6; repository evidence of R2 persistence/application behavior. Current Railway deployments are identified, but no machine-verifiable production outage/recovery artifact tied to those deployments was found. | Application-verified + current deployment identity; production failure/recovery exercise unverified | **Not certified.** Locate a directly reviewable production failure/recovery artifact for the relevant deployment or perform the genuinely missing exercise. |
 | Linux/container resource/capacity | No raw production measurement artifact found in the reviewed repository evidence. | Unverified | **Not certified.** Obtain the actual measurement artifact or perform the required production/container measurement. |
 | Tenant isolation | Auth milestone + V4 regression coverage; repository state records cross-tenant denial in the application model/tests. No deployed exact-release artifact was found that independently proves the production exercise. | Strong repository evidence; deployed certification unverified | **Repository-proven, deployment gate open.** Locate exact-release deployed verification before marking the production gate closed. |
-| Restart / durable state | Execution ledger records authenticated overview reconstruction after backend restart in the accumulated evidence history. No exact-release production restart artifact was found in the reviewed repository evidence. | Repository operational evidence; deployed certification unverified | **Not production-certified.** Tie a reviewable restart/recovery artifact to the release or rerun if none exists. |
+| Restart / durable state | Execution ledger records authenticated overview reconstruction after backend restart in the accumulated evidence history. No exact-release production restart artifact was found in the reviewed repository evidence. | Repository operational evidence; deployed certification unverified | **Not production-certified.** Tie a reviewable restart/recovery artifact to the relevant Railway deployment or perform the missing exercise. |
 | Rollback / recover-forward | Execution ledger records isolated rollback to a previous build and recover-forward while preserving persisted dataset state. No exact-release production rollback artifact was found in the reviewed repository evidence. | Repository evidence; deployed certification unverified | **Not production-certified.** Locate release-linked rollback evidence or perform the controlled exercise if missing. |
-| Production monitoring | Runbook defines monitoring signal ownership/choreography. No measured production thresholds, observation window, alert output, or ownership artifact was found in the reviewed repository evidence. | Process documented; operational certification unverified | **Not certified.** Obtain the measured monitoring/alert evidence tied to the production release. |
-| Production health/readiness | Repository records `/health` and `/ready`; execution ledger states deployed health/readiness returned 200; relevant commits have successful Railway status checks. Exact release linkage still needs to be preserved in the final evidence package. | Strong historical/deployment-status evidence; final release linkage incomplete | Reuse existing evidence where its deployment/build identity can be established; otherwise do not mark final certification. |
-| Production object-store certification | R2 exercised through application-side S3-compatible testing; repository explicitly distinguishes this from final production-provider certification. | Partial | **Not fully certified.** Link a directly reviewable production-provider artifact for the release. |
-| Production promotion/cutover | Railway status checks are recorded as successful for relevant commits; production target is recorded. A complete release/cutover evidence package is not present in the reviewed repository evidence. | Deployment-status evidence; cutover package incomplete | Preserve the exact deployment/build identity and cutover evidence before final approval. |
+| Production monitoring | Runbook defines monitoring signal ownership/choreography. No measured production thresholds, observation window, alert output, or ownership artifact was found in the reviewed repository evidence. | Process documented; operational certification unverified | **Not certified.** Obtain measured monitoring/alert evidence tied to a current Railway deployment. |
+| Production health/readiness | Repository records `/health` and `/ready`; execution ledger states deployed health/readiness returned 200. Current commit `403764...` has successful Railway deployment statuses with concrete deployment IDs. | Strong deployment-status evidence; endpoint result not independently bound to those exact deployment IDs | Reuse the Railway deployment IDs, but do not overstate endpoint certification without direct release-linked evidence. |
+| Production object-store certification | R2 exercised through application-side S3-compatible testing; repository explicitly distinguishes this from final production-provider certification. Current Railway deployment identities are available, but no direct object-store provider run artifact was found. | Partial | **Not fully certified.** Link a directly reviewable production-provider artifact for the relevant deployment. |
+| Production promotion/cutover | Current commit `403764...` has two successful Railway deployment statuses with deployment IDs; no complete release/cutover evidence package is present in the repository. | Deployment-status evidence; cutover package incomplete | Preserve the deployment IDs and add the exact cutover/release record before final approval. |
 
 ## Security / auth gate matrix
 
@@ -80,6 +82,19 @@ A human/operator statement that an external exercise was performed is **not evid
 | Object-store error redaction / 503 | PR #22 + CI | Complete | Reuse |
 | Systematic post-promotion security review | PR #28 merged as `d7cbe68...`; review document + security-contract tests included | **Complete repository-side gate** | Reuse; retain deployment-dependent residual items separately |
 | Cross-site domain/cookie architecture | PR #29 merged as docs-only; issue #13 remains open | Contract documented, production architecture not finally closed | Resolve selected production topology + real-browser authenticated behavior |
+
+## Current CI / deployment evidence
+
+### Commit `403764a2801aca7b406059e95d5baedfa1eea466`
+
+- backend GitHub Actions job `105082925329` / run `35184297245`: **PASS**, `281 passed, 7 skipped, 2 warnings`.
+- frontend GitHub Actions job `105082925657` / run `35184297245`: **PASS**.
+- V4 browser job `105082934378` / run `35184297215`: **FAIL at target validation**, because `V4_APP_URL` and `V4_E2E_API_URL` are not configured; no V4 Playwright test was executed.
+- legacy browser job in the same workflow: **SKIPPED** on `v4/saas-foundation`.
+- Railway status `satisfied-enthusiasm - ai-sales-analyst-v3`: **success**, deployment `d5f965e1-bd23-43ab-a07e-d3e89ec38a55`, service `c1446578-b14e-4ef9-b3cb-bbf3156ccb1d`.
+- Railway status `satisfied-enthusiasm - peaceful-mindfulness`: **success**, deployment `78c58200-6148-4518-b28d-8d570bb6390e`, service `731a2cff-42db-4bc0-bc21-073d64ebfc34`.
+
+These statuses prove that both Railway deployment statuses associated with the current commit reported success. They do **not** by themselves prove browser acceptance, dependency recovery, capacity, tenant isolation, rollback, or monitoring certification.
 
 ## Historical chat evidence incorporated
 
@@ -102,7 +117,8 @@ The following have direct repository or CI evidence and should not be repeated m
 - repository security-review controls/tests from merged PR #28;
 - repository implementation for secure cookie, CORS/trusted-host controls, tenant authorization, and object-store error handling;
 - application-side PostgreSQL and S3-compatible persistence rehearsals already represented by tests/CI;
-- product capability checkpoints already backed by the current application behavior tree and green CI.
+- product capability checkpoints already backed by the current application behavior tree and green CI;
+- the browser-QA workflow architecture correction that separates the V4 SaaS suite from the legacy Streamlit suite.
 
 For externally executed operational gates, **do not use owner confirmation as a reason to skip the exercise**. First locate the actual artifact and tie it to the release/deployment identity. If no suitable artifact exists, the gate remains open and the exercise may need to be repeated.
 
@@ -114,7 +130,7 @@ Previous deployment-state documents and issue comments contain owner/operator as
 
 ### 1. Issue #11 — deployment evidence gates
 
-Issue #11 remains open. The repository now treats its owner confirmation only as a lead. The actual closure requirement is machine-verifiable evidence for exact-release deployed browser acceptance, dependency-failure/recovery, Linux/container capacity, and deployed tenant-isolation verification. Restart/durable-state evidence also needs release linkage before production certification.
+Issue #11 remains open. The repository now has machine-verifiable Railway deployment identities for current commit `403764...`, but deployed browser acceptance did not execute because the required V4 frontend/API variables are unset. Dependency-failure/recovery, Linux/container capacity, deployed tenant-isolation verification, and release-linked restart/recovery evidence also remain unverified in the repository evidence.
 
 ### 2. Issue #12 — monitoring / rollback evidence
 
@@ -126,16 +142,18 @@ PR #29 is merged and documents the topology options, but issue #13 remains open 
 
 ### 4. Issue #14 — systematic post-promotion security review
 
-The repository-side portion is now complete: PR #28 merged as `d7cbe68...` after successful backend/frontend checks in run `35132271337`. Issue #14 should remain open only for any deployment-provider evidence it explicitly requires; the merged review closes the repository-side work.
+The repository-side portion is now complete: PR #28 merged as `d7cbe68...` after successful backend/frontend checks in run `35132271337`. Any remaining issue #14 work is deployment-provider evidence only.
 
 ## Recommended evidence closure sequence
 
-1. Treat `371aa5caf...` as the application-behavior baseline and `d7cbe68...` as the current branch head with repository security-review changes and documentation/evidence updates only; no analytical behavior checkpoint has changed.
-2. Search for direct artifacts corresponding to the outstanding deployment operations and bind each artifact to a Railway deployment/build identity.
-3. Do not close any operational gate from owner comments alone. If a suitable artifact cannot be found, perform only the genuinely missing exercise.
-4. Resolve issue #13 by selecting the final production frontend/API domain topology and verifying authenticated browser behavior.
-5. Close issue #11/#12 only after exact-release operational artifacts are available.
-6. After exact-release operational evidence and the repository/topology gates are closed, produce the final release evidence package and only then make the production-approval determination.
+1. Treat `371aa5caf...` as the application-behavior baseline and `403764...` as the current repository/release-evidence head; no analytical behavior checkpoint has changed.
+2. Preserve the two successful Railway deployment identifiers attached to `403764...`.
+3. Configure the actual V4 frontend and FastAPI URLs as `V4_APP_URL` and `V4_E2E_API_URL`; do not substitute the legacy Streamlit URL.
+4. Execute the dedicated V4 browser acceptance suite and retain its artifact plus the Railway deployment identity.
+5. Search for direct production artifacts for dependency failure/recovery, capacity, tenant isolation, restart, rollback, and monitoring; perform only the genuinely missing exercises.
+6. Resolve issue #13 through final topology selection and authenticated browser verification.
+7. Close issue #11/#12 only after the corresponding exact-release operational evidence is available.
+8. After exact-release operational evidence and the repository/topology gates are closed, produce the final release evidence package and only then make the production-approval determination.
 
 ## Source-of-truth hierarchy
 
@@ -150,4 +168,4 @@ The repository-side portion is now complete: PR #28 merged as `d7cbe68...` after
 
 ## Bottom line
 
-The project has a real checkpoint trail, and substantial engineering work is safely reusable. The application-behavior checkpoint is `371aa5caf...`; the current foundation branch head is `d7cbe68...`, which merges the validated repository-side security review into the evidence/documentation lineage. The remaining release work is evidence-driven: owner statements are search leads, not certifications; issue #14's repository-side review is now complete; issue #13 remains open for final cross-site topology/browser behavior; and the deployment/operations gates in issues #11/#12 remain open until exact-release artifacts are found or genuinely missing exercises are performed.
+The repository now has a machine-verifiable current deployment identity and a corrected V4 browser-QA path. Commit `403764...` has successful backend/frontend CI and two successful Railway deployment statuses, while its dedicated V4 browser check correctly stops because the actual V4 frontend/API variables are not configured. The remaining work is therefore sharply bounded: provide the real V4 deployment endpoints, run the exact-release browser acceptance, and close the still-unverified production operational gates with direct artifacts rather than owner statements.
