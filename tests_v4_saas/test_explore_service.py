@@ -1,5 +1,4 @@
 from pathlib import Path
-import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +60,23 @@ def test_default_explore_is_determined_by_backend_context():
     result = explore.build_explore(summary.dataset_id)
     assert result.metric in {option["id"] for option in [item.model_dump() for item in result.available_metrics]}
     assert result.dimension in {option["id"] for option in [item.model_dump() for item in result.available_dimensions]}
+
+
+def test_explore_materializes_from_runtime_object_store(monkeypatch, tmp_path):
+    summary = _upload("retail.csv")
+    local_object = STORAGE / f"{summary.dataset_id}.csv"
+    assert local_object.exists()
+
+    class StubObjectStore:
+        def path_for(self, key: str) -> Path:
+            assert key == f"{summary.dataset_id}.csv"
+            return local_object
+
+    monkeypatch.setattr(explore, "STORAGE", tmp_path / "not-the-object-store")
+    monkeypatch.setattr(explore, "runtime_object_store", lambda *, local_root: StubObjectStore())
+
+    result = explore.build_explore(summary.dataset_id, "revenue", "product")
+    assert result.rows
 
 
 def test_unsupported_metric_is_rejected():
