@@ -1,0 +1,89 @@
+name: V4 Browser Acceptance QA (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      v4_app_url:
+        description: "Deployed V4 frontend origin"
+        required: true
+        type: string
+      v4_e2e_api_url:
+        description: "Deployed V4 FastAPI origin"
+        required: true
+        type: string
+
+jobs:
+  v4-browser-qa:
+    if: ${{ github.ref_name == 'v4/saas-foundation' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Validate V4 browser target
+        env:
+          V4_APP_URL: ${{ inputs.v4_app_url }}
+          V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url }}
+        run: |
+          set -e
+          case "${V4_APP_URL}" in
+            https://*.streamlit.app|http://*.streamlit.app)
+              echo "::error::V4_APP_URL points to the legacy Streamlit deployment, not the V4 SaaS frontend."
+              exit 1
+              ;;
+          esac
+          case "${V4_APP_URL}" in
+            https://*|http://*) ;;
+            *)
+              echo "::error::V4_APP_URL must be an absolute HTTP(S) URL."
+              exit 1
+              ;;
+          esac
+          case "${V4_E2E_API_URL}" in
+            https://*|http://*) ;;
+            *)
+              echo "::error::V4_E2E_API_URL must be an absolute HTTP(S) URL."
+              exit 1
+              ;;
+          esac
+          echo "Testing deployed V4 frontend: ${V4_APP_URL}"
+          echo "Testing deployed V4 API: ${V4_E2E_API_URL}"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install V4 browser QA dependencies
+        working-directory: e2e
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify V4 Playwright test discovery
+        working-directory: e2e
+        env:
+          V4_APP_URL: ${{ inputs.v4_app_url }}
+          V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url }}
+        run: npx playwright test --list --config=v4-playwright.config.js
+
+      - name: Run V4 browser acceptance suite
+        working-directory: e2e
+        env:
+          V4_APP_URL: ${{ inputs.v4_app_url }}
+          V4_E2E_API_URL: ${{ inputs.v4_e2e_api_url }}
+        run: npx playwright test --config=v4-playwright.config.js
+
+      - name: Upload V4 browser QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: v4-browser-qa-manual-results
+          if-no-files-found: ignore
+          path: |
+            e2e/test-results/**
+            e2e/v4-playwright-report/**
