@@ -1,4 +1,4 @@
-﻿# V4 C4-F â€” Deployment / Production Rehearsal
+# V4 C4-F — Deployment / Production Rehearsal
 
 ## Purpose
 
@@ -54,8 +54,10 @@ The production frontend is built with:
 NEXT_PUBLIC_API_BASE_URL=https://api.example.com
 ```
 
-The public frontend URL is independently supplied to deployed browser QA as
-`APP_URL`.
+The public V4 frontend and API URLs are deployment-specific and are supplied
+through deployment configuration. The V4 GitHub browser gate uses
+`V4_APP_URL` for the frontend and `V4_E2E_API_URL` for the deployed FastAPI
+origin used by browser authentication setup.
 
 The production backend must allow the frontend origin through
 `V4_FRONTEND_ORIGINS` and must use the configured secure `__Host-` authentication
@@ -129,39 +131,46 @@ GET /api/v1/ready
 When external persistence is enabled, PostgreSQL provider failure must make
 readiness fail.
 
-## Current evidence
+## Current application-side evidence
 
-The following application-side gates have been exercised successfully:
+The following application-side gates have been exercised successfully in
+repository-controlled validation:
 
 - C3-F real PostgreSQL migration rehearsal: PASS.
 - C4-E2a external data-plane harness: 6/6 passed.
-- Full `tests_v4_saas` suite with the rehearsal PostgreSQL database active:
-  253 passed.
-- Existing S3 adapter regression: 3 passed.
+- S3 adapter regression: 3 passed.
 - Frontend production build: PASS.
-- V4 browser acceptance: 7/7 passed.
 - Non-reload FastAPI process runner: locally exercised with `/health` and
   `/ready` returning HTTP 200.
 
-These results prove the V4 application-side external persistence contract with
-real PostgreSQL and an injected S3 test client. They do not constitute a
-production deployment approval.
+The historical V4 browser acceptance checkpoint recorded `7/7 passed`, but it
+predates the current application behavior checkpoint and is retained as
+historical evidence only. The current deployed browser gate requires a
+successful V4 Playwright run against the exact release build with the run
+linked to the deployed commit/build identity.
+
+These application-side results prove the V4 external persistence and runtime
+contract in controlled validation. They do not constitute production
+deployment approval.
 
 ## Remaining C4-F gates
 
-The following remain outside the completed evidence above:
+The following remain outside the completed application-side evidence above:
 
 1. Exercise the production S3 adapter against a real networked S3-compatible
-   object store.
-2. Deploy the frontend and backend to a real staging/production-like
-   environment.
-3. Exercise restart and durable-state recovery in that deployed environment.
+   object store and retain a reviewable artifact.
+2. Tie the deployed frontend and backend to an exact release/deployment
+   identity.
+3. Exercise restart and durable-state recovery in that deployed environment
+   and retain the artifact.
 4. Validate production secret/environment injection and HTTPS endpoints.
-5. Run the deployed browser acceptance suite against the deployed frontend.
-6. Establish the deployment/rollback procedure for the selected platform.
+5. Run the V4 deployed browser acceptance suite against the exact deployed
+   frontend/API topology.
+6. Establish and evidence the deployment/rollback procedure for the selected
+   platform.
 
 C4-F is complete only after the applicable real-infrastructure rehearsal
-passes.
+passes and its evidence is traceable to the relevant deployment.
 
 No cloud provider, container platform, Kubernetes architecture, distributed
 worker system, Redis limiter, or background-job architecture is required merely
@@ -177,9 +186,9 @@ cd frontend
 npm.cmd run build
 ```
 
-For deployed browser acceptance, the existing GitHub workflow uses the
-repository variable `APP_URL` and runs the Playwright suite against the
-already-deployed application.
+For deployed V4 browser acceptance, `.github/workflows/browser-qa.yml` uses
+`V4_APP_URL` and `V4_E2E_API_URL` and runs the dedicated V4 Playwright
+configuration only on `v4/saas-foundation`.
 
 The deployment system is responsible for supplying:
 
