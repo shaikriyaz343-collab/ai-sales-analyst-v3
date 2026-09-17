@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  browser-qa:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.APP_URL != '' }}
+  legacy-browser-qa:
+    if: ${{ github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.APP_URL != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -21,7 +21,7 @@ jobs:
             echo "::error::Repository variable APP_URL is not configured."
             exit 1
           fi
-          echo "Testing deployed app: ${APP_URL}"
+          echo "Testing legacy deployed app: ${APP_URL}"
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -60,3 +60,88 @@ jobs:
           path: |
             e2e/test-results/**
             e2e/playwright-report/**
+
+  v4-browser-qa:
+    if: ${{ github.ref_name == 'v4/saas-foundation' || github.event_name == 'workflow_dispatch' && vars.V4_APP_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Validate V4 browser target
+        env:
+          V4_APP_URL: ${{ vars.V4_APP_URL }}
+          V4_E2E_API_URL: ${{ vars.V4_E2E_API_URL }}
+        run: |
+          set -e
+          if [ -z "${V4_APP_URL:-}" ]; then
+            echo "::error::Repository variable V4_APP_URL is not configured."
+            echo "::error::Set it to the final deployed V4 frontend origin before running browser acceptance."
+            exit 1
+          fi
+          if [ -z "${V4_E2E_API_URL:-}" ]; then
+            echo "::error::Repository variable V4_E2E_API_URL is not configured."
+            echo "::error::Set it to the deployed V4 FastAPI origin used by the browser authentication setup."
+            exit 1
+          fi
+          case "${V4_APP_URL}" in
+            https://*.streamlit.app|http://*.streamlit.app)
+              echo "::error::V4_APP_URL points to the legacy Streamlit deployment, not the V4 SaaS frontend."
+              exit 1
+              ;;
+          esac
+          case "${V4_APP_URL}" in
+            https://*|http://*) ;;
+            *)
+              echo "::error::V4_APP_URL must be an absolute HTTP(S) URL."
+              exit 1
+              ;;
+          esac
+          case "${V4_E2E_API_URL}" in
+            https://*|http://*) ;;
+            *)
+              echo "::error::V4_E2E_API_URL must be an absolute HTTP(S) URL."
+              exit 1
+              ;;
+          esac
+          echo "Testing deployed V4 frontend: ${V4_APP_URL}"
+          echo "Testing deployed V4 API: ${V4_E2E_API_URL}"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install V4 browser QA dependencies
+        working-directory: e2e
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify V4 Playwright test discovery
+        working-directory: e2e
+        env:
+          V4_APP_URL: ${{ vars.V4_APP_URL }}
+          V4_E2E_API_URL: ${{ vars.V4_E2E_API_URL }}
+        run: npx playwright test --list --config=v4-playwright.config.js
+
+      - name: Run V4 browser acceptance suite
+        working-directory: e2e
+        env:
+          V4_APP_URL: ${{ vars.V4_APP_URL }}
+          V4_E2E_API_URL: ${{ vars.V4_E2E_API_URL }}
+        run: npx playwright test --config=v4-playwright.config.js
+
+      - name: Upload V4 browser QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: v4-browser-qa-results
+          if-no-files-found: ignore
+          path: |
+            e2e/test-results/**
+            e2e/v4-playwright-report/**
