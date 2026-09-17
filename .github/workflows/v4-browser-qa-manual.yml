@@ -30,6 +30,8 @@ jobs:
       - name: Validate V4 browser target
         run: |
           set -euo pipefail
+          V4_APP_URL="${V4_APP_URL%/}"
+          V4_E2E_API_URL="${V4_E2E_API_URL%/}"
           case "${V4_APP_URL}" in
             https://*.streamlit.app|http://*.streamlit.app)
               echo "::error::V4_APP_URL points to the legacy Streamlit deployment, not the V4 SaaS frontend."
@@ -64,9 +66,11 @@ jobs:
       - name: Wait for deployed V4 services
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 30); do
-            api_health=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_E2E_API_URL}/health" || true)
-            api_ready=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_E2E_API_URL}/ready" || true)
+          V4_APP_URL="${V4_APP_URL%/}"
+          V4_E2E_API_URL="${V4_E2E_API_URL%/}"
+          for attempt in $(seq 1 18); do
+            api_health=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_E2E_API_URL}/api/v1/health" || true)
+            api_ready=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_E2E_API_URL}/api/v1/ready" || true)
             app_status=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 10 "${V4_APP_URL}/" || true)
             echo "attempt=${attempt} api_health=${api_health} api_ready=${api_ready} app=${app_status}"
             if [ "${api_health}" = "200" ] && [ "${api_ready}" = "200" ] && [ "${app_status}" = "200" ]; then
