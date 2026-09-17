@@ -1,6 +1,8 @@
 const { test, expect } = require("@playwright/test");
+const fs = require("fs");
 const path = require("path");
 const fixtures = path.join(__dirname, "..", "fixtures");
+const apiURL = (process.env.V4_E2E_API_URL || "https://ai-sales-analyst-v3-production.up.railway.app").replace(/\/$/, "");
 
 async function upload(page, file) {
   await page.goto("/dashboard/overview", { waitUntil: "domcontentloaded" });
@@ -89,6 +91,61 @@ test("V4 saved intelligence persists across refresh and can reopen an analysis",
   await expect(page.getByText("Revenue by product", { exact: true })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("link", { name: "Open analysis", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/explore/);
+});
+
+test("V4 deployed tenant isolation rejects cross-organization dataset access", async ({ request }) => {
+  const first = await request.newContext({ baseURL: apiURL });
+  const second = await request.newContext({ baseURL: apiURL });
+  const suffix = Date.now();
+  const firstEmail = `v4-tenant-a-${suffix}@example.com`;
+  const secondEmail = `v4-tenant-b-${suffix}@example.com`;
+  const password = "BrowserTenant123!";
+
+  try {
+    const firstSignup = await first.post("/api/v1/auth/signup", {
+      data: {
+        email: firstEmail,
+        password,
+        name: "V4 Tenant A",
+        organization_name: `V4 Tenant A ${suffix}`,
+      },
+    });
+    expect(firstSignup.status()).toBe(200);
+
+    const uploadResponse = await first.post("/api/v1/onboarding/profile", {
+      multipart: {
+        file: {
+          name: "retail.csv",
+          mimeType: "text/csv",
+          buffer: fs.readFileSync(path.join(fixtures, "retail.csv")),
+        },
+      },
+    });
+    expect(uploadResponse.status()).toBe(200);
+    const uploadBody = await uploadResponse.json();
+    expect(uploadBody.session_id).toBeTruthy();
+    const datasetId = uploadBody.dataset.dataset_id;
+    expect(datasetId).toBeTruthy();
+
+    const secondSignup = await second.post("/api/v1/auth/signup", {
+      data: {
+        email: secondEmail,
+        password,
+        name: "V4 Tenant B",
+        organization_name: `V4 Tenant B ${suffix}`,
+      },
+    });
+    expect(secondSignup.status()).toBe(200);
+
+    const deniedDataset = await second.get(`/api/v1/datasets/${datasetId}`);
+    expect(deniedDataset.status()).toBe(404);
+
+    const deniedOverview = await second.get(`/api/v1/datasets/${datasetId}/overview`);
+    expect(deniedOverview.status()).toBe(404);
+  } finally {
+    await first.dispose();
+    await second.dispose();
+  }
 });
 
 test.describe("V4 authentication lifecycle", () => {
