@@ -91,7 +91,7 @@ from .services.session import create_session, get_session, replace_dataset, upda
 from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
 from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
 from .services.commercial import plan_catalog
-from .services.commercial_store import runtime_commercial_repository
+from .services.commercial_store import runtime_commercial_repository, reset_runtime_commercial_repository
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -114,6 +114,7 @@ async def lifespan(app: FastAPI):
         finally:
             app_state.lifecycle = LifecycleState.SHUTTING_DOWN
             reset_external_auth()
+            reset_runtime_commercial_repository()
             runtime_persistence.reset_runtime_persistence()
             app.state.analytics_limiter = None
     else:
@@ -127,6 +128,7 @@ async def lifespan(app: FastAPI):
             raise
         finally:
             app_state.lifecycle = LifecycleState.SHUTTING_DOWN
+            reset_runtime_commercial_repository()
             reset_runtime_persistence()
             app.state.analytics_limiter = None
 
@@ -210,6 +212,19 @@ except ImportError:
     _has_boto = False
 
 logger = logging.getLogger("ai_sales_analyst.errors")
+
+
+def _record_commercial_usage(organization_id: str, metric: str) -> None:
+    """Record non-blocking commercial usage telemetry on successful user actions."""
+    try:
+        runtime_commercial_repository().record_usage(
+            organization_id,
+            metric,
+            now=datetime.now(timezone.utc),
+        )
+    except Exception as exc:
+        logger.warning("Commercial usage meter unavailable for %s: %s", metric, _sanitize_log(str(exc)))
+
 
 def _sanitize_log(text: str) -> str:
     if not text:
@@ -509,6 +524,7 @@ async def profile_upload(
     try:
         summary = onboard(file.filename or "upload", file.file, organization_id=principal.organization_id, workspace_id=selected_workspace)
         session = create_session(summary.dataset_id, organization_id=principal.organization_id, workspace_id=selected_workspace)
+        _record_commercial_usage(principal.organization_id, "dataset_uploads")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return OnboardingResponse(dataset=summary, message="Your dataset is ready for analysis.", session_id=session.session_id)
@@ -561,7 +577,9 @@ def insights(dataset_id: str, session_id: str | None = None, principal: Principa
 @app.post("/api/v1/datasets/{dataset_id}/ask", response_model=AskResponse)
 def ask(dataset_id: str, question: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> AskResponse:
     try:
-        return answer_question(dataset_id, question, scope=_scope_for(principal, dataset_id, session_id))
+        result = answer_question(dataset_id, question, scope=_scope_for(principal, dataset_id, session_id))
+        _record_commercial_usage(principal.organization_id, "analyst_questions")
+        return result
     except HTTPException:
         raise
     except ValueError as exc:
@@ -601,7 +619,9 @@ def update_dataset_action_status(
 @app.get("/api/v1/datasets/{dataset_id}/report", response_model=ReportResponse)
 def report(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ReportResponse:
     try:
-        return build_report(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
+        result = build_report(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
+        _record_commercial_usage(principal.organization_id, "reports")
+        return result
     except HTTPException:
         raise
     except ValueError as exc:
@@ -625,7 +645,9 @@ def create_alert(dataset_id: str, request: AlertRuleCreate, session_id: str | No
         raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
     _session_for(principal, session_id, dataset_id)
     try:
-        return create_rule(dataset_id, session_id, request)
+        result = create_rule(dataset_id, session_id, request)
+        _record_commercial_usage(principal.organization_id, "monitoring_rules")
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -731,7 +753,9 @@ def save(dataset_id: str, request: SavedIntelligenceCreate, session_id: str | No
         raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
     _session_for(principal, session_id, dataset_id)
     try:
-        return save_intelligence(dataset_id, session_id, request)
+        result = save_intelligence(dataset_id, session_id, request)
+        _record_commercial_usage(principal.organization_id, "saved_intelligence")
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
