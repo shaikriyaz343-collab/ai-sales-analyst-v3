@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import enum
 from typing import Annotated
 
@@ -89,6 +90,8 @@ from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
 from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
 from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
+from .services.commercial import plan_catalog
+from .services.commercial_store import runtime_commercial_repository
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -743,3 +746,39 @@ def remove_saved(dataset_id: str, item_id: str, session_id: str | None = None, p
         return {"status": "ok"}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/commercial/entitlements")
+def commercial_entitlements(principal: Principal = Depends(require_user)) -> dict[str, object]:
+    """Return the current organization-level commercial state without mutating product entitlements."""
+    now = datetime.now(timezone.utc)
+    snapshot = runtime_commercial_repository().get_entitlements(principal.organization_id, now=now)
+    return {
+        "organization_id": snapshot.organization_id,
+        "subscription": {
+            "plan_id": snapshot.plan_id,
+            "plan_name": snapshot.plan_name,
+            "access_active": snapshot.access_active,
+            "access_reason": snapshot.access_reason,
+        },
+        "entitlements": {
+            "max_seats": snapshot.max_seats,
+            "max_workspaces": snapshot.max_workspaces,
+            "features": sorted(snapshot.features),
+            "remaining": snapshot.remaining,
+        },
+        "usage": snapshot.usage.counts,
+        "catalog": [
+            {
+                "plan_id": plan.plan_id,
+                "name": plan.name,
+                "price_usd_monthly": plan.price_usd_monthly,
+                "trial_days": plan.trial_days,
+                "max_seats": plan.max_seats,
+                "max_workspaces": plan.max_workspaces,
+                "monthly_limits": plan.monthly_limits,
+                "features": sorted(plan.features),
+            }
+            for plan in plan_catalog()
+        ],
+    }
