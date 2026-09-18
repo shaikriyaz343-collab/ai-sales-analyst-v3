@@ -104,6 +104,12 @@ class Settings:
     object_store_secret_key: str | None = field(repr=False)
     object_store_prefix: str
     object_store_temp_root: Path
+    billing_provider: str
+    paddle_environment: str
+    paddle_api_key: str | None = field(repr=False)
+    paddle_webhook_secret: str | None = field(repr=False)
+    paddle_starter_price_id: str | None
+    paddle_growth_price_id: str | None
 
     @property
     def is_production(self) -> bool:
@@ -280,6 +286,33 @@ def load_settings() -> Settings:
     object_store_secret_key = _env("V4_OBJECT_STORE_SECRET_KEY")
     object_store_prefix = _env("V4_OBJECT_STORE_PREFIX", "v4") or "v4"
     object_store_temp_root = Path(_env("V4_OBJECT_STORE_TEMP_ROOT") or (runtime_root / "runtime_object_cache")).expanduser().resolve()
+
+    billing_provider = (_env("V4_BILLING_PROVIDER", "disabled") or "disabled").lower()
+    if billing_provider not in {"disabled", "paddle"}:
+        raise ConfigurationError("V4_BILLING_PROVIDER must be disabled or paddle.")
+    paddle_environment = (_env("V4_PADDLE_ENVIRONMENT", "sandbox") or "sandbox").lower()
+    if paddle_environment not in {"sandbox", "live"}:
+        raise ConfigurationError("V4_PADDLE_ENVIRONMENT must be sandbox or live.")
+    paddle_api_key = _env("V4_PADDLE_API_KEY")
+    paddle_webhook_secret = _env("V4_PADDLE_WEBHOOK_SECRET")
+    paddle_starter_price_id = _env("V4_PADDLE_STARTER_PRICE_ID")
+    paddle_growth_price_id = _env("V4_PADDLE_GROWTH_PRICE_ID")
+    if billing_provider == "paddle":
+        required = {
+            "V4_PADDLE_API_KEY": paddle_api_key,
+            "V4_PADDLE_WEBHOOK_SECRET": paddle_webhook_secret,
+            "V4_PADDLE_STARTER_PRICE_ID": paddle_starter_price_id,
+            "V4_PADDLE_GROWTH_PRICE_ID": paddle_growth_price_id,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise ConfigurationError(
+                "Paddle billing is enabled but required configuration is missing: " + ", ".join(missing)
+            )
+        if paddle_environment == "sandbox" and not paddle_api_key.startswith("pdl_sdbx_"):
+            raise ConfigurationError("Sandbox Paddle API keys must use the sandbox key prefix.")
+        if paddle_environment == "live" and not paddle_api_key.startswith("pdl_live_"):
+            raise ConfigurationError("Live Paddle API keys must use the live key prefix.")
     if persistence_mode == "external":
         if not database_url: raise ConfigurationError("V4_DATABASE_URL is required when V4_PERSISTENCE_MODE=external.")
         if not object_store_bucket: raise ConfigurationError("V4_OBJECT_STORE_BUCKET is required when V4_PERSISTENCE_MODE=external.")
@@ -340,6 +373,12 @@ def load_settings() -> Settings:
         object_store_secret_key=object_store_secret_key,
         object_store_prefix=object_store_prefix,
         object_store_temp_root=object_store_temp_root,
+        billing_provider=billing_provider,
+        paddle_environment=paddle_environment,
+        paddle_api_key=paddle_api_key,
+        paddle_webhook_secret=paddle_webhook_secret,
+        paddle_starter_price_id=paddle_starter_price_id,
+        paddle_growth_price_id=paddle_growth_price_id,
     )
 
 

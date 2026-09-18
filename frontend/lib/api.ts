@@ -207,3 +207,19 @@ export async function getCommercialEntitlements(): Promise<import("./types").Com
   if (!response.ok) throw await errorFrom(response, "Billing information could not be loaded.");
   return response.json();
 }
+
+export async function createCommercialCheckout(planId: string): Promise<{ provider: string; provider_session_id: string; checkout_url: string }> {
+  const response = await apiFetch("/api/v1/commercial/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan_id: planId }),
+  });
+  if (!response.ok) throw await errorFrom(response, "Checkout could not be started.");
+  return response.json();
+}
+
+export async function getCommercialPortal(): Promise<{ portal_url: string }> {
+  const response = await apiFetch("/api/v1/commercial/portal");
+  if (!response.ok) throw await errorFrom(response, "Customer portal could not be opened.");
+  return response.json();
+}

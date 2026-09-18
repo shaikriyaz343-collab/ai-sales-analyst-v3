@@ -267,6 +267,9 @@ export type CommercialEntitlements = {
     plan_name: string | null;
     access_active: boolean;
     access_reason: string;
+    status: string;
+    provider: string | null;
+    provider_subscription_id: string | null;
   };
   entitlements: {
     max_seats: number;
@@ -277,4 +280,9 @@ export type CommercialEntitlements = {
   usage_period_start: string | null;
   usage: Record<string, number>;
   catalog: CommercialPlan[];
+  billing: {
+    provider: string;
+    checkout_ready: boolean;
+    customer_portal_available: boolean;
+  };
 };

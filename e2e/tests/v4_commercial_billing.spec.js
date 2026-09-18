@@ -19,6 +19,9 @@ const entitlements = {
     plan_name: "14-day Trial",
     access_active: true,
     access_reason: "trial_active",
+    status: "trialing",
+    provider: null,
+    provider_subscription_id: null,
   },
   entitlements: {
     max_seats: 2,
@@ -33,6 +36,11 @@ const entitlements = {
     },
   },
   usage_period_start: "2026-09-18T12:00:00+00:00",
+  billing: {
+    provider: "disabled",
+    checkout_ready: false,
+    customer_portal_available: false,
+  },
   usage: {
     dataset_uploads: 1,
     analyst_questions: 2,
@@ -115,7 +123,61 @@ test("billing page renders read-only commercial state and plan catalog", async (
   await expect(page.getByText("$49/month", { exact: true })).toBeVisible();
   await expect(page.getByText("$149/month", { exact: true })).toBeVisible();
   await expect(page.getByText("Dataset uploads", { exact: true })).toBeVisible();
-  await expect(page.getByText("Billing is intentionally read-only right now.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Billing checkout is not connected yet.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Current plan" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Upgrade when billing is connected" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Checkout pending provider setup" }).first()).toBeDisabled();
+});
+
+
+test("billing page starts a configured checkout", async ({ page }) => {
+  const checkoutCalls = [];
+  const configured = {
+    ...entitlements,
+    billing: {
+      provider: "paddle",
+      checkout_ready: true,
+      customer_portal_available: false,
+    },
+  };
+
+  await page.route("http://127.0.0.1:8000/api/v1/auth/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ user }),
+    });
+  });
+  await page.route("http://127.0.0.1:8000/api/v1/commercial/entitlements", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(configured),
+    });
+  });
+  await page.route("http://127.0.0.1:8000/api/v1/commercial/checkout", async (route) => {
+    checkoutCalls.push(await route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        provider: "paddle",
+        provider_session_id: "txn_test_123",
+        checkout_url: "/mock-checkout?txn=txn_test_123",
+      }),
+    });
+  });
+
+  await page.route("http://127.0.0.1:3000/mock-checkout?txn=txn_test_123", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<title>Mock Checkout</title><p>Checkout</p>",
+    });
+  });
+
+  await page.goto("/dashboard/billing");
+  await page.getByRole("button", { name: "Upgrade" }).first().click();
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page).toHaveTitle("Mock Checkout");
+  expect(checkoutCalls).toEqual([{ plan_id: "starter" }]);
 });

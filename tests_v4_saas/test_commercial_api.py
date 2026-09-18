@@ -38,4 +38,6 @@ def test_commercial_entitlements_route_is_read_only_and_exposes_catalog(monkeypa
     assert response["entitlements"]["max_workspaces"] == 1
     assert set(plan["plan_id"] for plan in response["catalog"]) == {"trial", "starter", "growth"}
     assert response["usage"] == {}
+    assert response["billing"]["provider"] == "disabled"
+    assert response["billing"]["checkout_ready"] is False
     assert store.items == {}

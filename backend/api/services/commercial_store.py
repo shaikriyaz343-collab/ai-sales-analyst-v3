@@ -271,6 +271,11 @@ class CommercialRepository:
             trial_ends_at=_parse(raw.get("trial_ends_at")),
             current_period_start=_parse(raw.get("current_period_start")),
             current_period_end=_parse(raw.get("current_period_end")),
+            provider=str(raw["provider"]) if raw.get("provider") else None,
+            provider_customer_id=str(raw["provider_customer_id"]) if raw.get("provider_customer_id") else None,
+            provider_subscription_id=str(raw["provider_subscription_id"]) if raw.get("provider_subscription_id") else None,
+            provider_price_id=str(raw["provider_price_id"]) if raw.get("provider_price_id") else None,
+            provider_updated_at=_parse(raw.get("provider_updated_at")),
         )
 
     def get_subscription(self, organization_id: str, *, now: datetime) -> SubscriptionSnapshot:
@@ -293,8 +298,122 @@ class CommercialRepository:
                 "trial_ends_at": _iso(subscription.trial_ends_at) if subscription.trial_ends_at else None,
                 "current_period_start": _iso(subscription.current_period_start) if subscription.current_period_start else None,
                 "current_period_end": _iso(subscription.current_period_end) if subscription.current_period_end else None,
+                "provider": subscription.provider,
+                "provider_customer_id": subscription.provider_customer_id,
+                "provider_subscription_id": subscription.provider_subscription_id,
+                "provider_price_id": subscription.provider_price_id,
+                "provider_updated_at": _iso(subscription.provider_updated_at) if subscription.provider_updated_at else None,
             },
         )
+
+    def apply_webhook_event(self, event: Any, *, plan_for_price) -> bool:
+        """Apply a verified provider subscription event idempotently."""
+        event_key = f"webhook:{event.provider}:{event.event_id}"
+        if self.store.read(event_key) is not None:
+            return False
+
+        supported = {
+            "subscription.created",
+            "subscription.updated",
+            "subscription.activated",
+            "subscription.trialing",
+            "subscription.past_due",
+            "subscription.paused",
+            "subscription.resumed",
+            "subscription.canceled",
+        }
+        if event.event_type not in supported:
+            self.store.write(event_key, {"processed_at": _iso(event.received_at), "ignored": True})
+            return False
+
+        payload = event.payload
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise ValueError("Provider webhook data is missing.")
+
+        custom_data = data.get("custom_data")
+        custom_data = custom_data if isinstance(custom_data, dict) else {}
+        organization_id = custom_data.get("organization_id")
+        if not organization_id:
+            raise ValueError("Provider webhook is missing organization identity.")
+
+        status = str(data.get("status") or "")
+        if status == "paused":
+            normalized_status = "paused"
+        elif status in {"trialing", "active", "past_due", "canceled"}:
+            normalized_status = status
+        else:
+            raise ValueError("Provider webhook has an unsupported subscription status.")
+
+        items = data.get("items")
+        price_id = None
+        if isinstance(items, list):
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                price = item.get("price")
+                if isinstance(price, dict) and price.get("id"):
+                    price_id = str(price["id"])
+                    break
+
+        configured_plan = custom_data.get("plan_id")
+        plan_id = str(configured_plan) if configured_plan in {"starter", "growth"} else None
+        if price_id:
+            resolved_plan = plan_for_price(price_id)
+            if resolved_plan:
+                plan_id = resolved_plan
+        if plan_id is None:
+            raise ValueError("Provider webhook could not be mapped to a paid plan.")
+
+        occurred_at = _parse(payload.get("occurred_at")) or event.received_at
+        existing = self.find_subscription(str(organization_id))
+        if existing and existing.provider_updated_at and occurred_at < existing.provider_updated_at:
+            self.store.write(
+                event_key,
+                {"processed_at": _iso(event.received_at), "ignored": "out_of_order"},
+            )
+            return False
+
+        billing_period = data.get("current_billing_period")
+        billing_period = billing_period if isinstance(billing_period, dict) else {}
+        trial_started_at = None
+        trial_ends_at = None
+        if isinstance(items, list):
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                trial = item.get("trial_dates")
+                if isinstance(trial, dict):
+                    trial_started_at = _parse(trial.get("starts_at"))
+                    trial_ends_at = _parse(trial.get("ends_at"))
+                    if trial_started_at or trial_ends_at:
+                        break
+
+        subscription = SubscriptionSnapshot(
+            organization_id=str(organization_id),
+            plan_id=plan_id,
+            status=normalized_status,
+            trial_started_at=trial_started_at,
+            trial_ends_at=trial_ends_at,
+            current_period_start=_parse(billing_period.get("starts_at")),
+            current_period_end=_parse(billing_period.get("ends_at")),
+            provider=event.provider,
+            provider_customer_id=str(data["customer_id"]) if data.get("customer_id") else None,
+            provider_subscription_id=str(data["id"]) if data.get("id") else None,
+            provider_price_id=price_id,
+            provider_updated_at=occurred_at,
+        )
+        self.save_subscription(subscription)
+        self.store.write(
+            event_key,
+            {
+                "processed_at": _iso(event.received_at),
+                "event_type": event.event_type,
+                "occurred_at": _iso(occurred_at),
+                "organization_id": str(organization_id),
+            },
+        )
+        return True
 
     def get_usage(self, organization_id: str, *, now: datetime) -> UsageSnapshot:
         subscription = self.find_subscription(organization_id) or _trial_snapshot(organization_id, now)

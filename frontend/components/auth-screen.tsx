@@ -35,13 +35,13 @@ export default function AuthScreen() {
       <div className="auth-shell">
         <header className="onboarding-brand">
           <div className="brand-mark">AI</div>
-          <div><strong>AI Sales Analyst</strong><span>Decision intelligence for revenue teams</span></div>
+          <div><strong>AI Sales Analyst</strong><span>Your AI Revenue Analyst</span></div>
         </header>
         <section className="auth-card panel">
           <div>
             <span className="eyebrow">YOUR ANALYST WORKSPACE</span>
             <h1>{mode === "signin" ? "Welcome back." : "Create your analyst workspace."}</h1>
-            <p>{mode === "signin" ? "Sign in to continue to your organization and its business workspaces." : "Start with a private organization and a workspace ready for your business data."}</p>
+            <p>{mode === "signin" ? "Sign in to continue to your organization and its business workspaces." : "Upload your sales data and get the revenue story, evidence-backed risks, forecast, and next actions — without replacing your CRM."}</p>
           </div>
           <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
             <button type="button" role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "selected" : ""} onClick={() => setMode("signin")}>Sign in</button>

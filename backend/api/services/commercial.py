@@ -9,6 +9,7 @@ SubscriptionStatus = Literal[
     "trialing",
     "active",
     "past_due",
+    "paused",
     "canceled",
     "expired",
 ]
@@ -54,6 +55,11 @@ class SubscriptionSnapshot:
     trial_ends_at: datetime | None = None
     current_period_start: datetime | None = None
     current_period_end: datetime | None = None
+    provider: str | None = None
+    provider_customer_id: str | None = None
+    provider_subscription_id: str | None = None
+    provider_price_id: str | None = None
+    provider_updated_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -220,7 +226,9 @@ def _access_state(subscription: SubscriptionSnapshot, now: datetime) -> tuple[bo
             return False, "billing_period_expired"
         return True, "active"
     if subscription.status == "past_due":
-        return False, "past_due"
+        return True, "past_due"
+    if subscription.status == "paused":
+        return False, "paused"
     if subscription.status == "canceled":
         if subscription.current_period_end is not None and now < subscription.current_period_end:
             return True, "canceled_end_of_period"
