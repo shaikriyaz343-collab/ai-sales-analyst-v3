@@ -267,6 +267,9 @@ export type CommercialEntitlements = {
     plan_name: string | null;
     access_active: boolean;
     access_reason: string;
+    status: string;
+    provider: string | null;
+    provider_subscription_id: string | null;
   };
   entitlements: {
     max_seats: number;
