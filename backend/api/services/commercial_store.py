@@ -374,8 +374,14 @@ class CommercialRepository:
         return build_entitlements(subscription, usage, now=now)
 
 
+_runtime_repository: CommercialRepository | None = None
+
+
 def runtime_commercial_repository() -> CommercialRepository:
-    """Create the repository against the configured runtime persistence backend."""
+    """Return one process-local commercial repository for the active runtime."""
+    global _runtime_repository
+    if _runtime_repository is not None:
+        return _runtime_repository
     if settings.persistence_mode == "external":
         if runtime_persistence._provider is None:
             raise RuntimeError("External runtime persistence was accessed before lifecycle startup.")
@@ -385,8 +391,15 @@ def runtime_commercial_repository() -> CommercialRepository:
             provider=runtime_persistence._provider,
         )
         usage_meter = PostgresUsageMeter(runtime_persistence._provider)
-        return CommercialRepository(document_store, usage_meter=usage_meter)
+        _runtime_repository = CommercialRepository(document_store, usage_meter=usage_meter)
+        return _runtime_repository
 
     runtime_persistence.get_runtime_persistence()
     store = LocalJsonDocumentStore(settings.runtime_root / "runtime_commercial")
-    return CommercialRepository(store)
+    _runtime_repository = CommercialRepository(store)
+    return _runtime_repository
+
+
+def reset_runtime_commercial_repository() -> None:
+    global _runtime_repository
+    _runtime_repository = None
