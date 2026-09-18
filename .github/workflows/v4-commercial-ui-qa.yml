@@ -1,0 +1,60 @@
+name: V4 Commercial UI QA
+
+on:
+  pull_request:
+    branches: [ v4/saas-foundation ]
+    paths:
+      - frontend/app/dashboard/billing/**
+      - frontend/components/dashboard-shell.tsx
+      - frontend/lib/api.ts
+      - frontend/lib/types.ts
+      - e2e/tests/v4_commercial_billing.spec.js
+      - e2e/commercial-playwright.config.js
+      - .github/workflows/v4-commercial-ui-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  commercial-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install browser QA dependencies
+        working-directory: e2e
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run commercial browser acceptance
+        working-directory: e2e
+        run: npx playwright test --config=commercial-playwright.config.js
+
+      - name: Upload commercial browser artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: v4-commercial-ui-qa
+          if-no-files-found: ignore
+          path: |
+            e2e/test-results/**
+            e2e/commercial-playwright-report/**
