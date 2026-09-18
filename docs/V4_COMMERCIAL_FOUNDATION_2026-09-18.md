@@ -97,3 +97,15 @@ Those steps require the human operator's provider/account decision and a separat
 Issue #33 tracks the payment-provider and checkout lifecycle.
 
 The existing production release gates remain independent. Commercial work stays on the separate development branch until it has its own tests and browser acceptance.
+
+## Implementation checkpoint
+
+Validated on 2026-09-18:
+
+- V4 Development CI passed on the latest commercial branch.
+- Isolated V4 Commercial UI QA passed against a local Next.js server with mocked authenticated API responses.
+- Usage telemetry is wired to successful dataset uploads, analyst questions, report generation, monitoring-rule creation, and saved-intelligence creation.
+- The production usage meter uses an atomic PostgreSQL transaction model; the local implementation uses a process-local lock for development/test safety.
+- The entitlement GET path remains side-effect free.
+- The plan-action controls in the Billing UI are intentionally non-interactive until a payment provider is connected.
+
