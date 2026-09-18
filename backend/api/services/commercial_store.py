@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Protocol
 
 from ..config import settings
 from ..persistence import LocalJsonDocumentStore, PostgresJsonDocumentStore
-from ..runtime_persistence import get_runtime_persistence, _provider
+from .. import runtime_persistence
 from .commercial import (
     EntitlementSnapshot,
     SubscriptionSnapshot,
@@ -106,18 +105,19 @@ class CommercialRepository:
 def runtime_commercial_repository() -> CommercialRepository:
     """Create the repository against the configured runtime persistence backend."""
     if settings.persistence_mode == "external":
-        if _provider is None:
+        if runtime_persistence._provider is None:
             raise RuntimeError("External runtime persistence was accessed before lifecycle startup.")
         # The shared V4 JSON document table is namespaced, so commercial state
         # remains isolated from datasets/sessions/monitoring documents.
         store = PostgresJsonDocumentStore(
             settings.database_url,
             "commercial",
-            provider=_provider,
+            provider=runtime_persistence._provider,
         )
         return CommercialRepository(store)
 
-    context = get_runtime_persistence()
-    del context  # The local implementation is selected explicitly below.
+    # Local development uses the same JSON document semantics with a dedicated
+    # commercial root, keeping billing state out of analytical artifacts.
+    runtime_persistence.get_runtime_persistence()
     store = LocalJsonDocumentStore(settings.runtime_root / "runtime_commercial")
     return CommercialRepository(store)
