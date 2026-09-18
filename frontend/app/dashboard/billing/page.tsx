@@ -116,6 +116,17 @@ export default function BillingPage() {
         </div>
       </section>
 
+      {data.subscription.status === "past_due" && (
+        <section className="panel overview-error" role="status">
+          <span className="eyebrow">PAYMENT RECOVERY</span>
+          <h2>We could not confirm the latest payment.</h2>
+          <p>Your product access remains active while the billing provider retries payment. Update your payment method in the customer portal.</p>
+          {data.billing.customer_portal_available && (
+            <button type="button" className="secondary-button" onClick={openPortal}>Update payment method</button>
+          )}
+        </section>
+      )}
+
       <section className="panel billing-status-panel">
         <div>
           <span className="eyebrow">CURRENT PLAN</span>
