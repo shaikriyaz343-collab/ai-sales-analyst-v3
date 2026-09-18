@@ -313,7 +313,7 @@ class CommercialRepository:
         now: datetime,
     ) -> UsageSnapshot:
         validate_usage_metric(metric)
-        subscription = self.find_subscription(organization_id) or _trial_snapshot(organization_id, now)
+        subscription = self.get_subscription(organization_id, now=now)
         period_start = usage_period_start(subscription, now)
         self.usage_meter.increment(organization_id, period_start, metric, amount)
         return UsageSnapshot(
@@ -333,7 +333,7 @@ class CommercialRepository:
         if amount <= 0:
             raise ValueError("Usage increment must be greater than zero.")
 
-        subscription = self.find_subscription(organization_id) or _trial_snapshot(organization_id, now)
+        subscription = self.get_subscription(organization_id, now=now)
         usage = UsageSnapshot(
             counts=self.usage_meter.get_counts(
                 organization_id,
