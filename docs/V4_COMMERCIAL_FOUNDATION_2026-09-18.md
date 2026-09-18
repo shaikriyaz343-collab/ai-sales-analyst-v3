@@ -1,6 +1,6 @@
 # V4 Commercial Foundation — 2026-09-18
 
-Status: design + deterministic entitlement code only. No payment processor is connected and no production plan enforcement is enabled by this change.
+Status: design + deterministic entitlement code + durable repository + read-only entitlement API. No payment processor is connected and no production plan enforcement is enabled by this change.
 
 ## Commercial wedge
 
@@ -28,7 +28,7 @@ The intended lifecycle is:
 8. Record usage and recurring value signals.
 9. Handle cancellation, failed payment and end-of-period access deterministically.
 
-The first implementation separates the plan/entitlement rules from the payment provider so Stripe or another provider can be connected later without changing analytical code.
+The current implementation separates plan/entitlement rules from the payment provider so a provider can be connected later without changing analytical code.
 
 ## Entitlements
 
@@ -45,14 +45,41 @@ The domain model currently covers:
 
 Numeric usage is treated as a deterministic server-side input. The model does not let an LLM change quotas or infer subscription state.
 
+## Durable commercial state
+
+CommercialRepository provides a narrow storage boundary for organization-level subscription state and usage state.
+
+- Local development uses a dedicated JSON document root.
+- External persistence uses the existing PostgreSQL JSON-document table with a dedicated commercial namespace.
+- Subscription writes are explicit.
+- The entitlement GET path is side-effect free when no commercial profile exists; it represents the deterministic default trial in memory rather than silently starting a persisted trial.
+- Usage writes are intentionally not wired to high-volume production routes yet; a later implementation must add concurrency-safe, period-aware meters before quotas become enforcement controls.
+
+## Read-only entitlement API
+
+The development branch now exposes:
+
+GET /api/v1/commercial/entitlements
+
+The endpoint requires normal authenticated organization access and returns:
+
+- current commercial access state
+- feature entitlements
+- seat/workspace limits
+- remaining quota calculations
+- current usage values
+- the plan catalog
+
+It does not create checkout sessions, mutate subscription state, or accept payment details.
+
 ## Deliberate boundary
 
-This phase does **not** yet:
+This phase does not yet:
 
 - collect card details
 - create checkout sessions
-- call Stripe APIs
-- enforce limits on production routes
+- call a payment provider API
+- enforce plan limits on production analytical routes
 - store payment-provider secrets
 - downgrade or suspend a customer automatically
 - claim that a payment integration is production-ready
@@ -61,6 +88,12 @@ Those steps require the human operator's provider/account decision and a separat
 
 ## Next commercial implementation slice
 
-The next safe slice is a durable organization-level commercial repository plus read-only entitlement API. After that, usage meters can be wired to the highest-value user actions, followed by a payment-provider adapter and checkout lifecycle.
+1. Add period-aware usage meters for the highest-value actions with a concurrency-safe persistence strategy.
+2. Add a billing UI that consumes the read-only entitlement API.
+3. Select and connect a payment provider.
+4. Add checkout and signed webhook lifecycle.
+5. Add browser acceptance for billing/trial/upgrade/cancellation flows.
 
-The existing production release gates remain independent. Commercial work stays on a separate development branch until it has its own tests and browser acceptance.
+Issue #33 tracks the payment-provider and checkout lifecycle.
+
+The existing production release gates remain independent. Commercial work stays on the separate development branch until it has its own tests and browser acceptance.
