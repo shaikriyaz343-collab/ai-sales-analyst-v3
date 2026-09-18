@@ -144,7 +144,7 @@ export default function BillingPage() {
                     <span key={metric}><strong>{limit?.toLocaleString() ?? "∞"}</strong> {usageLabel(metric).toLowerCase()}</span>
                   ))}
                 </div>
-                <button type="button" className={active ? "secondary-button" : "primary-button"} disabled={!active}>
+                <button type="button" className={active ? "secondary-button" : "primary-button"} disabled>
                   {active ? "Current plan" : "Upgrade when billing is connected"}
                 </button>
               </article>
