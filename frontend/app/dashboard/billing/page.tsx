@@ -21,7 +21,7 @@ function usageLabel(key: string): string {
 }
 
 function planPrice(plan: CommercialPlan): string {
-  return plan.price_usd_monthly === 0 ? "Free" : \`$\${plan.price_usd_monthly}/month\`;
+  return plan.price_usd_monthly === 0 ? "Free" : `$${plan.price_usd_monthly}/month`;
 }
 
 export default function BillingPage() {
@@ -115,10 +115,10 @@ export default function BillingPage() {
               <div className="billing-usage-item" key={metric}>
                 <div className="billing-usage-heading">
                   <span>{usageLabel(metric)}</span>
-                  <strong>{remaining === null ? \`\${used.toLocaleString()} used\` : \`\${used.toLocaleString()} / \${limit?.toLocaleString() ?? "—"}\`}</strong>
+                  <strong>{remaining === null ? `${used.toLocaleString()} used` : `${used.toLocaleString()} / ${limit?.toLocaleString() ?? "—"}`}</strong>
                 </div>
-                <div className="billing-progress"><span style={{ width: \`\${ratio}%\` }} /></div>
-                <small>{remaining === null ? "No configured limit" : \`\${remaining.toLocaleString()} remaining\`}</small>
+                <div className="billing-progress"><span style={{ width: `${ratio}%` }} /></div>
+                <small>{remaining === null ? "No configured limit" : `${remaining.toLocaleString()} remaining`}</small>
               </div>
             );
           })}
@@ -134,7 +134,7 @@ export default function BillingPage() {
           {data.catalog.map((plan) => {
             const active = plan.plan_id === data.subscription.plan_id;
             return (
-              <article className={\`panel billing-card \${active ? "billing-card-active" : ""}\`} key={plan.plan_id}>
+              <article className={`panel billing-card ${active ? "billing-card-active" : ""}`} key={plan.plan_id}>
                 {active && <span className="billing-current-badge">Current plan</span>}
                 <span className="eyebrow">{plan.name.toUpperCase()}</span>
                 <h3>{planPrice(plan)}</h3>
