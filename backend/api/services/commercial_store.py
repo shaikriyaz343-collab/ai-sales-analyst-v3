@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
+from .. import runtime_persistence
 from ..config import settings
 from ..persistence import LocalJsonDocumentStore, PostgresJsonDocumentStore
-from .. import runtime_persistence
 from .commercial import (
     EntitlementSnapshot,
     SubscriptionSnapshot,
@@ -28,6 +28,16 @@ def _parse(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
 
 
+def _trial_snapshot(organization_id: str, now: datetime) -> SubscriptionSnapshot:
+    return SubscriptionSnapshot(
+        organization_id=organization_id,
+        plan_id="trial",
+        status="trialing",
+        trial_started_at=now,
+        trial_ends_at=now + timedelta(days=get_plan("trial").trial_days),
+    )
+
+
 class CommercialRepository:
     """Persistent organization-level commercial state.
 
@@ -39,28 +49,10 @@ class CommercialRepository:
     def __init__(self, store: CommercialDocumentStore) -> None:
         self.store = store
 
-    def get_subscription(self, organization_id: str, *, now: datetime) -> SubscriptionSnapshot:
-        key = f"subscription:{organization_id}"
-        raw = self.store.read(key)
+    def find_subscription(self, organization_id: str) -> SubscriptionSnapshot | None:
+        raw = self.store.read(f"subscription:{organization_id}")
         if raw is None:
-            subscription = SubscriptionSnapshot(
-                organization_id=organization_id,
-                plan_id="trial",
-                status="trialing",
-                trial_started_at=now,
-                trial_ends_at=now + timedelta(days=get_plan("trial").trial_days),
-            )
-            self.store.write(key, {
-                "organization_id": subscription.organization_id,
-                "plan_id": subscription.plan_id,
-                "status": subscription.status,
-                "trial_started_at": _iso(subscription.trial_started_at),
-                "trial_ends_at": _iso(subscription.trial_ends_at),
-                "current_period_start": None,
-                "current_period_end": None,
-            })
-            return subscription
-
+            return None
         return SubscriptionSnapshot(
             organization_id=str(raw["organization_id"]),
             plan_id=str(raw["plan_id"]),
@@ -70,6 +62,15 @@ class CommercialRepository:
             current_period_start=_parse(raw.get("current_period_start")),
             current_period_end=_parse(raw.get("current_period_end")),
         )
+
+    def get_subscription(self, organization_id: str, *, now: datetime) -> SubscriptionSnapshot:
+        existing = self.find_subscription(organization_id)
+        if existing is not None:
+            return existing
+
+        subscription = _trial_snapshot(organization_id, now)
+        self.save_subscription(subscription)
+        return subscription
 
     def save_subscription(self, subscription: SubscriptionSnapshot) -> None:
         self.store.write(
@@ -97,7 +98,11 @@ class CommercialRepository:
         )
 
     def get_entitlements(self, organization_id: str, *, now: datetime) -> EntitlementSnapshot:
-        subscription = self.get_subscription(organization_id, now=now)
+        # A GET entitlement lookup is intentionally read-only. A missing
+        # commercial profile is represented as the deterministic default trial
+        # in memory; the durable profile is initialized by the later lifecycle
+        # integration point rather than by a read endpoint.
+        subscription = self.find_subscription(organization_id) or _trial_snapshot(organization_id, now)
         usage = self.get_usage(organization_id)
         return build_entitlements(subscription, usage, now=now)
 
