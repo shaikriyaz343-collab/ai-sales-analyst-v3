@@ -264,6 +264,50 @@ Do not make the user act as a shell-based CI runner when an available tool can p
 
 No manual code edits and no ad-hoc patching. Repository changes must be produced through deterministic, reviewable, idempotent automation or supported repository APIs, followed by validation.
 
+## Two-person operating model
+
+This product is intentionally operated by exactly two participants: one human founder/operator and the AI engineering agent.
+
+The operating model is designed around that constraint rather than assuming a conventional engineering, SRE, security, QA, or product team.
+
+### Human founder/operator
+
+The human owns:
+
+- product and strategy decisions
+- external account/provider authorization
+- secrets and credentials that cannot be delegated safely
+- irreversible or high-impact infrastructure approvals
+- customer-impact decisions
+- final release/business acceptance
+- the production incident decision when a human judgment or provider action is required
+
+### AI engineering agent
+
+The AI agent performs as much of the technical execution as the available tooling permits:
+
+- repository implementation and review
+- tests and static validation
+- CI orchestration
+- deploy/redeploy orchestration where connected tools allow it
+- evidence collection and reconciliation
+- incident triage and written analysis
+- release-document maintenance
+- repeatable recovery/rollback preparation
+- identifying missing evidence and release-gate gaps
+
+### Explicit limits
+
+The AI agent is not treated as a second human approver, independent reviewer, or 24/7 human on-call engineer.
+
+There is no assumed engineering team, SRE rotation, QA team, security team, or backup operator.
+
+Where a control normally depends on separation of duties, the release record must state that limitation explicitly and use compensating controls such as automated CI gates, immutable/reviewable evidence, least-privilege credentials, provider protections, and human approval for consequential changes.
+
+Monitoring ownership therefore means a single human production owner supported by automated/provider-generated signals and AI-assisted analysis; it does not imply continuous staffed coverage.
+
+The release process must minimize synchronous handoffs and must favor small, reversible, evidence-producing changes.
+
 ## Release quality rule
 
 > **Development speed may change; quality gates may not.**
@@ -351,3 +395,5 @@ Add these only when measured requirements demonstrate that the current architect
 2026-09-15 — Product strategy reset: optimize for evidence-backed revenue decisions, speed-to-value and data independence rather than feature parity with enterprise CRM/revenue-intelligence suites.
 
 2026-09-15 — Development workflow reset: delegate repository implementation, testing and deployment orchestration to the AI agent wherever available; preserve all security, reliability and release gates.
+
+2026-09-18 — Operating model clarified: the product is intentionally built and operated by one human founder/operator plus the AI engineering agent. No additional team capacity, human on-call rotation, or separation-of-duties assumption should be made.

@@ -4,6 +4,21 @@
 
 This runbook turns the V4 release gate into a repeatable sequence. It separates repository validation from deployment-provider operations and requires evidence before a release is treated as certified.
 
+## Operating model
+
+V4 has exactly two participants:
+
+- one human founder/operator
+- the AI engineering agent
+
+This is a deliberate constraint. Do not design release, support, QA, security, or incident procedures as though additional engineers, SREs, QA staff, security staff, or an on-call rotation exist.
+
+The AI agent can execute technical work, tests, evidence collection, deployment orchestration, and incident analysis where connected tooling permits. The AI agent is not a second human approver, an independent separation-of-duties control, or a 24/7 human on-call role.
+
+The human founder/operator retains responsibility for provider authorization, secrets, irreversible/high-impact changes, customer-impact decisions, incident decisions requiring human judgment, and final release/business acceptance.
+
+Where conventional process would rely on team separation, compensate with automated gates, least-privilege access, immutable/reviewable evidence, deterministic checks, and explicit human approval.
+
 ## Release identity
 
 Every release must record, at minimum:
@@ -13,7 +28,8 @@ Every release must record, at minimum:
 - Backend deployment identifier/version, when the hosting platform exposes one.
 - Deployment start and completion time.
 - Environment name.
-- Operator/owner.
+- Human production owner/approver.
+- AI agent execution record, when applicable.
 - Result of each release gate.
 
 The deployed application must be traceable to the exact commit being certified. Historical browser or infrastructure evidence must not be reused for a different commit.
@@ -55,7 +71,9 @@ Immediately after release, verify:
 
 ## Monitoring and ownership
 
-The deployment owner is responsible for the first post-release observation window and for recording any incident or rollback decision.
+Because there is one human production owner, the release process must not imply staffed 24/7 coverage or an on-call rotation.
+
+The human founder/operator owns the observation window and the decision to escalate, rollback, or authorize a provider action. The AI agent can inspect available signals, summarize incidents, prepare evidence, and execute reversible technical steps where tooling permits, but it is not itself continuous human monitoring coverage.
 
 Track at minimum:
 
@@ -68,18 +86,21 @@ Track at minimum:
 - Browser acceptance failures.
 - Repeated tenant-isolation/security events.
 
-The initial production thresholds must be configured from measured baseline behavior rather than guessed numeric limits. Until such measurements exist, record the signal, owner, escalation path, and observation procedure without inventing thresholds.
+The initial production thresholds must be configured from measured baseline behavior rather than guessed numeric limits. Until such measurements exist, record the signal, human owner, escalation path, and observation procedure without inventing thresholds.
 
 ## Rollback decision
 
 Rollback is appropriate when a release causes a material regression in availability, correctness, authentication/authorization, tenant isolation, persistence integrity, or another release-blocking production invariant that cannot be safely corrected forward within the incident response window.
 
-The incident owner records:
+The human founder/operator is the decision owner for production rollback. The AI agent can prepare the rollback, verify deterministic checks, and collect evidence where tooling permits.
+
+The incident record must contain:
 
 - Incident start time.
 - Affected deployment identifier.
 - Observed failure and evidence.
-- Decision owner.
+- Human decision owner.
+- AI execution/review record, when applicable.
 - Rollback target.
 - Customer/workspace impact, if known.
 - Recovery confirmation.
@@ -115,7 +136,7 @@ Before final production approval, execute a controlled rehearsal in a non-produc
 5. Verify recovery without corrupting tenant or analytical state.
 6. Record evidence and any remediation.
 
-Do not perform destructive dependency testing against production unless the deployment owner has explicitly authorized an isolated, reversible procedure.
+Do not perform destructive dependency testing against production unless the human founder/operator has explicitly authorized an isolated, reversible procedure.
 
 ## Release evidence record
 
@@ -125,6 +146,8 @@ For each certified release, retain:
 - CI run identifiers and outcomes.
 - npm audit outcome.
 - Deployment/provider identifiers.
+- Human production owner.
+- AI execution record, when applicable.
 - Browser acceptance run identifier and result.
 - Health/readiness result.
 - Capacity/resource measurements.

@@ -3,6 +3,17 @@
 Date: 2026-09-17
 Branch: `v4/saas-foundation`
 
+## Operating model
+
+This product is intentionally built and operated by exactly two participants:
+
+- one human founder/operator
+- the AI engineering agent
+
+The human retains product/business acceptance, external authorization, secrets, irreversible/high-impact infrastructure approvals, customer-impact decisions, and production incident decisions requiring human judgment. The AI agent performs technical repository work, testing, CI/deployment orchestration, evidence collection, and incident analysis to the extent supported by available tooling.
+
+The AI agent is not a second human approver, independent separation-of-duties control, or 24/7 human on-call role. Release evidence must not assume any additional team members or human rotations.
+
 ## Release identity
 
 This file is part of the current branch release candidate. The Git commit containing this file is the exact release identity to be used for the associated V4 deployed browser acceptance run.
@@ -61,3 +72,10 @@ Owner/operator statements are not release evidence by themselves.
 Repository tests, historical browser results, screenshots, and deployment screenshots remain supporting evidence unless they are tied to the exact release/deployment identity or are explicitly classified as application-side evidence.
 
 Production R2/provider failure-and-recovery, Linux/container capacity, restart/durable-state recovery, rollback/recover-forward, measured monitoring/alert ownership, and final cross-site topology selection remain separate gates and must not be inferred from browser acceptance.
+
+## Current release-gate posture
+
+No gate is closed merely because the two-person operating model reduces organizational complexity. Technical and provider-dependent evidence requirements remain unchanged.
+
+Where a conventional team control would rely on separation of duties, the release record must document the single-human limitation and the compensating automated/provider controls actually evidenced.
+
