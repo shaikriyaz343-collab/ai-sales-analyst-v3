@@ -9,7 +9,7 @@ import { useAppState } from "../lib/app-state";
 import { useAuth } from "../lib/auth";
 import ActionWorkflowPanel from "./action-workflow-panel";
 
-const nav: { id: Workspace | "decisions" | "forecast"; label: string }[] = [
+const nav: { id: Workspace | "decisions" | "forecast" | "billing"; label: string }[] = [
   { id: "decisions", label: "Decisions" },
   { id: "overview", label: "Overview" },
   { id: "forecast", label: "Forecast" },
@@ -20,6 +20,7 @@ const nav: { id: Workspace | "decisions" | "forecast"; label: string }[] = [
   { id: "reports", label: "Reports" },
   { id: "monitoring", label: "Monitoring" },
   { id: "saved", label: "Saved" },
+  { id: "billing", label: "Billing" },
 ];
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -143,7 +144,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <div><strong>Sales Analyst</strong><span>Decision Intelligence</span></div>
         </Link>
         <nav className="nav-list" aria-label="Primary navigation">
-          {nav.filter((item) => item.id === "decisions" || item.id === "forecast" || allowed.has(item.id)).map((item) => {
+          {nav.filter((item) => item.id === "decisions" || item.id === "forecast" || item.id === "billing" || allowed.has(item.id)).map((item) => {
             const active = pathname === `/dashboard/${item.id}`;
             return <Link key={item.id} href={`/dashboard/${item.id}`} className={`nav-item ${active ? "active" : ""}`}>{item.label}</Link>;
           })}
