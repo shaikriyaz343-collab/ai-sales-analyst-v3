@@ -249,7 +249,7 @@ def build_entitlements(
             max_workspaces=0,
             features=frozenset(),
             usage=usage,
-            remaining={metric: 0 for metric in usage.counts},
+            remaining={metric: 0 for metric in USAGE_METRICS},
         )
 
     plan = get_plan(subscription.plan_id)
