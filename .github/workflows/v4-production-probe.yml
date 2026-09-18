@@ -74,6 +74,7 @@ jobs:
           import json
           from datetime import datetime, timezone
           from pathlib import Path
+          import os
 
           names = ["health", "ready", "frontend", "unauthenticated"]
           expected = {
@@ -89,8 +90,8 @@ jobs:
               "commit_sha": "${{ github.sha }}",
               "branch": "${{ github.ref_name }}",
               "observed_at_utc": datetime.now(timezone.utc).isoformat(),
-              "frontend_url": "${V4_APP_URL}",
-              "api_url": "${V4_E2E_API_URL}",
+              "frontend_url": os.environ["V4_APP_URL"],
+              "api_url": os.environ["V4_E2E_API_URL"],
               "checks": {},
           }
 
