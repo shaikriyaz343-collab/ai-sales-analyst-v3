@@ -1,0 +1,162 @@
+name: V4 Production Probe
+
+on:
+  push:
+    branches:
+      - v4/saas-foundation
+    paths:
+      - .github/workflows/v4-production-probe.yml
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v4-production-probe
+  cancel-in-progress: false
+
+jobs:
+  production-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      V4_APP_URL: ${{ vars.V4_APP_URL || 'https://peaceful-mindfulness-production-51b6.up.railway.app' }}
+      V4_E2E_API_URL: ${{ vars.V4_E2E_API_URL || 'https://ai-sales-analyst-v3-production.up.railway.app' }}
+
+    steps:
+      - name: Validate probe targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${V4_APP_URL}" in
+            http://*|https://*) ;;
+            *) echo "::error::V4_APP_URL must be an absolute HTTP(S) URL."; exit 1 ;;
+          esac
+          case "${V4_E2E_API_URL}" in
+            http://*|https://*) ;;
+            *) echo "::error::V4_E2E_API_URL must be an absolute HTTP(S) URL."; exit 1 ;;
+          esac
+          if [[ "${V4_APP_URL}" == *.streamlit.app ]]; then
+            echo "::error::V4_APP_URL points to the legacy Streamlit deployment."
+            exit 1
+          fi
+          if [[ "${V4_E2E_API_URL}" == *.streamlit.app ]]; then
+            echo "::error::V4_E2E_API_URL points to the legacy Streamlit deployment."
+            exit 1
+          fi
+
+      - name: Probe production endpoints
+        shell: bash
+        run: |
+          set +e
+          mkdir -p probe
+
+          probe_url() {
+            local name="$1"
+            local url="$2"
+            curl -sS --connect-timeout 10 --max-time 20 -o "probe/$name.body" \
+              -w '%{http_code}\t%{time_total}\t%{url_effective}\n' \
+              "$url" >"probe/$name.meta" 2>"probe/$name.stderr"
+            echo "$?" >"probe/$name.rc"
+          }
+
+          probe_url health "${V4_E2E_API_URL}/api/v1/health"
+          probe_url ready "${V4_E2E_API_URL}/api/v1/ready"
+          probe_url frontend "${V4_APP_URL}/"
+          probe_url unauthenticated "${V4_E2E_API_URL}/api/v1/workspaces"
+
+      - name: Build machine-readable evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          names = ["health", "ready", "frontend", "unauthenticated"]
+          expected = {
+              "health": 200,
+              "ready": 200,
+              "frontend": 200,
+              "unauthenticated": 401,
+          }
+
+          result = {
+              "probe_version": 1,
+              "workflow_run_id": "${{ github.run_id }}",
+              "commit_sha": "${{ github.sha }}",
+              "branch": "${{ github.ref_name }}",
+              "observed_at_utc": datetime.now(timezone.utc).isoformat(),
+              "frontend_url": "${V4_APP_URL}",
+              "api_url": "${V4_E2E_API_URL}",
+              "checks": {},
+          }
+
+          hard_failures = []
+
+          for name in names:
+              meta = Path(f"probe/{name}.meta").read_text().strip()
+              parts = meta.split("\t") if meta else []
+              rc = int(Path(f"probe/{name}.rc").read_text().strip())
+              status = int(parts[0]) if parts and parts[0].isdigit() else 0
+              latency = float(parts[1]) if len(parts) > 1 else None
+              effective = parts[2] if len(parts) > 2 else None
+
+              body_path = Path(f"probe/{name}.body")
+              stderr_path = Path(f"probe/{name}.stderr")
+              body = body_path.read_text(errors="replace")[:4000] if body_path.exists() else ""
+              stderr = stderr_path.read_text(errors="replace")[:2000] if stderr_path.exists() else ""
+
+              passed = rc == 0 and status == expected[name]
+              result["checks"][name] = {
+                  "expected_status": expected[name],
+                  "observed_status": status,
+                  "curl_exit_code": rc,
+                  "latency_seconds": latency,
+                  "effective_url": effective,
+                  "pass": passed,
+                  "response_excerpt": body,
+                  "stderr_excerpt": stderr,
+              }
+              if not passed:
+                  hard_failures.append(name)
+
+          result["hard_invariant_failures"] = hard_failures
+          Path("probe/v4-production-probe.json").write_text(
+              json.dumps(result, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          print(json.dumps(result, indent=2))
+          if hard_failures:
+              raise SystemExit(
+                  "Production probe hard invariant failure: "
+                  + ", ".join(hard_failures)
+              )
+          PY
+
+      - name: Publish observation summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## V4 Production Probe"
+            echo
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Run: \`${GITHUB_RUN_ID}\`"
+            echo "- Frontend: \`${V4_APP_URL}\`"
+            echo "- API: \`${V4_E2E_API_URL}\`"
+            echo
+            echo "Hard invariants: health=200, readiness=200, frontend=200, unauthenticated workspaces=401."
+            echo "Latency is recorded as an observation and is not evaluated against an invented threshold."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload production probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-production-probe
+          path: probe/
+          retention-days: 90
