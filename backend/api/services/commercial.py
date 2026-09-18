@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Final, Literal
 
 
@@ -20,6 +20,14 @@ UsageMetric = Literal[
     "monitoring_rules",
     "saved_intelligence",
 ]
+
+USAGE_METRICS: Final[frozenset[UsageMetric]] = frozenset({
+    "dataset_uploads",
+    "analyst_questions",
+    "reports",
+    "monitoring_rules",
+    "saved_intelligence",
+})
 
 
 @dataclass(frozen=True)
@@ -51,9 +59,17 @@ class SubscriptionSnapshot:
 @dataclass(frozen=True)
 class UsageSnapshot:
     counts: dict[UsageMetric, int]
+    period_start: datetime | None = None
 
     def used(self, metric: UsageMetric) -> int:
         return max(0, int(self.counts.get(metric, 0)))
+
+
+@dataclass(frozen=True)
+class UsageConsumption:
+    allowed: bool
+    usage: UsageSnapshot
+    remaining: int | None
 
 
 @dataclass(frozen=True)
@@ -166,6 +182,24 @@ def get_plan(plan_id: str) -> Plan:
         return PLAN_CATALOG[plan_id]
     except KeyError as exc:
         raise ValueError(f"Unknown commercial plan: {plan_id}") from exc
+
+
+def validate_usage_metric(metric: str) -> UsageMetric:
+    if metric not in USAGE_METRICS:
+        raise ValueError(f"Unsupported usage metric: {metric}")
+    return metric  # type: ignore[return-value]
+
+
+def usage_period_start(subscription: SubscriptionSnapshot, now: datetime) -> datetime:
+    """Return the deterministic quota period for the current subscription state."""
+    candidate = (
+        subscription.trial_started_at
+        if subscription.status == "trialing"
+        else subscription.current_period_start
+    )
+    if candidate is None:
+        candidate = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    return candidate.astimezone(timezone.utc)
 
 
 def _trial_active(subscription: SubscriptionSnapshot, now: datetime) -> bool:
