@@ -767,6 +767,7 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
             "features": sorted(snapshot.features),
             "remaining": snapshot.remaining,
         },
+        "usage_period_start": snapshot.usage.period_start.isoformat() if snapshot.usage.period_start else None,
         "usage": snapshot.usage.counts,
         "catalog": [
             {
