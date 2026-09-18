@@ -34,6 +34,8 @@ def test_development_defaults_preserve_local_runtime_shape(monkeypatch: pytest.M
     assert settings.auth_signup_ip_limit == 10
     assert settings.auth_signup_email_limit == 3
     assert settings.auth_signup_window_seconds == 3600
+    assert settings.billing_provider == "disabled"
+    assert settings.paddle_environment == "sandbox"
 
 
 def test_production_requires_explicit_runtime_root(monkeypatch: pytest.MonkeyPatch) -> None:
