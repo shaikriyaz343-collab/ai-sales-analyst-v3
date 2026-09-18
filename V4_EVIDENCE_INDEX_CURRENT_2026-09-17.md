@@ -1,7 +1,18 @@
 # AI Sales Analyst V4 — Current Evidence Index
 
-Date: 2026-09-17
+Date: 2026-09-18
 Branch: `v4/saas-foundation`
+
+## Operating model
+
+V4 is intentionally built and operated by exactly two participants:
+
+- one human founder/operator
+- the AI engineering agent
+
+There is no assumed engineering, SRE, QA, security, or human on-call team. The human retains consequential approvals, provider authorization, secrets, customer-impact decisions, and final release/business acceptance. The AI agent performs technical implementation, testing, CI/deployment orchestration, evidence collection, and incident analysis where tooling permits.
+
+The AI agent is not a second human approver, independent separation-of-duties control, or 24/7 human monitoring role. Where a conventional team control would rely on separation of duties, V4 uses automated gates, deterministic tests, provider-generated evidence, least-privilege access, and explicit human approval as compensating controls.
 
 ## Exact release identity
 
@@ -11,31 +22,31 @@ Latest application-behavior checkpoint remains:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-The later commits are release-QA, evidence, and test-hardening changes. The deployed tenant-isolation browser-test correction is in `ff67e2e...` and changes only the test implementation.
+The later commits are release-QA, evidence, documentation, and test-hardening changes. The deployed tenant-isolation browser-test correction is in `ff67e2e...` and changes only the test implementation.
 
 ## Exact deployed browser evidence
 
 Current exact-release candidate before this evidence-index refresh:
 
-`54fd3a477d9757d5bce6668ae0fff365ba2207b0`
+`0a0f7283803ea9d7826a542b62ed3046b4a4e04d`
 
-Workflow run: `35191301401`
+Workflow run: `35350518841`
 
-V4 browser job: `105104249542`
+V4 browser job: `105617290502`
 
-Backend job: `105104249417`
+Backend job: `105617290795`
 
-Frontend job: `105104249578`
+Frontend job: `105617291110`
 
 Result: all jobs successful; V4 Playwright suite **8 passed**.
 
 Browser artifact:
 
-`v4-browser-qa-results` — artifact ID `10483368852`
+`v4-browser-qa-results` — artifact ID `10549792963`
 
 Artifact SHA-256:
 
-`f384be7b8a736ce83fd692fcfb4b3176951975d4fffd67341296e0a0985888be`
+`600c074d881f5972fd823a2be6c77c673f5f6604964105b988a4332cee55668e`
 
 The suite covered onboarding, scope persistence, dataset replacement, executive reports, monitoring, saved intelligence, deployed cross-organization tenant isolation, and authentication lifecycle.
 
@@ -49,10 +60,7 @@ FastAPI:
 
 `https://ai-sales-analyst-v3-production.up.railway.app`
 
-For commit `54fd3a477d9757d5bce6668ae0fff365ba2207b0`:
-
-- Railway frontend service `731a2cff-42db-4bc0-bc21-073d64ebfc34`, deployment `836392b1-91e2-459d-9564-3dcdfd3e6935`, status `success`.
-- Railway API service `c1446578-b14e-4ef9-b3cb-bbf3156ccb1d`, deployment `dc466119-4055-4c59-9b81-14265992b597`, status `success`.
+For the current deployed branch state, GitHub records Railway success statuses for both the frontend and API services.
 
 The API liveness endpoint is `/api/v1/health`; readiness is `/api/v1/ready`.
 
@@ -60,11 +68,11 @@ The API liveness endpoint is `/api/v1/health`; readiness is `/api/v1/ready`.
 
 ### Closed with direct/reproducible evidence
 
-- Exact deployed V4 browser acceptance: **CLOSED** for `54fd3a4...` — 8/8 passed.
+- Exact deployed V4 browser acceptance: **CLOSED** for `0a0f728...` — 8/8 passed.
 - Deployed tenant isolation: **CLOSED** through the exact 8/8 suite.
 - Backend CI on the exact candidate: **PASS**.
 - Frontend production build on the exact candidate: **PASS**.
-- Railway deployment statuses for the exact candidate: **SUCCESS** for frontend and API.
+- Railway deployment statuses for the current branch deployment: **SUCCESS** for frontend and API.
 - Repository-side post-promotion security review: **CLOSED** through merged PR #28 and its security-contract CI.
 - Repository-side object-store provider-error boundary: **CLOSED**; provider failure is mapped to the intended 503/redacted error contract in application-side validation.
 
@@ -94,7 +102,7 @@ Historical browser runs, screenshots, and repository-side rehearsals remain supp
 
 ### Issue #11 — deployed acceptance and Linux capacity
 
-Exact deployed browser acceptance is now closed for the prior exact candidate. Remaining work is the directly evidenced production dependency-failure/recovery exercise and Linux/container capacity measurement, plus any deployment-specific restart evidence not already artifact-linked.
+Exact deployed browser acceptance is closed for the current exact release. Remaining work is the directly evidenced production dependency-failure/recovery exercise and Linux/container capacity measurement, plus deployment-specific restart evidence not already artifact-linked.
 
 ### Issue #12 — rollback and monitoring
 
@@ -102,7 +110,7 @@ The release runbook is complete on the repository side. Production measured moni
 
 ### Issue #13 — cross-site auth architecture
 
-The repository contract is complete and the split-host deployment has real-browser authenticated behavior. The issue remains open until the selected production topology is explicitly recorded as the final architecture rather than inferred from the current deployment shape.
+The repository security contract is complete and the split-host deployment has real-browser authenticated behavior. The issue remains open because the final production topology has not been explicitly selected and recorded. Current deployment shape is evidence of what is deployed, not by itself a final architecture decision.
 
 ### Issue #14 — post-promotion security review
 
