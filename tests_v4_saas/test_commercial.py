@@ -104,7 +104,7 @@ def test_active_paid_subscription_respects_quota() -> None:
     assert entitlements.allows_usage("analyst_questions", additional=2) is False
 
 
-def test_past_due_subscription_blocks_access() -> None:
+def test_past_due_subscription_keeps_access_with_payment_recovery_state() -> None:
     subscription = SubscriptionSnapshot(
         organization_id="org-1",
         plan_id="growth",
@@ -116,9 +116,10 @@ def test_past_due_subscription_blocks_access() -> None:
 
     entitlements = build_entitlements(subscription, usage, now=NOW)
 
-    assert entitlements.access_active is False
+    assert entitlements.access_active is True
     assert entitlements.access_reason == "past_due"
-    assert entitlements.max_seats == 0
+    assert entitlements.plan_id == "growth"
+    assert entitlements.max_seats == 15
 
 
 def test_canceled_subscription_remains_active_until_period_end() -> None:
