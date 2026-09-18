@@ -92,6 +92,7 @@ from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate
 from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
 from .services.commercial import plan_catalog
 from .services.commercial_store import runtime_commercial_repository, reset_runtime_commercial_repository
+from .services.payment_provider import PaddleProvider, PaymentProviderError, CheckoutRequest
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -212,6 +213,18 @@ except ImportError:
     _has_boto = False
 
 logger = logging.getLogger("ai_sales_analyst.errors")
+
+
+def _payment_provider() -> PaddleProvider | None:
+    if settings.billing_provider != "paddle":
+        return None
+    return PaddleProvider(
+        api_key=settings.paddle_api_key or "",
+        webhook_secret=settings.paddle_webhook_secret or "",
+        environment=settings.paddle_environment,
+        starter_price_id=settings.paddle_starter_price_id or "",
+        growth_price_id=settings.paddle_growth_price_id or "",
+    )
 
 
 def _record_commercial_usage(organization_id: str, metric: str) -> None:
@@ -776,7 +789,9 @@ def remove_saved(dataset_id: str, item_id: str, session_id: str | None = None, p
 def commercial_entitlements(principal: Principal = Depends(require_user)) -> dict[str, object]:
     """Return the current organization-level commercial state without mutating product entitlements."""
     now = datetime.now(timezone.utc)
-    snapshot = runtime_commercial_repository().get_entitlements(principal.organization_id, now=now)
+    repository = runtime_commercial_repository()
+    snapshot = repository.get_entitlements(principal.organization_id, now=now)
+    subscription = repository.find_subscription(principal.organization_id)
     return {
         "organization_id": snapshot.organization_id,
         "subscription": {
@@ -784,6 +799,9 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
             "plan_name": snapshot.plan_name,
             "access_active": snapshot.access_active,
             "access_reason": snapshot.access_reason,
+            "status": subscription.status if subscription else snapshot.access_reason,
+            "provider": subscription.provider if subscription else None,
+            "provider_subscription_id": subscription.provider_subscription_id if subscription else None,
         },
         "entitlements": {
             "max_seats": snapshot.max_seats,
@@ -793,6 +811,13 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
         },
         "usage_period_start": snapshot.usage.period_start.isoformat() if snapshot.usage.period_start else None,
         "usage": snapshot.usage.counts,
+        "billing": {
+            "provider": settings.billing_provider,
+            "checkout_ready": settings.billing_provider == "paddle",
+            "customer_portal_available": bool(
+                subscription and subscription.provider == "paddle" and subscription.provider_customer_id
+            ),
+        },
         "catalog": [
             {
                 "plan_id": plan.plan_id,
@@ -806,4 +831,84 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
             }
             for plan in plan_catalog()
         ],
+    }
+
+
+@app.post("/api/v1/commercial/checkout")
+def commercial_checkout(
+    payload: dict[str, str],
+    principal: Principal = Depends(require_user),
+) -> dict[str, str]:
+    provider = _payment_provider()
+    if provider is None:
+        raise HTTPException(status_code=503, detail="Billing checkout is not configured yet.")
+    plan_id = str(payload.get("plan_id") or "")
+    if plan_id not in {"starter", "growth"}:
+        raise HTTPException(status_code=400, detail="A paid plan must be selected.")
+
+    frontend_origin = settings.frontend_origins[0].rstrip("/")
+    try:
+        session = provider.create_checkout_session(
+            CheckoutRequest(
+                organization_id=principal.organization_id,
+                plan_id=plan_id,
+                customer_email=principal.email,
+                success_url=f"{frontend_origin}/dashboard/billing?checkout=success",
+                cancel_url=f"{frontend_origin}/dashboard/billing?checkout=cancelled",
+            )
+        )
+    except PaymentProviderError as exc:
+        logger.warning("Commercial checkout unavailable: %s", _sanitize_log(str(exc)))
+        raise HTTPException(status_code=502, detail="Checkout could not be started.") from exc
+
+    return {
+        "provider": session.provider,
+        "provider_session_id": session.provider_session_id,
+        "checkout_url": session.checkout_url,
+    }
+
+
+@app.get("/api/v1/commercial/portal")
+def commercial_portal(principal: Principal = Depends(require_user)) -> dict[str, str]:
+    provider = _payment_provider()
+    if provider is None:
+        raise HTTPException(status_code=503, detail="Billing provider is not configured.")
+    subscription = runtime_commercial_repository().find_subscription(principal.organization_id)
+    if not subscription or subscription.provider != provider.name or not subscription.provider_customer_id:
+        raise HTTPException(status_code=409, detail="No active provider billing account is linked yet.")
+
+    try:
+        url = provider.get_customer_portal_url(
+            subscription.provider_customer_id,
+            f"{settings.frontend_origins[0].rstrip('/')}/dashboard/billing",
+        )
+    except PaymentProviderError as exc:
+        logger.warning("Customer portal unavailable: %s", _sanitize_log(str(exc)))
+        raise HTTPException(status_code=502, detail="Customer portal could not be opened.") from exc
+    return {"portal_url": url}
+
+
+@app.post("/api/v1/commercial/webhook")
+async def commercial_webhook(request: Request) -> dict[str, object]:
+    provider = _payment_provider()
+    if provider is None:
+        raise HTTPException(status_code=503, detail="Billing provider is not configured.")
+
+    signature = request.headers.get("Paddle-Signature", "")
+    body = await request.body()
+    try:
+        event = provider.verify_webhook(body, signature)
+        applied = runtime_commercial_repository().apply_webhook_event(
+            event,
+            plan_for_price=provider.plan_for_price,
+        )
+    except (PaymentProviderError, ValueError) as exc:
+        logger.warning("Commercial webhook rejected: %s", _sanitize_log(str(exc)))
+        raise HTTPException(status_code=400, detail="Webhook rejected.") from exc
+
+    return {
+        "status": "ok",
+        "event_id": event.event_id,
+        "event_type": event.event_type,
+        "applied": applied,
     }
