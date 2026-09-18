@@ -15,7 +15,8 @@ class MemoryStore:
 
 
 def test_commercial_entitlements_route_is_read_only_and_exposes_catalog(monkeypatch) -> None:
-    repository = CommercialRepository(MemoryStore())
+    store = MemoryStore()
+    repository = CommercialRepository(store)
     monkeypatch.setattr("backend.api.main.runtime_commercial_repository", lambda: repository)
 
     principal = Principal(
@@ -37,3 +38,4 @@ def test_commercial_entitlements_route_is_read_only_and_exposes_catalog(monkeypa
     assert response["entitlements"]["max_workspaces"] == 1
     assert set(plan["plan_id"] for plan in response["catalog"]) == {"trial", "starter", "growth"}
     assert response["usage"] == {}
+    assert store.items == {}
