@@ -277,4 +277,9 @@ export type CommercialEntitlements = {
   usage_period_start: string | null;
   usage: Record<string, number>;
   catalog: CommercialPlan[];
+  billing: {
+    provider: string;
+    checkout_ready: boolean;
+    customer_portal_available: boolean;
+  };
 };
