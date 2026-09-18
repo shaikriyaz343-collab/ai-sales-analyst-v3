@@ -247,3 +247,34 @@ export type AlertsResponse = { dataset_id: string; business_model: string | null
 
 export type SavedIntelligence = { id: string; dataset_id: string; session_id: string; name: string; kind: string; title: string; summary: string; metric: string; metric_label: string; dimension?: string | null; dimension_label?: string | null; value?: number | null; display_value: string; scope_label: string; scope_filters: ScopeFilter[]; evidence: Evidence; source_workspace: string; source_id: string; active: boolean; created_at: string; updated_at: string; };
 export type SavedIntelligenceResponse = { dataset_id: string; business_model: string | null; business_model_label: string | null; scope_label: string; items: SavedIntelligence[]; };
+
+
+export type CommercialPlan = {
+  plan_id: string;
+  name: string;
+  price_usd_monthly: number;
+  trial_days: number;
+  max_seats: number;
+  max_workspaces: number;
+  monthly_limits: Record<string, number | null>;
+  features: string[];
+};
+
+export type CommercialEntitlements = {
+  organization_id: string;
+  subscription: {
+    plan_id: string | null;
+    plan_name: string | null;
+    access_active: boolean;
+    access_reason: string;
+  };
+  entitlements: {
+    max_seats: number;
+    max_workspaces: number;
+    features: string[];
+    remaining: Record<string, number | null>;
+  };
+  usage_period_start: string | null;
+  usage: Record<string, number>;
+  catalog: CommercialPlan[];
+};
