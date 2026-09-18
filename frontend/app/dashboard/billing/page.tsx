@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCommercialEntitlements } from "../../../lib/api";
+import { createCommercialCheckout, getCommercialEntitlements, getCommercialPortal } from "../../../lib/api";
 import type { CommercialEntitlements, CommercialPlan } from "../../../lib/types";
 
 const USAGE_LABELS: Record<string, string> = {
@@ -28,6 +28,31 @@ export default function BillingPage() {
   const [data, setData] = useState<CommercialEntitlements | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyPlan, setBusyPlan] = useState<string | null>(null);
+
+
+  async function startCheckout(planId: string) {
+    setBusyPlan(planId);
+    setError(null);
+    try {
+      const session = await createCommercialCheckout(planId);
+      window.location.assign(session.checkout_url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout could not be started.");
+    } finally {
+      setBusyPlan(null);
+    }
+  }
+
+  async function openPortal() {
+    setError(null);
+    try {
+      const result = await getCommercialPortal();
+      window.location.assign(result.portal_url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Customer portal could not be opened.");
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -82,7 +107,7 @@ export default function BillingPage() {
         <div>
           <span className="eyebrow">BILLING · ORGANIZATION</span>
           <h1>Plan & usage</h1>
-          <p>See the organization's current access, usage envelope and available plans. Payments and upgrades are not connected yet.</p>
+          <p>See the organization's current access and usage. Paid checkout is enabled when the configured billing provider is ready.</p>
         </div>
         <div className="confidence-card">
           <span>Current access</span>
@@ -101,6 +126,9 @@ export default function BillingPage() {
           <div><span>Seats</span><strong>{data.entitlements.max_seats}</strong></div>
           <div><span>Workspaces</span><strong>{data.entitlements.max_workspaces}</strong></div>
           <div><span>Usage period</span><strong>{data.usage_period_start ? new Date(data.usage_period_start).toLocaleDateString() : "—"}</strong></div>
+          {data.billing.customer_portal_available && (
+            <button type="button" className="secondary-button" onClick={openPortal}>Manage billing</button>
+          )}
         </div>
       </section>
 
@@ -144,8 +172,13 @@ export default function BillingPage() {
                     <span key={metric}><strong>{limit?.toLocaleString() ?? "∞"}</strong> {usageLabel(metric).toLowerCase()}</span>
                   ))}
                 </div>
-                <button type="button" className={active ? "secondary-button" : "primary-button"} disabled>
-                  {active ? "Current plan" : "Upgrade when billing is connected"}
+                <button
+                  type="button"
+                  className={active ? "secondary-button" : "primary-button"}
+                  disabled={active || !data.billing.checkout_ready || busyPlan !== null}
+                  onClick={() => void startCheckout(plan.plan_id)}
+                >
+                  {active ? "Current plan" : busyPlan === plan.plan_id ? "Opening checkout…" : data.billing.checkout_ready ? "Upgrade" : "Checkout pending provider setup"}
                 </button>
               </article>
             );
@@ -154,8 +187,8 @@ export default function BillingPage() {
       </section>
 
       <section className="billing-boundary">
-        <strong>Billing is intentionally read-only right now.</strong>
-        <span>No card details, checkout sessions or payment-provider calls are made from this page.</span>
+        <strong>{data.billing.checkout_ready ? "Checkout is connected." : "Billing checkout is not connected yet."}</strong>
+        <span>{data.billing.checkout_ready ? "Payment is handled by the configured provider. Your product access changes only after verified provider events update the organization state." : "The commercial plan catalog and usage state remain available while provider setup is pending."}</span>
       </section>
     </div>
   );
