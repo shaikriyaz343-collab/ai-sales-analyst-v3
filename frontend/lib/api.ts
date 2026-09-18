@@ -200,3 +200,10 @@ export async function deleteSavedIntelligence(datasetId: string, sessionId: stri
   const response = await apiFetch(`/api/v1/datasets/${datasetId}/saved/${itemId}?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   if (!response.ok) throw await errorFrom(response, "Saved intelligence could not be deleted.");
 }
+
+
+export async function getCommercialEntitlements(): Promise<import("./types").CommercialEntitlements> {
+  const response = await apiFetch("/api/v1/commercial/entitlements");
+  if (!response.ok) throw await errorFrom(response, "Billing information could not be loaded.");
+  return response.json();
+}
