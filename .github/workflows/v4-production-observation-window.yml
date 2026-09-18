@@ -1,0 +1,138 @@
+name: V4 Production Observation Window
+
+on:
+  schedule:
+    - cron: "37 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      window_hours:
+        description: "Observation window to summarize"
+        required: false
+        default: "24"
+      min_completed_runs:
+        description: "Minimum completed production-probe runs required for a passing window"
+        required: false
+        default: "20"
+      release_sha:
+        description: "Optional exact release SHA; when supplied, only probe runs for this SHA are counted"
+        required: false
+        default: ""
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  observation-window:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Build observation-window evidence
+        id: observe
+        uses: actions/github-script@v7
+        env:
+          WINDOW_HOURS: ${{ inputs.window_hours || '24' }}
+          MIN_COMPLETED_RUNS: ${{ inputs.min_completed_runs || '20' }}
+          RELEASE_SHA: ${{ inputs.release_sha || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            const windowHours = Number(process.env.WINDOW_HOURS);
+            const minCompletedRuns = Number(process.env.MIN_COMPLETED_RUNS);
+            const releaseSha = process.env.RELEASE_SHA.trim();
+
+            if (!Number.isFinite(windowHours) || windowHours <= 0) {
+              core.setFailed('WINDOW_HOURS must be a positive number.');
+              return;
+            }
+            if (!Number.isInteger(minCompletedRuns) || minCompletedRuns < 1) {
+              core.setFailed('MIN_COMPLETED_RUNS must be a positive integer.');
+              return;
+            }
+
+            const now = Date.now();
+            const cutoff = now - windowHours * 60 * 60 * 1000;
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'v4-production-probe.yml',
+                branch: 'v4/saas-foundation',
+                per_page: 100,
+              },
+              response => response.data,
+            );
+
+            const windowRuns = runs
+              .filter(run => new Date(run.created_at).getTime() >= cutoff)
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+            const eligibleRuns = releaseSha
+              ? windowRuns.filter(run => run.head_sha === releaseSha)
+              : windowRuns;
+
+            const successfulRuns = eligibleRuns.filter(run => run.conclusion === 'success');
+            const failedRuns = eligibleRuns.filter(run => run.conclusion !== 'success');
+
+            const evidence = {
+              evidence_version: 1,
+              workflow_run_id: String(context.runId),
+              generated_at_utc: new Date(now).toISOString(),
+              branch: 'v4/saas-foundation',
+              window_hours: windowHours,
+              window_start_utc: new Date(cutoff).toISOString(),
+              window_end_utc: new Date(now).toISOString(),
+              release_sha: releaseSha || null,
+              observed_run_count: eligibleRuns.length,
+              successful_run_count: successfulRuns.length,
+              failed_or_non_success_run_count: failedRuns.length,
+              minimum_completed_runs: minCompletedRuns,
+              pass: eligibleRuns.length >= minCompletedRuns && failedRuns.length === 0,
+              runs: eligibleRuns.map(run => ({
+                id: run.id,
+                run_number: run.run_number,
+                event: run.event,
+                status: run.status,
+                conclusion: run.conclusion,
+                head_sha: run.head_sha,
+                created_at: run.created_at,
+                updated_at: run.updated_at,
+                html_url: run.html_url,
+              })),
+            };
+
+            fs.mkdirSync('observation', { recursive: true });
+            fs.writeFileSync(
+              'observation/v4-production-observation-window.json',
+              JSON.stringify(evidence, null, 2) + '\n',
+              'utf8',
+            );
+
+            core.summary
+              .addHeading('V4 Production Observation Window')
+              .addRaw(`Window: ${evidence.window_start_utc} → ${evidence.window_end_utc}\n`)
+              .addRaw(`Release SHA filter: ${evidence.release_sha || 'none'}\n`)
+              .addRaw(`Completed probe runs observed: ${evidence.observed_run_count}\n`)
+              .addRaw(`Successful probe runs: ${evidence.successful_run_count}\n`)
+              .addRaw(`Failed/non-success probe runs: ${evidence.failed_or_non_success_run_count}\n`)
+              .addRaw(`Minimum completed runs required: ${evidence.minimum_completed_runs}\n`)
+              .addRaw(`Window pass: ${evidence.pass}\n`)
+              .write();
+
+            if (!evidence.pass) {
+              core.setFailed(
+                `Observation window did not pass: ${eligibleRuns.length} completed, ${successfulRuns.length} successful, ${failedRuns.length} non-success.`,
+              );
+            }
+
+      - name: Upload observation-window evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-production-observation-window
+          path: observation/v4-production-observation-window.json
+          retention-days: 180
