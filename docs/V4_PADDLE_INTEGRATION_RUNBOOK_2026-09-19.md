@@ -5,10 +5,10 @@
 Paddle is the target payment provider for the first commercial launch.
 
 Reasons:
-- Paddle supports UAE sellers and operates as a Merchant of Record for supported software sales.
+- Paddle currently lists the United Arab Emirates (`AE`) as a supported selling country and describes its Merchant of Record model for supported transactions. Seller approval/compliance review can still require additional information.
 - Paddle provides recurring subscriptions, customer portal workflows, signed webhooks, and hosted checkout.
 - The integration can keep card data and most billing/tax workflow outside our application.
-- Paddle exposes a sandbox and live environment with separate credentials.
+- Paddle sandbox and live environments are separate, with separate credentials, catalogs, notification destinations, and customer data.
 
 Authoritative implementation references:
 - https://developer.paddle.com/api-reference/about/
@@ -47,7 +47,7 @@ Backend:
 - V4_PADDLE_STARTER_PRICE_ID
 - V4_PADDLE_GROWTH_PRICE_ID
 
-The frontend does not need the Paddle API key. The current backend checkout endpoint returns a hosted Paddle checkout URL.
+The frontend does not need the Paddle API key. The current backend checkout endpoint returns a hosted Paddle checkout URL. Paddle's current transaction documentation also requires an approved default payment link in Checkout settings before opening checkout; this is an external Paddle account configuration item, not an application secret.
 
 ## Product/catalog setup
 
@@ -74,6 +74,15 @@ At minimum configure:
 - subscription.canceled
 
 The endpoint verifies the raw request body before parsing the JSON. Paddle documents the Paddle-Signature scheme as a timestamp plus the raw body, HMAC-SHA256, with a five-second timestamp tolerance in its SDK verification guidance. Paddle also recommends using webhooks as the subscription source of truth, deduplicating on event ID, and handling out-of-order events with occurred_at.
+
+## Paddle account prerequisites
+
+Before testing the application checkout, complete these external Paddle prerequisites:
+- create the sandbox account and catalog;
+- configure/approve the default payment link required by Paddle Checkout;
+- create the sandbox API key and notification destination/webhook secret;
+- keep sandbox and live IDs/credentials strictly separated;
+- confirm the seller account is eligible for the intended selling jurisdiction and customer markets.
 
 ## Human-only launch steps
 
