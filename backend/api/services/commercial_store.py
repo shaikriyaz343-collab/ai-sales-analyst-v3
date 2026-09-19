@@ -430,7 +430,9 @@ class CommercialRepository:
             organization_id = key[len("subscription:"):]
             if not organization_id:
                 continue
-            snapshots.append(self.find_subscription(organization_id))  # type: ignore[arg-type]
+            snapshot = self.find_subscription(organization_id)
+            if snapshot is not None:
+                snapshots.append(snapshot)
         return [snapshot for snapshot in snapshots if snapshot is not None]
 
     def reconcile_subscription(
