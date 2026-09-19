@@ -81,3 +81,16 @@ def test_release_probe_evidence_uses_python_literals() -> None:
 
     assert '"release_candidate_probe": True,' in probe
     assert '"release_candidate_probe": true,' not in probe
+
+
+def test_browser_qa_waits_for_the_current_public_release_marker() -> None:
+    workflow = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "browser-qa.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "Wait for deployed V4 release markers" in workflow
+    assert "grep -Fq "Start your 14-day trial" /tmp/v4-home.html" in workflow
+    assert "V4 frontend/API are reachable and the public acquisition release marker is live." in workflow
