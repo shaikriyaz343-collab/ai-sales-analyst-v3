@@ -101,3 +101,12 @@ Paddle webhook delivery is at-least-once. The application deduplicates event IDs
 For payment recovery, the application keeps access while status is `past_due`, surfaces the customer portal, and returns to normal active state when Paddle reports `active`. Access is revoked when Paddle reports `paused` or `canceled`.
 
 A periodic reconciliation job should be added before the paid customer population becomes material, using Paddle subscription/customer APIs to repair drift.
+
+
+## Automated reconciliation
+
+Once Paddle is enabled, configure the GitHub repository secret `V4_BILLING_RECONCILIATION_TOKEN`. The repository also contains a daily `V4 Commercial Reconciliation` workflow that calls the protected repair endpoint and fails on reconciliation errors.
+
+Optional repository variable: `V4_BILLING_RECONCILIATION_URL` can override the production endpoint when the deployment topology changes.
+
+The repair endpoint is disabled while billing is disabled, so enabling this workflow does not itself enable customer billing.
