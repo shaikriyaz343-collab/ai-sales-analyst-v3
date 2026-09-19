@@ -13,7 +13,9 @@ const nextConfig: NextConfig = {
     const apiUpstream =
       process.env.V4_API_UPSTREAM_URL ||
       process.env.NEXT_PUBLIC_API_PROXY_TARGET ||
-      "http://127.0.0.1:8000";
+      (process.env.NODE_ENV === "production"
+        ? "https://ai-sales-analyst-v3-production.up.railway.app"
+        : "http://127.0.0.1:8000");
     return [
       {
         source: "/api/:path*",
