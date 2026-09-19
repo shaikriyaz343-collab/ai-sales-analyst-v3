@@ -110,6 +110,7 @@ class Settings:
     paddle_webhook_secret: str | None = field(repr=False)
     paddle_starter_price_id: str | None
     paddle_growth_price_id: str | None
+    billing_reconciliation_token: str | None = field(repr=False)
 
     @property
     def is_production(self) -> bool:
@@ -297,6 +298,7 @@ def load_settings() -> Settings:
     paddle_webhook_secret = _env("V4_PADDLE_WEBHOOK_SECRET")
     paddle_starter_price_id = _env("V4_PADDLE_STARTER_PRICE_ID")
     paddle_growth_price_id = _env("V4_PADDLE_GROWTH_PRICE_ID")
+    billing_reconciliation_token = _env("V4_BILLING_RECONCILIATION_TOKEN")
     if billing_provider == "paddle":
         required = {
             "V4_PADDLE_API_KEY": paddle_api_key,
@@ -379,6 +381,7 @@ def load_settings() -> Settings:
         paddle_webhook_secret=paddle_webhook_secret,
         paddle_starter_price_id=paddle_starter_price_id,
         paddle_growth_price_id=paddle_growth_price_id,
+        billing_reconciliation_token=billing_reconciliation_token,
     )
 
 
