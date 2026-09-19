@@ -143,3 +143,30 @@ def test_auth_screen_syncs_query_selected_signup_mode() -> None:
     assert "useEffect" in auth
     assert "setMode(initialMode)" in auth
     assert "[initialMode]" in auth
+
+
+def test_production_probe_accepts_and_validates_exact_release_sha() -> None:
+    probe = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-production-probe.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "release_sha:" in probe
+    assert "expected_sha" in probe
+    assert '"target_release_sha": "${{ inputs.release_sha || github.sha }}"' in probe
+
+
+def test_observation_window_is_dispatch_driven_and_uses_probe_runs() -> None:
+    workflow = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-production-observation-window.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "on:\n  workflow_dispatch:" in workflow
+    assert "schedule:" not in workflow
+    assert "run.name === 'V4 Production Probe'" in workflow
+    assert "response.data.workflow_runs" in workflow
