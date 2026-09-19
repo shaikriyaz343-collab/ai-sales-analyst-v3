@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact V4 release SHA expected for this probe"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -43,6 +48,12 @@ jobs:
           fi
           if [[ "${V4_E2E_API_URL}" == *.streamlit.app ]]; then
             echo "::error::V4_E2E_API_URL points to the legacy Streamlit deployment."
+            exit 1
+          fi
+
+          expected_sha="${{ inputs.release_sha || '' }}"
+          if [[ -n "${expected_sha}" && "${expected_sha}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Exact release SHA ${expected_sha} does not match workflow SHA ${GITHUB_SHA}."
             exit 1
           fi
 
@@ -88,6 +99,7 @@ jobs:
               "release_candidate_probe": True,
               "workflow_run_id": "${{ github.run_id }}",
               "commit_sha": "${{ github.sha }}",
+              "target_release_sha": "${{ inputs.release_sha || github.sha }}",
               "branch": "${{ github.ref_name }}",
               "observed_at_utc": datetime.now(timezone.utc).isoformat(),
               "frontend_url": os.environ["V4_APP_URL"],
