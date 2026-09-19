@@ -28,6 +28,9 @@ def test_production_probe_owns_failure_alert_lifecycle() -> None:
     ).read_text(encoding="utf-8")
 
     assert "issues: write" in probe
+    assert "branches:" in probe
+    assert "- v4/saas-foundation" in probe
+    assert "paths:" not in probe
     assert "Create or update production probe incident" in probe
     assert "Close recovered production probe incident" in probe
     assert "Automated V4 production probe failure" in probe
@@ -64,13 +67,12 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "v4-development-ci.yml" in workflow
     assert "browser-qa.yml" in workflow
     assert "v4-production-probe.yml" in workflow
-    assert "workflowPath = '.github/workflows/' + workflowFile" in workflow
-    assert "run.path === workflowPath" in workflow
+    assert "listRepoWorkflows" in workflow
+    assert "workflowIdsByPath" in workflow
+    assert "workflow_id: workflowId" in workflow
     assert "response.data.workflow_runs" in workflow
-    assert "github.rest.actions.listWorkflowRunsForRepo" in workflow
-    assert "run && run.path === workflowPath" in workflow
-    assert "observationWorkflowPath" in workflow
-    assert "run.path === observationWorkflowPath" in workflow
+    assert "observationWorkflowId" in workflow
+    assert "workflow_id: observationWorkflowId" in workflow
     assert "workflow_id: workflowFile" not in workflow
     assert "release_ready" in workflow
     assert "run.head_sha === targetSha" in workflow

@@ -55,17 +55,27 @@ jobs:
 
             const now = Date.now();
             const cutoff = now - windowHours * 60 * 60 * 1000;
-            const runs = await github.paginate(
-              github.rest.actions.listWorkflowRunsForRepo,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'v4-production-probe.yml',
-                branch: 'v4/saas-foundation',
-                per_page: 100,
-              },
-              response => response.data,
+
+            const workflowResponse = await github.rest.actions.listRepoWorkflows({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const productionProbeWorkflow = (workflowResponse.data.workflows || []).find(
+              workflow => workflow.path === '.github/workflows/v4-production-probe.yml',
             );
+            if (!productionProbeWorkflow) {
+              throw new Error('Workflow not found: v4-production-probe.yml');
+            }
+
+            const response = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: productionProbeWorkflow.id,
+              branch: 'v4/saas-foundation',
+              per_page: 100,
+            });
+            const runs = response.data.workflow_runs || [];
 
             const windowRuns = runs
               .filter(run => new Date(run.created_at).getTime() >= cutoff)
