@@ -92,5 +92,5 @@ def test_browser_qa_waits_for_the_current_public_release_marker() -> None:
     ).read_text(encoding="utf-8")
 
     assert "Wait for deployed V4 release markers" in workflow
-    assert "grep -Fq "Start your 14-day trial" /tmp/v4-home.html" in workflow
+    assert 'grep -Fq "Start your 14-day trial" /tmp/v4-home.html' in workflow
     assert "V4 frontend/API are reachable and the public acquisition release marker is live." in workflow
