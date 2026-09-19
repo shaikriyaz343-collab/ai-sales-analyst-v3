@@ -53,32 +53,42 @@ jobs:
               return;
             }
 
-            const combined = await github.rest.repos.getCombinedStatusForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: targetSha,
-            });
-            const railwayContexts = [
-              'satisfied-enthusiasm - ai-sales-analyst-v3',
-              'satisfied-enthusiasm - peaceful-mindfulness',
-            ];
+            async function waitForRailwaySuccess(ref) {
+              const railwayContexts = [
+                'satisfied-enthusiasm - ai-sales-analyst-v3',
+                'satisfied-enthusiasm - peaceful-mindfulness',
+              ];
+              const deadline = Date.now() + 7 * 60 * 1000;
 
-            const statusByContext = new Map(
-              (combined.data.statuses || []).map(status => [status.context, status.state]),
-            );
-            const notReady = railwayContexts.filter(
-              contextName => statusByContext.get(contextName) !== 'success',
-            );
+              while (Date.now() < deadline) {
+                const combined = await github.rest.repos.getCombinedStatusForRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref,
+                });
+                const statusByContext = new Map(
+                  (combined.data.statuses || []).map(status => [status.context, status.state]),
+                );
+                const notReady = railwayContexts.filter(
+                  contextName => statusByContext.get(contextName) !== 'success',
+                );
 
-            if (notReady.length) {
-              core.setFailed(
-                'Target ' + targetSha +
-                ' is not fully deployed according to Railway commit statuses: ' +
-                notReady.join(', '),
+                if (!notReady.length) {
+                  return;
+                }
+
+                core.info(
+                  'Railway deployment not ready yet: ' + notReady.join(', ') + '. Waiting 15 seconds.',
+                );
+                await new Promise(resolve => setTimeout(resolve, 15_000));
+              }
+
+              throw new Error(
+                'Timed out waiting for Railway deployment success for ' + ref + '.',
               );
-              return;
             }
 
+            await waitForRailwaySuccess(targetSha);
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
