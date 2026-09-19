@@ -1,5 +1,7 @@
 # AI Sales Analyst V4 — Current Release Certification Record
 
+> **Release-record rule (2026-09-19): this record is valid only for the exact Git commit that contains this file at the time of certification.** A later branch head is a new candidate and requires a new release record/evidence linkage. Do not treat this dated file as a live branch-head pointer.
+
 Date: 2026-09-17
 Branch: `v4/saas-foundation`
 
@@ -78,4 +80,3 @@ Production R2/provider failure-and-recovery, Linux/container capacity, restart/d
 No gate is closed merely because the two-person operating model reduces organizational complexity. Technical and provider-dependent evidence requirements remain unchanged.
 
 Where a conventional team control would rely on separation of duties, the release record must document the single-human limitation and the compensating automated/provider controls actually evidenced.
-
