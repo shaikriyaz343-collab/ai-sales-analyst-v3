@@ -7,6 +7,8 @@ from typing import Any, Protocol
 from .. import runtime_persistence
 from ..config import settings
 from ..persistence import LocalJsonDocumentStore, PostgresJsonDocumentStore
+from .payment_provider import WebhookEvent
+
 from .commercial import (
     EntitlementSnapshot,
     SubscriptionSnapshot,
@@ -23,6 +25,7 @@ from .commercial import (
 class CommercialDocumentStore(Protocol):
     def read(self, key: str) -> Any | None: ...
     def write(self, key: str, value: Any) -> None: ...
+    def list_prefix(self, prefix: str) -> list[tuple[str, Any]]: ...
 
 
 class UsageMeter(Protocol):
@@ -315,6 +318,7 @@ class CommercialRepository:
         supported = {
             "subscription.created",
             "subscription.updated",
+            "subscription.reconciled",
             "subscription.activated",
             "subscription.trialing",
             "subscription.past_due",
@@ -414,6 +418,45 @@ class CommercialRepository:
             },
         )
         return True
+
+    def list_subscriptions(self) -> list[SubscriptionSnapshot]:
+        store_list = getattr(self.store, "list_prefix", None)
+        if not callable(store_list):
+            return []
+        snapshots: list[SubscriptionSnapshot] = []
+        for key, raw in store_list("subscription:"):
+            if not isinstance(raw, dict) or not key.startswith("subscription:"):
+                continue
+            organization_id = key[len("subscription:"):]
+            if not organization_id:
+                continue
+            snapshots.append(self.find_subscription(organization_id))  # type: ignore[arg-type]
+        return [snapshot for snapshot in snapshots if snapshot is not None]
+
+    def reconcile_subscription(
+        self,
+        subscription_payload: dict[str, Any],
+        *,
+        plan_for_price,
+    ) -> bool:
+        occurred_at = subscription_payload.get("updated_at") or datetime.now(timezone.utc).isoformat()
+        subscription_id = str(subscription_payload.get("id") or "")
+        if not subscription_id:
+            raise ValueError("Provider reconciliation payload has no subscription ID.")
+
+        event = WebhookEvent(
+            provider="paddle",
+            event_id=f"reconcile:{subscription_id}:{occurred_at}",
+            event_type="subscription.reconciled",
+            received_at=datetime.now(timezone.utc),
+            payload={
+                "event_id": f"reconcile:{subscription_id}:{occurred_at}",
+                "event_type": "subscription.reconciled",
+                "occurred_at": occurred_at,
+                "data": subscription_payload,
+            },
+        )
+        return self.apply_webhook_event(event, plan_for_price=plan_for_price)
 
     def get_usage(self, organization_id: str, *, now: datetime) -> UsageSnapshot:
         subscription = self.find_subscription(organization_id) or _trial_snapshot(organization_id, now)
