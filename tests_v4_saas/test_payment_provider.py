@@ -119,3 +119,30 @@ def test_plan_mapping_is_explicit() -> None:
     assert paddle.plan_for_price("pri_starter") == "starter"
     assert paddle.plan_for_price("pri_growth") == "growth"
     assert paddle.plan_for_price("pri_unknown") is None
+
+
+def test_create_checkout_session_reuses_existing_customer(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def fake_request(method, url, **kwargs):
+        calls.append((method, url, kwargs))
+        if method == "GET" and url.endswith("/customers"):
+            return httpx.Response(200, json={"data": [{"id": "ctm_existing"}]})
+        if method == "POST" and url.endswith("/transactions"):
+            return httpx.Response(201, json={"data": {"id": "txn_456", "checkout": {"url": "https://checkout.example.test/?_ptxn=txn_456"}}})
+        raise AssertionError("Unexpected Paddle call")
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    session = provider().create_checkout_session(
+        CheckoutRequest(
+            organization_id="org-2",
+            plan_id="growth",
+            customer_email="owner@example.com",
+            customer_name="Owner Example",
+        )
+    )
+
+    assert session.provider_session_id == "txn_456"
+    assert len(calls) == 2
+    assert calls[1][2]["json"]["customer_id"] == "ctm_existing"
