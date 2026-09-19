@@ -38,7 +38,14 @@ jobs:
           trap 'rm -f "$body"' EXIT
 
           status="$(
-            curl -sS               --connect-timeout 10               --max-time 60               -o "$body"               -w '%{http_code}'               -X POST               -H "X-V4-Reconciliation-Token: ${V4_BILLING_RECONCILIATION_TOKEN}"               "${V4_BILLING_RECONCILIATION_URL}"
+            curl -sS \
+              --connect-timeout 10 \
+              --max-time 60 \
+              -o "$body" \
+              -w '%{http_code}' \
+              -X POST \
+              -H "X-V4-Reconciliation-Token: ${V4_BILLING_RECONCILIATION_TOKEN}" \
+              "${V4_BILLING_RECONCILIATION_URL}"
           )"
 
           cat "$body"
