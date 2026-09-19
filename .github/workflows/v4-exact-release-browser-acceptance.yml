@@ -1,0 +1,83 @@
+name: V4 Exact Release Browser Acceptance
+
+on:
+  push:
+    branches:
+      - ops/v4-exact-browser-acceptance
+
+permissions:
+  contents: read
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RELEASE_SHA: 37045d665a988009b5627385ff3eaa4c21c25a26
+      V4_APP_URL: https://peaceful-mindfulness-production-51b6.up.railway.app
+      V4_E2E_API_URL: https://ai-sales-analyst-v3-production.up.railway.app
+    steps:
+      - name: Checkout exact release tree
+        uses: actions/checkout@v6
+        with:
+          ref: 37045d665a988009b5627385ff3eaa4c21c25a26
+
+      - name: Assert checked-out SHA
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Wait for deployed V4 release markers
+        run: |
+          set -eu
+          for attempt in $(seq 1 30); do
+            api_ok=0
+            frontend_ok=0
+            if curl -fsS "$V4_E2E_API_URL/api/v1/health" >/tmp/v4-api-health.json 2>/dev/null; then api_ok=1; fi
+            if curl -fsS "$V4_APP_URL/" >/tmp/v4-home.html 2>/dev/null && grep -Fq "<title>AI Sales Analyst | AI Revenue Analyst</title>" /tmp/v4-home.html; then frontend_ok=1; fi
+            if [ "$api_ok" = "1" ] && [ "$frontend_ok" = "1" ]; then exit 0; fi
+            sleep 10
+          done
+          exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install browser QA dependencies
+        working-directory: e2e
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify test discovery
+        working-directory: e2e
+        run: npx playwright test --list --config=v4-playwright.config.js
+
+      - name: Run exact-release browser acceptance suite
+        working-directory: e2e
+        run: npx playwright test --config=v4-playwright.config.js
+
+      - name: Upload exact-release browser artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-exact-release-browser-acceptance
+          if-no-files-found: ignore
+          path: |
+            e2e/test-results/**
+            e2e/v4-playwright-report/**
+          retention-days: 180
+
+      - name: Publish release linkage
+        if: always()
+        run: |
+          {
+            echo "Release SHA: $RELEASE_SHA"
+            echo "Deployed V4 frontend: $V4_APP_URL"
+            echo "Deployed V4 API: $V4_E2E_API_URL"
+            echo "Browser suite: e2e/v4-playwright.config.js"
+          } >> "$GITHUB_STEP_SUMMARY"
