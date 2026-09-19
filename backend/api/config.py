@@ -305,6 +305,7 @@ def load_settings() -> Settings:
             "V4_PADDLE_WEBHOOK_SECRET": paddle_webhook_secret,
             "V4_PADDLE_STARTER_PRICE_ID": paddle_starter_price_id,
             "V4_PADDLE_GROWTH_PRICE_ID": paddle_growth_price_id,
+            "V4_BILLING_RECONCILIATION_TOKEN": billing_reconciliation_token,
         }
         missing = [name for name, value in required.items() if not value]
         if missing:
