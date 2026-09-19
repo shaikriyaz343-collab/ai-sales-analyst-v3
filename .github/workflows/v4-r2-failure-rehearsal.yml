@@ -1,0 +1,74 @@
+name: V4 R2 Failure Rehearsal
+
+on:
+  push:
+    branches:
+      - ops/r2-failure-rehearsal
+    paths:
+      - .github/workflows/v4-r2-failure-rehearsal.yml
+
+permissions:
+  contents: read
+
+jobs:
+  r2-failure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: https://ai-sales-analyst-v3-production.up.railway.app
+      TEST_EMAIL: v4-durable-35460324124-1@example.com
+      TEST_DATASET_ID: aab367e64ad944bb933d07a3b124d5d6
+    steps:
+      - name: Build deterministic test credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(printf '%s' 'ai-sales-analyst-v4-durable-rehearsal' | sha256sum | cut -d' ' -f1)"
+          echo "DURABILITY_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Assert app is live during dependency-failure rehearsal
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o ready.json -w '%{http_code}' "$API_URL/api/v1/ready")"
+          test "$code" = "200"
+          jq -e '.status == "ready" or .status == "READY"' ready.json >/dev/null
+
+      - name: Authenticate disposable durable-state account
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o login.json -w '%{http_code}'             -c cookies.txt             -H 'Content-Type: application/json'             -X POST "$API_URL/api/v1/auth/login"             --data "{\"email\":\"$TEST_EMAIL\",\"password\":\"$DURABILITY_PASSWORD\"}")"
+          test "$code" = "200"
+
+      - name: Verify object-store failure is translated to HTTP 503
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o overview.json -w '%{http_code}'             -b cookies.txt             "$API_URL/api/v1/datasets/$TEST_DATASET_ID/overview")"
+          echo "overview_http_code=$code"
+          cat overview.json
+          echo
+          test "$code" = "503"
+          jq -e '.detail == "Service Unavailable - Object storage failed."' overview.json >/dev/null
+
+      - name: Publish sanitized evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "R2 provider-failure rehearsal"
+            echo "ready_http=200"
+            echo "login_http=200"
+            echo "overview_http=503"
+            echo "expected_detail=Service Unavailable - Object storage failed."
+            echo "dataset_id=$TEST_DATASET_ID"
+          } > r2-failure-evidence.txt
+          cat r2-failure-evidence.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-r2-failure-evidence
+          path: r2-failure-evidence.txt
+          retention-days: 180
