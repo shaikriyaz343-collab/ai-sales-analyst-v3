@@ -64,9 +64,9 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "RELEASE_SHA:" in workflow
     assert "currentSha" in workflow
     assert "targetSha" in workflow
-    assert "v4-development-ci.yml" in workflow
-    assert "browser-qa.yml" in workflow
-    assert "v4-production-probe.yml" in workflow
+    assert "V4 Development CI" in workflow
+    assert "Browser Acceptance QA" in workflow
+    assert "V4 Production Probe" in workflow
     assert "run.name === workflowName" in workflow
     assert "V4 Development CI" in workflow
     assert "Browser Acceptance QA" in workflow
