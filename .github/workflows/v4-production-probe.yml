@@ -87,7 +87,7 @@ jobs:
 
           result = {
               "probe_version": 2,
-              "release_candidate_probe": true,
+              "release_candidate_probe": True,
               "workflow_run_id": "${{ github.run_id }}",
               "commit_sha": "${{ github.sha }}",
               "branch": "${{ github.ref_name }}",
