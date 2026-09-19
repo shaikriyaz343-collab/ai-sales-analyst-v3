@@ -1,0 +1,98 @@
+name: V4 Production Probe Scheduler
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Optional exact V4 release SHA; defaults to current V4 branch head"
+        required: false
+        default: ""
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/v4-production-probe-scheduler.yml
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: v4-production-probe-scheduler
+  cancel-in-progress: false
+
+jobs:
+  dispatch-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Dispatch exact V4 production probe
+        uses: actions/github-script@v7
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const releaseSha = process.env.RELEASE_SHA.trim();
+
+            const branch = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'v4/saas-foundation',
+            });
+            const currentSha = branch.data.commit.sha;
+            const targetSha = releaseSha || currentSha;
+
+            if (releaseSha && releaseSha !== currentSha) {
+              core.setFailed(
+                'Requested release SHA ' + releaseSha +
+                ' does not match current v4/saas-foundation head ' + currentSha + '.',
+              );
+              return;
+            }
+
+            const combined = await github.rest.repos.getCombinedStatusForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: targetSha,
+            });
+            const railwayContexts = [
+              'satisfied-enthusiasm - ai-sales-analyst-v3',
+              'satisfied-enthusiasm - peaceful-mindfulness',
+            ];
+
+            const statusByContext = new Map(
+              (combined.data.statuses || []).map(status => [status.context, status.state]),
+            );
+            const notReady = railwayContexts.filter(
+              contextName => statusByContext.get(contextName) !== 'success',
+            );
+
+            if (notReady.length) {
+              core.setFailed(
+                'Target ' + targetSha +
+                ' is not fully deployed according to Railway commit statuses: ' +
+                notReady.join(', '),
+              );
+              return;
+            }
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'v4-production-probe.yml',
+              ref: 'v4/saas-foundation',
+              inputs: {
+                release_sha: targetSha,
+              },
+            });
+
+            core.summary
+              .addHeading('V4 Production Probe Scheduler')
+              .addRaw('Target release SHA: ' + targetSha + '\n')
+              .addRaw('V4 branch head: ' + currentSha + '\n')
+              .addRaw('Railway API/frontend statuses: success\n')
+              .addRaw('Dispatched v4-production-probe.yml on v4/saas-foundation.\n')
+              .write();
