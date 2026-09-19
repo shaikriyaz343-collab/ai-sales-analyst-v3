@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../lib/auth";
 
-export default function AuthScreen() {
+export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "signin" | "signup" }) {
   const { signIn, signUp } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -33,6 +34,7 @@ export default function AuthScreen() {
   return (
     <main className="auth-page">
       <div className="auth-shell">
+        <Link href="/" className="auth-back-link">← Back to AI Sales Analyst</Link>
         <header className="onboarding-brand">
           <div className="brand-mark">AI</div>
           <div><strong>AI Sales Analyst</strong><span>Your AI Revenue Analyst · No CRM replacement</span></div>
