@@ -17,3 +17,17 @@ def test_reconciliation_workflow_allows_billing_disabled_noop() -> None:
     assert "if [[ -z" not in content
     assert "V4_BILLING_RECONCILIATION_URL" in content
     assert 'status" != "200"' in content
+
+
+def test_production_probe_owns_failure_alert_lifecycle() -> None:
+    probe = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-production-probe.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "issues: write" in probe
+    assert "Create or update production probe incident" in probe
+    assert "Close recovered production probe incident" in probe
+    assert "Automated V4 production probe failure" in probe
