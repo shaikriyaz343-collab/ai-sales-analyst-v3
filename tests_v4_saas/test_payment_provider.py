@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
@@ -23,11 +22,18 @@ def provider() -> PaddleProvider:
 def test_create_checkout_session_uses_transaction_api(monkeypatch: pytest.MonkeyPatch) -> None:
     captured = {}
 
+    calls = []
+
     def fake_request(method, url, **kwargs):
         captured["method"] = method
         captured["url"] = url
         captured["headers"] = kwargs["headers"]
-        captured["json"] = kwargs["json"]
+        captured["json"] = kwargs.get("json")
+        calls.append((method, url, kwargs))
+        if url.endswith("/customers"):
+            if method == "GET":
+                return httpx.Response(200, json={"data": []})
+            return httpx.Response(201, json={"data": {"id": "ctm_456"}})
         return httpx.Response(
             201,
             json={
@@ -45,16 +51,27 @@ def test_create_checkout_session_uses_transaction_api(monkeypatch: pytest.Monkey
             organization_id="org-1",
             plan_id="starter",
             customer_email="owner@example.com",
-            success_url="https://app.example.test/dashboard/billing?checkout=success",
-            cancel_url="https://app.example.test/dashboard/billing?checkout=cancelled",
+            customer_name="Owner Example",
         )
     )
 
     assert session.provider == "paddle"
     assert session.provider_session_id == "txn_123"
     assert session.checkout_url.endswith("txn_123")
+    assert calls[0][0] == "GET"
+    assert calls[0][1] == "https://sandbox-api.paddle.com/customers"
+    assert calls[0][2]["params"] == {"email": "owner@example.com", "per_page": 1}
+    assert calls[1][0] == "POST"
+    assert calls[1][1] == "https://sandbox-api.paddle.com/customers"
+    assert calls[1][2]["json"]["email"] == "owner@example.com"
+    assert calls[1][2]["json"]["name"] == "Owner Example"
+    assert calls[1][2]["json"]["custom_data"] == {"organization_id": "org-1"}
+    assert calls[2][0] == "POST"
+    assert calls[2][1] == "https://sandbox-api.paddle.com/transactions"
+    assert captured["method"] == "POST"
     assert captured["url"] == "https://sandbox-api.paddle.com/transactions"
     assert captured["headers"]["Paddle-Version"] == "1"
+    assert captured["json"]["customer_id"] == "ctm_456"
     assert captured["json"]["items"] == [{"price_id": "pri_starter", "quantity": 1}]
     assert captured["json"]["custom_data"] == {
         "organization_id": "org-1",
@@ -102,3 +119,30 @@ def test_plan_mapping_is_explicit() -> None:
     assert paddle.plan_for_price("pri_starter") == "starter"
     assert paddle.plan_for_price("pri_growth") == "growth"
     assert paddle.plan_for_price("pri_unknown") is None
+
+
+def test_create_checkout_session_reuses_existing_customer(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def fake_request(method, url, **kwargs):
+        calls.append((method, url, kwargs))
+        if method == "GET" and url.endswith("/customers"):
+            return httpx.Response(200, json={"data": [{"id": "ctm_existing"}]})
+        if method == "POST" and url.endswith("/transactions"):
+            return httpx.Response(201, json={"data": {"id": "txn_456", "checkout": {"url": "https://checkout.example.test/?_ptxn=txn_456"}}})
+        raise AssertionError("Unexpected Paddle call")
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    session = provider().create_checkout_session(
+        CheckoutRequest(
+            organization_id="org-2",
+            plan_id="growth",
+            customer_email="owner@example.com",
+            customer_name="Owner Example",
+        )
+    )
+
+    assert session.provider_session_id == "txn_456"
+    assert len(calls) == 2
+    assert calls[1][2]["json"]["customer_id"] == "ctm_existing"

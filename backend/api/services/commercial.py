@@ -230,8 +230,6 @@ def _access_state(subscription: SubscriptionSnapshot, now: datetime) -> tuple[bo
     if subscription.status == "paused":
         return False, "paused"
     if subscription.status == "canceled":
-        if subscription.current_period_end is not None and now < subscription.current_period_end:
-            return True, "canceled_end_of_period"
         return False, "canceled"
     if subscription.status == "expired":
         return False, "expired"

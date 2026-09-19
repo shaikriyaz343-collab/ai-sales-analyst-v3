@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import enum
+import hmac
 from typing import Annotated
 
 import anyio
@@ -834,6 +835,54 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
     }
 
 
+@app.post("/api/v1/internal/commercial/reconcile")
+def commercial_reconcile(request: Request) -> dict[str, object]:
+    if settings.billing_provider != "paddle":
+        return {"status": "disabled", "processed": 0, "changed": 0, "failed": 0}
+
+    configured = settings.billing_reconciliation_token
+    provided = request.headers.get("X-V4-Reconciliation-Token", "")
+    if not configured or not hmac.compare_digest(provided, configured):
+        raise HTTPException(status_code=401, detail="Reconciliation authentication required.")
+
+    provider = _payment_provider()
+    repository = runtime_commercial_repository()
+    processed = changed = failed = 0
+    for subscription in repository.list_subscriptions():
+        if subscription.provider != "paddle" or not subscription.provider_subscription_id:
+            continue
+        processed += 1
+        try:
+            payload = provider.get_subscription(subscription.provider_subscription_id) if provider else None
+            if payload is None:
+                failed += 1
+                continue
+            if repository.reconcile_subscription(
+                payload,
+                plan_for_price=provider.plan_for_price,
+            ):
+                changed += 1
+        except (PaymentProviderError, ValueError) as exc:
+            failed += 1
+            logger.warning(
+                "Commercial subscription reconciliation failed: %s",
+                _sanitize_log(str(exc)),
+            )
+
+    if failed:
+        raise HTTPException(
+            status_code=502,
+            detail="One or more billing subscriptions could not be reconciled.",
+        )
+
+    return {
+        "status": "ok",
+        "processed": processed,
+        "changed": changed,
+        "failed": failed,
+    }
+
+
 @app.post("/api/v1/commercial/checkout")
 def commercial_checkout(
     payload: dict[str, str],
@@ -853,8 +902,7 @@ def commercial_checkout(
                 organization_id=principal.organization_id,
                 plan_id=plan_id,
                 customer_email=principal.email,
-                success_url=f"{frontend_origin}/dashboard/billing?checkout=success",
-                cancel_url=f"{frontend_origin}/dashboard/billing?checkout=cancelled",
+                customer_name=principal.name,
             )
         )
     except PaymentProviderError as exc:

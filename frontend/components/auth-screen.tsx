@@ -35,8 +35,18 @@ export default function AuthScreen() {
       <div className="auth-shell">
         <header className="onboarding-brand">
           <div className="brand-mark">AI</div>
-          <div><strong>AI Sales Analyst</strong><span>Your AI Revenue Analyst</span></div>
+          <div><strong>AI Sales Analyst</strong><span>Your AI Revenue Analyst · No CRM replacement</span></div>
         </header>
+        <section className="auth-marketing" aria-labelledby="public-value-proposition">
+          <span className="eyebrow">AI REVENUE ANALYST</span>
+          <h1 id="public-value-proposition">Know what changed in your pipeline before the meeting starts.</h1>
+          <p>Upload your sales export and get an evidence-backed revenue story: what changed, why it matters, what the forecast says, and what your team should do next.</p>
+          <div className="auth-value-grid">
+            <div><strong>What changed</strong><span>See the movements that matter.</span></div>
+            <div><strong>Why it matters</strong><span>Trace each conclusion to source data.</span></div>
+            <div><strong>What next</strong><span>Turn signals into actions and monitoring.</span></div>
+          </div>
+        </section>
         <section className="auth-card panel">
           <div>
             <span className="eyebrow">YOUR ANALYST WORKSPACE</span>
