@@ -6,14 +6,14 @@ const apiURL = (process.env.V4_E2E_API_URL || "https://ai-sales-analyst-v3-produ
 
 
 async function signUpFreshAccount(page, testInfo) {
-  const stamp = \`${Date.now()}-\${Math.random().toString(16).slice(2)}\`;
-  const email = \`v4-browser-\${stamp}@example.com\`;
+  const stamp = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const email = `v4-browser-${stamp}@example.com`;
   const response = await page.request.post("/api/v1/auth/signup", {
     data: {
       email,
       password: "BrowserTest123!",
       name: "V4 Browser Owner",
-      organization_name: \`V4 Browser Organization \${testInfo.testId}\`,
+      organization_name: `V4 Browser Organization ${testInfo.testId}`,
     },
   });
   expect(response.status()).toBe(200);
