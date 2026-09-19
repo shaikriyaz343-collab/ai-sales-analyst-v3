@@ -127,7 +127,17 @@ def test_create_checkout_session_reuses_existing_customer(monkeypatch: pytest.Mo
     def fake_request(method, url, **kwargs):
         calls.append((method, url, kwargs))
         if method == "GET" and url.endswith("/customers"):
-            return httpx.Response(200, json={"data": [{"id": "ctm_existing"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "ctm_existing",
+                            "custom_data": {"organization_id": "org-2"},
+                        }
+                    ]
+                },
+            )
         if method == "POST" and url.endswith("/transactions"):
             return httpx.Response(201, json={"data": {"id": "txn_456", "checkout": {"url": "https://checkout.example.test/?_ptxn=txn_456"}}})
         raise AssertionError("Unexpected Paddle call")
@@ -146,3 +156,63 @@ def test_create_checkout_session_reuses_existing_customer(monkeypatch: pytest.Mo
     assert session.provider_session_id == "txn_456"
     assert len(calls) == 2
     assert calls[1][2]["json"]["customer_id"] == "ctm_existing"
+
+
+def test_existing_customer_must_be_linked_to_same_organization(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_request(method, url, **kwargs):
+        if method == "GET" and url.endswith("/customers"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "ctm_other_org",
+                            "custom_data": {"organization_id": "org-other"},
+                        }
+                    ]
+                },
+            )
+        raise AssertionError("Unexpected Paddle call")
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    with pytest.raises(PaymentProviderError, match="another organization"):
+        provider().get_or_create_customer(
+            email="owner@example.com",
+            name="Owner Example",
+            organization_id="org-1",
+        )
+
+
+def test_customer_portal_can_be_scoped_to_subscription(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+
+    def fake_request(method, url, **kwargs):
+        captured["method"] = method
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        return httpx.Response(
+            201,
+            json={
+                "data": {
+                    "urls": {
+                        "general": {
+                            "overview": "https://customers.paddle.com/session/test",
+                        }
+                    }
+                }
+            },
+        )
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    url = provider().get_customer_portal_url(
+        "ctm_123",
+        "https://app.example.test/dashboard/billing",
+        subscription_id="sub_123",
+    )
+
+    assert url.endswith("/session/test")
+    assert captured["method"] == "POST"
+    assert captured["url"] == "https://sandbox-api.paddle.com/customers/ctm_123/portal-sessions"
+    assert captured["json"] == {"subscription_ids": ["sub_123"]}

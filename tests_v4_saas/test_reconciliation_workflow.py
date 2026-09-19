@@ -1,0 +1,19 @@
+from pathlib import Path
+
+WORKFLOW = Path(__file__).parents[1] / ".github" / "workflows" / "v4-commercial-reconciliation.yml"
+
+def test_reconciliation_workflow_uses_live_actions_expressions() -> None:
+    content = WORKFLOW.read_text(encoding="utf-8")
+
+    assert r"\${{" not in content
+    assert "${{ vars.V4_BILLING_RECONCILIATION_URL" in content
+    assert "${{ secrets.V4_BILLING_RECONCILIATION_TOKEN }}" in content
+    assert 'curl -sS \\' in content
+    assert "X-V4-Reconciliation-Token" in content
+
+def test_reconciliation_workflow_allows_billing_disabled_noop() -> None:
+    content = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "if [[ -z" not in content
+    assert "V4_BILLING_RECONCILIATION_URL" in content
+    assert 'status" != "200"' in content
