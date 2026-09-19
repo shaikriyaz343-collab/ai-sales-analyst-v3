@@ -19,8 +19,7 @@ class CheckoutRequest:
     organization_id: str
     plan_id: str
     customer_email: str
-    success_url: str
-    cancel_url: str
+    customer_name: str
 
 
 @dataclass(frozen=True)
@@ -116,12 +115,45 @@ class PaddleProvider:
                 return plan_id
         return None
 
+    def get_or_create_customer(self, *, email: str, name: str, organization_id: str) -> str:
+        listed = self._request(
+            "GET",
+            "/customers",
+            params={"email": email, "per_page": 1},
+        )
+        data = listed.get("data") or []
+        if data:
+            customer_id = data[0].get("id")
+            if customer_id:
+                return str(customer_id)
+
+        result = self._request(
+            "POST",
+            "/customers",
+            json={
+                "email": email,
+                "name": name or None,
+                "custom_data": {"organization_id": organization_id},
+            },
+        )
+        customer = result.get("data") or {}
+        customer_id = customer.get("id")
+        if not customer_id:
+            raise PaymentProviderError("Paddle did not return a customer ID.")
+        return str(customer_id)
+
     def create_checkout_session(self, request: CheckoutRequest) -> CheckoutSession:
         price_id = self.price_for_plan(request.plan_id)
+        customer_id = self.get_or_create_customer(
+            email=request.customer_email,
+            name=request.customer_name,
+            organization_id=request.organization_id,
+        )
         result = self._request(
             "POST",
             "/transactions",
             json={
+                "customer_id": customer_id,
                 "items": [{"price_id": price_id, "quantity": 1}],
                 "collection_mode": "automatic",
                 "custom_data": {
