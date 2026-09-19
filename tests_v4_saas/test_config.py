@@ -180,3 +180,34 @@ def test_cache_max_bytes_equals_upload_max_bytes_is_valid(monkeypatch: pytest.Mo
     settings = load_settings()
     assert settings.cache_max_bytes == 1000
     assert settings.upload_max_bytes == 1000
+
+
+def test_paddle_billing_requires_complete_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key, value in {
+        "V4_BILLING_PROVIDER": "paddle",
+        "V4_PADDLE_ENVIRONMENT": "sandbox",
+        "V4_PADDLE_API_KEY": "pdl_sdbx_test",
+        "V4_PADDLE_WEBHOOK_SECRET": "whsec_test",
+        "V4_PADDLE_STARTER_PRICE_ID": "pri_starter",
+        "V4_PADDLE_GROWTH_PRICE_ID": "pri_growth",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    settings = load_settings()
+
+    assert settings.billing_provider == "paddle"
+    assert settings.paddle_environment == "sandbox"
+    assert settings.paddle_starter_price_id == "pri_starter"
+    assert settings.paddle_growth_price_id == "pri_growth"
+
+
+def test_paddle_billing_rejects_live_key_in_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("V4_BILLING_PROVIDER", "paddle")
+    monkeypatch.setenv("V4_PADDLE_ENVIRONMENT", "sandbox")
+    monkeypatch.setenv("V4_PADDLE_API_KEY", "pdl_live_test")
+    monkeypatch.setenv("V4_PADDLE_WEBHOOK_SECRET", "whsec_test")
+    monkeypatch.setenv("V4_PADDLE_STARTER_PRICE_ID", "pri_starter")
+    monkeypatch.setenv("V4_PADDLE_GROWTH_PRICE_ID", "pri_growth")
+
+    with pytest.raises(ConfigurationError, match="Sandbox Paddle API keys"):
+        load_settings()
