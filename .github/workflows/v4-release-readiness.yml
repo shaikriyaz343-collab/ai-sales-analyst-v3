@@ -4,12 +4,6 @@ on:
   push:
     branches:
       - v4/saas-foundation
-    paths:
-      - .github/workflows/v4-release-readiness.yml
-      - .github/workflows/v4-production-observation-window.yml
-      - .github/workflows/v4-production-probe.yml
-      - .github/workflows/v4-development-ci.yml
-      - .github/workflows/browser-qa.yml
   schedule:
     - cron: "47 3 * * *"
   workflow_dispatch:
