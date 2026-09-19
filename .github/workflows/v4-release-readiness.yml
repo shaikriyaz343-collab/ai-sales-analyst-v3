@@ -77,7 +77,6 @@ jobs:
             }
 
             const observationWorkflowPath = '.github/workflows/v4-production-observation-window.yml';
-            const observationWorkflowPath = '.github/workflows/v4-production-observation-window.yml';
             const observationResponse = await github.rest.actions.listWorkflowRunsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
