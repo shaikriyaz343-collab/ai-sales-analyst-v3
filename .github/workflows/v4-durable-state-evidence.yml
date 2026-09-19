@@ -7,7 +7,7 @@ on:
       - ops/v4-durable-state-target.json
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   rehearsal:
@@ -73,6 +73,12 @@ jobs:
             echo "Preparation passed before restart. Update ops/v4-durable-state-target.json to mode=verify with this email and dataset_id, then perform the release-linked API restart."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "prepared_target=$(cat prepared_target.json)"
+          cp prepared_target.json ops/v4-durable-state-target.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/v4-durable-state-target.json
+          git commit -m "ops(recovery): record prepared durable-state target [skip ci]"
+          git push
 
       - name: Verify durable state after restart
         if: steps.mode.outputs.mode == 'verify'
