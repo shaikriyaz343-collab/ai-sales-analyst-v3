@@ -28,9 +28,7 @@ def test_production_probe_owns_failure_alert_lifecycle() -> None:
     ).read_text(encoding="utf-8")
 
     assert "issues: write" in probe
-    assert "branches:" in probe
-    assert "- v4/saas-foundation" in probe
-    assert "paths:" not in probe
+    assert "workflow_dispatch:" in probe
     assert "Create or update production probe incident" in probe
     assert "Close recovered production probe incident" in probe
     assert "Automated V4 production probe failure" in probe
