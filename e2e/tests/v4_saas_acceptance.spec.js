@@ -4,6 +4,23 @@ const path = require("path");
 const fixtures = path.join(__dirname, "..", "fixtures");
 const apiURL = (process.env.V4_E2E_API_URL || "https://ai-sales-analyst-v3-production.up.railway.app").replace(/\/$/, "");
 
+
+async function signUpFreshAccount(page, testInfo) {
+  const stamp = \`${Date.now()}-\${Math.random().toString(16).slice(2)}\`;
+  const email = \`v4-browser-\${stamp}@example.com\`;
+  const response = await page.request.post("/api/v1/auth/signup", {
+    data: {
+      email,
+      password: "BrowserTest123!",
+      name: "V4 Browser Owner",
+      organization_name: \`V4 Browser Organization \${testInfo.testId}\`,
+    },
+  });
+  expect(response.status()).toBe(200);
+  const me = await page.request.get("/api/v1/auth/me");
+  expect(me.status()).toBe(200);
+}
+
 async function upload(page, file) {
   await page.goto("/dashboard/overview", { waitUntil: "domcontentloaded" });
   const input = page.locator('input[type="file"]').first();
@@ -13,6 +30,19 @@ async function upload(page, file) {
   await expect(page.locator('[data-v4-readiness="dataset-ready"]')).toBeVisible({ timeout: 120_000 });
   await expect(page.locator("header").getByText(file, { exact: true })).toBeVisible({ timeout: 120_000 });
 }
+
+
+test.beforeEach(async ({ page }, testInfo) => {
+  const title = testInfo.title;
+  if (
+    title.includes("public landing explains the value proposition") ||
+    title.includes("deployed tenant isolation rejects cross-organization") ||
+    title.includes("organization account can sign up, sign out and sign back in")
+  ) {
+    return;
+  }
+  await signUpFreshAccount(page, testInfo);
+});
 
 test.describe("V4 public acquisition entrypoint", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
