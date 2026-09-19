@@ -106,3 +106,5 @@ jobs:
               .addRaw('Railway API/frontend statuses: success\n')
               .addRaw('Dispatched v4-production-probe.yml on v4/saas-foundation.\n')
               .write();
+
+# Deliberate operational touch: permits immediate validation of the scheduled probe path.
