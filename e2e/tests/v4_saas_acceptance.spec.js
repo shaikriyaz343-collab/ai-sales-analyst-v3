@@ -14,6 +14,20 @@ async function upload(page, file) {
   await expect(page.locator("header").getByText(file, { exact: true })).toBeVisible({ timeout: 120_000 });
 }
 
+test.describe("V4 public acquisition entrypoint", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("public landing explains the value proposition and routes to signup", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: /Know what changed in your pipeline before the meeting starts/i })).toBeVisible();
+    await expect(page.getByText("No CRM replacement. No implementation project. No fabricated numbers.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Start small. Upgrade when the analyst becomes part of the rhythm/i })).toBeVisible();
+    await page.getByRole("link", { name: "Start your 14-day trial", exact: true }).click();
+    await expect(page).toHaveURL(/\/login\?mode=signup$/);
+    await expect(page.getByRole("tab", { name: "Create account", exact: true })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
 test("V4 onboarding creates a dataset-backed workspace", async ({ page }) => {
   await upload(page, "retail.csv");
   await expect(page.locator("header").getByText("Transactional / Retail Sales", { exact: true })).toBeVisible();
@@ -156,7 +170,7 @@ test.describe("V4 authentication lifecycle", () => {
     const email = `v4-auth-${stamp}@example.com`;
     const password = "BrowserTest123!";
 
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
     await page.getByRole("tab", { name: "Create account", exact: true }).click();
     await page.getByLabel("Full name", { exact: true }).fill("V4 Browser User");
     await page.getByLabel("Organization name", { exact: true }).fill("V4 Browser Org");
@@ -168,8 +182,9 @@ test.describe("V4 authentication lifecycle", () => {
 
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(page).toHaveURL("/", { timeout: 30_000 });
-    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
-
+    await expect(page.getByRole("heading", { name: /Know what changed in your pipeline/i })).toBeVisible();
+    await page.getByRole("link", { name: "Sign in", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/login$/);
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
