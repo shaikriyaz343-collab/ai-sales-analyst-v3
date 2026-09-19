@@ -69,3 +69,15 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "actions: read" in workflow
     assert "issues: read" in workflow
     assert "state: 'closed'" not in workflow
+
+
+def test_release_probe_evidence_uses_python_literals() -> None:
+    probe = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-production-probe.yml"
+    ).read_text(encoding="utf-8")
+
+    assert '"release_candidate_probe": True,' in probe
+    assert '"release_candidate_probe": true,' not in probe
