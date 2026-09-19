@@ -122,7 +122,7 @@ def test_past_due_subscription_keeps_access_with_payment_recovery_state() -> Non
     assert entitlements.max_seats == 15
 
 
-def test_canceled_subscription_remains_active_until_period_end() -> None:
+def test_canceled_subscription_is_inactive() -> None:
     subscription = SubscriptionSnapshot(
         organization_id="org-1",
         plan_id="growth",
@@ -134,10 +134,10 @@ def test_canceled_subscription_remains_active_until_period_end() -> None:
 
     entitlements = build_entitlements(subscription, usage, now=NOW)
 
-    assert entitlements.access_active is True
-    assert entitlements.access_reason == "canceled_end_of_period"
-    assert entitlements.plan_id == "growth"
-    assert entitlements.max_workspaces == 10
+    assert entitlements.access_active is False
+    assert entitlements.access_reason == "canceled"
+    assert entitlements.plan_id is None
+    assert entitlements.max_workspaces == 0
 
 
 def test_negative_usage_and_negative_increment_do_not_grant_capacity() -> None:
