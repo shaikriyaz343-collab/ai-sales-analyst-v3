@@ -156,6 +156,9 @@ def test_production_probe_accepts_and_validates_exact_release_sha() -> None:
     assert "release_sha:" in probe
     assert "expected_sha" in probe
     assert '"target_release_sha": "${{ inputs.release_sha || github.sha }}"' in probe
+    assert "workflow_dispatch:" in probe
+    assert "push:" not in probe
+    assert "schedule:" not in probe
 
 
 def test_observation_window_is_dispatch_driven_and_uses_probe_runs() -> None:
