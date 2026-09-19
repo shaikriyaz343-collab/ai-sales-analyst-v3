@@ -24,6 +24,7 @@ The V4 branch now contains:
 - a Paddle provider adapter;
 - sandbox/live base URL switching;
 - API-version pinning;
+- customer lookup/creation before transaction checkout;
 - transaction-backed checkout session creation;
 - Paddle-Signature HMAC verification with timestamp protection;
 - subscription webhook reconciliation;
@@ -72,7 +73,7 @@ At minimum configure:
 - subscription.resumed
 - subscription.canceled
 
-The endpoint verifies the raw request body before parsing the JSON. Paddle documents the Paddle-Signature scheme as timestamp + raw body, HMAC-SHA256, with a five-second timestamp tolerance in its SDK verification guidance.
+The endpoint verifies the raw request body before parsing the JSON. Paddle documents the Paddle-Signature scheme as a timestamp plus the raw body, HMAC-SHA256, with a five-second timestamp tolerance in its SDK verification guidance. Paddle also recommends using webhooks as the subscription source of truth, deduplicating on event ID, and handling out-of-order events with occurred_at.
 
 ## Human-only launch steps
 
@@ -97,4 +98,6 @@ Current telemetry remains separate from quota enforcement. Do not turn on produc
 
 Paddle webhook delivery is at-least-once. The application deduplicates event IDs and ignores older provider events based on occurred_at.
 
-A periodic reconciliation job should be added before the paid customer population becomes material, using Paddle subscription/customer APIs to repair drift. Paddle explicitly recommends reconciliation because webhook events can be duplicated or arrive out of order.
+For payment recovery, the application keeps access while status is `past_due`, surfaces the customer portal, and returns to normal active state when Paddle reports `active`. Access is revoked when Paddle reports `paused` or `canceled`.
+
+A periodic reconciliation job should be added before the paid customer population becomes material, using Paddle subscription/customer APIs to repair drift.
