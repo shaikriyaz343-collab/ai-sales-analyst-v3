@@ -72,6 +72,7 @@ jobs:
             echo
             echo "Preparation passed before restart. Update ops/v4-durable-state-target.json to mode=verify with this email and dataset_id, then perform the release-linked API restart."
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "prepared_target=$(cat prepared_target.json)"
 
       - name: Verify durable state after restart
         if: steps.mode.outputs.mode == 'verify'
