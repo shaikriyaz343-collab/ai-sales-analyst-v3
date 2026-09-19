@@ -28,9 +28,7 @@ def test_production_probe_owns_failure_alert_lifecycle() -> None:
     ).read_text(encoding="utf-8")
 
     assert "issues: write" in probe
-    assert "branches:" in probe
-    assert "- v4/saas-foundation" in probe
-    assert "paths:" not in probe
+    assert "workflow_dispatch:" in probe
     assert "Create or update production probe incident" in probe
     assert "Close recovered production probe incident" in probe
     assert "Automated V4 production probe failure" in probe
@@ -156,6 +154,9 @@ def test_production_probe_accepts_and_validates_exact_release_sha() -> None:
     assert "release_sha:" in probe
     assert "expected_sha" in probe
     assert '"target_release_sha": "${{ inputs.release_sha || github.sha }}"' in probe
+    assert "workflow_dispatch:" in probe
+    assert "push:" not in probe
+    assert "schedule:" not in probe
 
 
 def test_observation_window_is_dispatch_driven_and_uses_probe_runs() -> None:
