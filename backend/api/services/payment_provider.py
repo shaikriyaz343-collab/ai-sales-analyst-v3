@@ -141,6 +141,15 @@ class PaddleProvider:
             checkout_url=str(checkout_url),
         )
 
+    def get_subscription(self, subscription_id: str) -> dict[str, Any]:
+        if not subscription_id.startswith("sub_"):
+            raise PaymentProviderError("Invalid Paddle subscription identifier.")
+        result = self._request("GET", f"/subscriptions/{subscription_id}")
+        data = result.get("data")
+        if not isinstance(data, dict) or not data.get("id"):
+            raise PaymentProviderError("Paddle did not return the subscription.")
+        return data
+
     def verify_webhook(self, payload: bytes, signature: str) -> WebhookEvent:
         if not signature:
             raise PaymentProviderError("Missing Paddle webhook signature.")
