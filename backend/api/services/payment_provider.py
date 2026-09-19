@@ -123,9 +123,15 @@ class PaddleProvider:
         )
         data = listed.get("data") or []
         if data:
-            customer_id = data[0].get("id")
-            if customer_id:
+            customer = data[0] if isinstance(data[0], dict) else {}
+            customer_id = customer.get("id")
+            custom_data = customer.get("custom_data") or {}
+            linked_org = custom_data.get("organization_id") if isinstance(custom_data, dict) else None
+            if customer_id and linked_org == organization_id:
                 return str(customer_id)
+            if customer_id and linked_org:
+                raise PaymentProviderError("Paddle customer is already linked to another organization.")
+            raise PaymentProviderError("Existing Paddle customer is not linked to this organization.")
 
         result = self._request(
             "POST",
@@ -233,11 +239,17 @@ class PaddleProvider:
             payload=data,
         )
 
-    def get_customer_portal_url(self, provider_customer_id: str, return_url: str) -> str:
+    def get_customer_portal_url(
+        self,
+        provider_customer_id: str,
+        return_url: str,
+        subscription_id: str | None = None,
+    ) -> str:
+        payload = {"subscription_ids": [subscription_id]} if subscription_id else {}
         result = self._request(
             "POST",
             f"/customers/{provider_customer_id}/portal-sessions",
-            json={},
+            json=payload,
         )
         overview = ((result.get("data") or {}).get("urls") or {}).get("general", {}).get("overview")
         if not overview:
