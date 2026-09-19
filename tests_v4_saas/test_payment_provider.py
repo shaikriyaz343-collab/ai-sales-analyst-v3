@@ -127,7 +127,17 @@ def test_create_checkout_session_reuses_existing_customer(monkeypatch: pytest.Mo
     def fake_request(method, url, **kwargs):
         calls.append((method, url, kwargs))
         if method == "GET" and url.endswith("/customers"):
-            return httpx.Response(200, json={"data": [{"id": "ctm_existing"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "ctm_existing",
+                            "custom_data": {"organization_id": "org-2"},
+                        }
+                    ]
+                },
+            )
         if method == "POST" and url.endswith("/transactions"):
             return httpx.Response(201, json={"data": {"id": "txn_456", "checkout": {"url": "https://checkout.example.test/?_ptxn=txn_456"}}})
         raise AssertionError("Unexpected Paddle call")
