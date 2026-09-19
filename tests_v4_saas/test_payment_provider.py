@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
@@ -52,8 +51,8 @@ def test_create_checkout_session_uses_transaction_api(monkeypatch: pytest.Monkey
             organization_id="org-1",
             plan_id="starter",
             customer_email="owner@example.com",
-        customer_name="Owner Example",
-        success_url="https://app.example.test/dashboard/billing?checkout=success",
+            customer_name="Owner Example",
+            success_url="https://app.example.test/dashboard/billing?checkout=success",
             cancel_url="https://app.example.test/dashboard/billing?checkout=cancelled",
         )
     )
