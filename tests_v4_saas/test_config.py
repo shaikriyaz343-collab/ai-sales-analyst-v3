@@ -190,6 +190,7 @@ def test_paddle_billing_requires_complete_provider_configuration(monkeypatch: py
         "V4_PADDLE_WEBHOOK_SECRET": "whsec_test",
         "V4_PADDLE_STARTER_PRICE_ID": "pri_starter",
         "V4_PADDLE_GROWTH_PRICE_ID": "pri_growth",
+        "V4_BILLING_RECONCILIATION_TOKEN": "reconcile-secret",
     }.items():
         monkeypatch.setenv(key, value)
 
@@ -208,6 +209,7 @@ def test_paddle_billing_rejects_live_key_in_sandbox(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("V4_PADDLE_WEBHOOK_SECRET", "whsec_test")
     monkeypatch.setenv("V4_PADDLE_STARTER_PRICE_ID", "pri_starter")
     monkeypatch.setenv("V4_PADDLE_GROWTH_PRICE_ID", "pri_growth")
+    monkeypatch.setenv("V4_BILLING_RECONCILIATION_TOKEN", "reconcile-secret")
 
     with pytest.raises(ConfigurationError, match="Sandbox Paddle API keys"):
         load_settings()
