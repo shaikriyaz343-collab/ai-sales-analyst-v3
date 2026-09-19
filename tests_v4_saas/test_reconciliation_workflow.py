@@ -94,3 +94,27 @@ def test_browser_qa_waits_for_the_current_public_release_marker() -> None:
     assert "Wait for deployed V4 release markers" in workflow
     assert 'grep -Fq "Start your 14-day trial" /tmp/v4-home.html' in workflow
     assert "V4 frontend/API are reachable and the public acquisition release marker is live." in workflow
+
+def test_metered_product_routes_use_hard_quota_slots() -> None:
+    main = (
+        Path(__file__).parents[1]
+        / "backend"
+        / "api"
+        / "main.py"
+    ).read_text(encoding="utf-8")
+
+    expected = {
+        "profile_upload": '"dataset_uploads"',
+        "ask": '"analyst_questions"',
+        "report": '"reports"',
+        "create_alert": '"monitoring_rules"',
+        "save": '"saved_intelligence"',
+    }
+
+    for function_name, metric in expected.items():
+        marker = f"def {function_name}("
+        start = main.index(marker)
+        next_route = main.find("\n@app.", start + len(marker))
+        section = main[start:] if next_route == -1 else main[start:next_route]
+        assert "with _commercial_usage_slot" in section, function_name
+        assert metric in section, f"{function_name} metric mapping"
