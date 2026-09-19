@@ -1,8 +1,6 @@
 name: V4 Production Observation Window
 
 on:
-  schedule:
-    - cron: "37 */6 * * *"
   workflow_dispatch:
     inputs:
       window_hours:
@@ -71,7 +69,6 @@ jobs:
                 new Date(run.created_at).getTime() >= cutoff
               )
               .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
 
             const eligibleRuns = releaseSha
               ? windowRuns.filter(run => run.head_sha === releaseSha)
