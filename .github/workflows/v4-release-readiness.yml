@@ -45,18 +45,15 @@ jobs:
 
             async function latestSuccessfulRun(workflowFile) {
               const workflowPath = '.github/workflows/' + workflowFile;
-              const runs = await github.paginate(
-                github.rest.actions.listWorkflowRunsForRepo,
-                {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  branch: 'v4/saas-foundation',
-                  per_page: 100,
-                },
-                response => response.data.workflow_runs,
-              );
+              const response = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: 'v4/saas-foundation',
+                per_page: 100,
+              });
+              const runs = response.data.workflow_runs || [];
               return runs
-                .filter(run => run.path === workflowPath && run.head_sha === targetSha)
+                .filter(run => run && run.path === workflowPath && run.head_sha === targetSha)
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 .find(run => run.status === 'completed' && run.conclusion === 'success') || null;
             }
@@ -80,18 +77,16 @@ jobs:
             }
 
             const observationWorkflowPath = '.github/workflows/v4-production-observation-window.yml';
-            const observationRuns = await github.paginate(
-              github.rest.actions.listWorkflowRunsForRepo,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                branch: 'v4/saas-foundation',
-                per_page: 100,
-              },
-              response => response.data.workflow_runs,
-            );
+            const observationWorkflowPath = '.github/workflows/v4-production-observation-window.yml';
+            const observationResponse = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'v4/saas-foundation',
+              per_page: 100,
+            });
+            const observationRuns = observationResponse.data.workflow_runs || [];
             const observationForTarget = observationRuns
-              .filter(run => run.path === observationWorkflowPath && run.head_sha === targetSha)
+              .filter(run => run && run.path === observationWorkflowPath && run.head_sha === targetSha)
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
 
             const evidence = {
