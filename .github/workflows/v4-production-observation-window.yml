@@ -14,11 +14,6 @@ on:
       - main
     paths:
       - .github/workflows/v4-production-observation-window.yml
-    inputs:
-      release_sha:
-        description: "Optional exact V4 release SHA; defaults to current V4 branch head"
-        required: false
-        default: ""
 
 permissions:
   actions: write
@@ -113,3 +108,5 @@ jobs:
               .addRaw('Railway API/frontend statuses: success\n')
               .addRaw('Dispatched v4-production-observation-window.yml on v4/saas-foundation.\n')
               .write();
+
+# Deliberate operational touch to validate the exact-SHA observation scheduler.
