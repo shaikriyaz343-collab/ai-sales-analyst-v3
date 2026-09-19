@@ -5,7 +5,7 @@ import { AuthProvider } from "../lib/auth";
 
 export const metadata: Metadata = {
   title: "AI Sales Analyst",
-  description: "Decision intelligence for sales and revenue teams.",
+  description: "Your AI Revenue Analyst. Upload sales data, understand what changed, and act with evidence — without replacing your CRM.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
