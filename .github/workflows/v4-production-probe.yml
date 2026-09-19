@@ -1,11 +1,6 @@
 name: V4 Production Probe
 
 on:
-  push:
-    branches:
-      - v4/saas-foundation
-  schedule:
-    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       release_sha:
