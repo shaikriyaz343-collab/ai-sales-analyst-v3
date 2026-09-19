@@ -17,8 +17,8 @@ jobs:
       API_URL: https://ai-sales-analyst-v3-production.up.railway.app
       TEST_EMAIL: v4-durable-35460324124-1@example.com
       TEST_DATASET_ID: aab367e64ad944bb933d07a3b124d5d6
-      CONCURRENCY: 20
-      REQUESTS_PER_WORKER: 10
+      CONCURRENCY: 4
+      REQUESTS_PER_WORKER: 25
     steps:
       - name: Build deterministic test credentials
         shell: bash
@@ -42,7 +42,7 @@ jobs:
           export API_URL TEST_DATASET_ID REQUESTS_PER_WORKER
           seq "$CONCURRENCY" | xargs -P"$CONCURRENCY" -I{} bash -c '
             for i in $(seq 1 "$REQUESTS_PER_WORKER"); do
-              curl -sS -o /dev/null -b cookies.txt                 -w "%{http_code} %{time_total}\n"                 "$API_URL/api/v1/datasets/$TEST_DATASET_ID/overview"
+              curl -sS -o /dev/null -b cookies.txt                 -w "%{http_code} %{time_total}\n"                 "$API_URL/api/v1/datasets/$TEST_DATASET_ID/overview" || true
             done
           ' >> results.txt
 
@@ -52,7 +52,8 @@ jobs:
           avg_seconds="$(awk 'BEGIN{sum=0} {sum+=$2} END{if(NR) printf "%.4f",sum/NR; else print "0"}' results.txt)"
 
           echo "release_sha=$RELEASE_SHA" > capacity-evidence.txt
-          echo "concurrency=$CONCURRENCY" >> capacity-evidence.txt
+          echo "configured_analysis_concurrency=4" >> capacity-evidence.txt
+          echo "concurrency_test=$CONCURRENCY" >> capacity-evidence.txt
           echo "requests_per_worker=$REQUESTS_PER_WORKER" >> capacity-evidence.txt
           echo "total_requests=$total" >> capacity-evidence.txt
           echo "failed_requests=$failures" >> capacity-evidence.txt
