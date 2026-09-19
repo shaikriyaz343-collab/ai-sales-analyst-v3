@@ -39,8 +39,8 @@ jobs:
         run: |
           set -euo pipefail
           : > results.txt
-          export API_URL TEST_DATASET_ID
-          seq "$CONCURRENCY" | xargs -n1 -P"$CONCURRENCY" -I{} bash -c '
+          export API_URL TEST_DATASET_ID REQUESTS_PER_WORKER
+          seq "$CONCURRENCY" | xargs -P"$CONCURRENCY" -I{} bash -c '
             for i in $(seq 1 "$REQUESTS_PER_WORKER"); do
               curl -sS -o /dev/null -b cookies.txt                 -w "%{http_code} %{time_total}\n"                 "$API_URL/api/v1/datasets/$TEST_DATASET_ID/overview"
             done
