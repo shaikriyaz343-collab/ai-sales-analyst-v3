@@ -177,3 +177,33 @@ test.describe("V4 authentication lifecycle", () => {
     await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible({ timeout: 30_000 });
   });
 });
+
+test("V4 browser API requests and auth cookie stay on the frontend origin", async ({ page }) => {
+  const appURL = process.env.V4_APP_URL || "http://localhost:3000";
+  const appHost = new URL(appURL).host;
+  const apiHosts = new Set();
+
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith("/api/v1/")) {
+      apiHosts.add(url.host);
+    }
+  });
+
+  await page.goto("/dashboard/overview", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).toBeVisible();
+  await expect.poll(() => apiHosts.size, { timeout: 20_000 }).toBeGreaterThan(0);
+
+  expect([...apiHosts]).toEqual([appHost]);
+
+  const cookies = await page.context().cookies();
+  const authCookie = cookies.find((cookie) =>
+    cookie.name === "__Host-v4_auth_session" || cookie.name === "v4_auth_session"
+  );
+  expect(authCookie).toBeTruthy();
+  expect(authCookie.domain).toBe(new URL(appURL).hostname);
+  expect(authCookie.path).toBe("/");
+  if (authCookie.name.startsWith("__Host-")) {
+    expect(authCookie.secure).toBe(true);
+  }
+});

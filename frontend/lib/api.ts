@@ -1,6 +1,9 @@
 import type { AnalysisSession, AuthUser, DatasetSummary, OverviewResponse, ScopeFilter, AuthWorkspace } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE =
+  process.env.NODE_ENV === "production"
+    ? ""
+    : (process.env.NEXT_PUBLIC_API_BASE_URL ?? "");
 
 type ApiOptions = RequestInit & { noStore?: boolean };
 

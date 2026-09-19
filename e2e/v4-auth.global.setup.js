@@ -2,7 +2,7 @@ const { request } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
 
-const API_URL = process.env.V4_E2E_API_URL || "http://localhost:8000";
+const APP_URL = process.env.V4_APP_URL || "http://localhost:3000";
 const EMAIL = process.env.V4_E2E_EMAIL || `v4-browser-owner-${Date.now()}@example.com`;
 const PASSWORD = process.env.V4_E2E_PASSWORD || "BrowserTest123!";
 const AUTH_DIR = path.join(__dirname, ".auth");
@@ -26,7 +26,7 @@ async function waitForApi(api) {
 
 module.exports = async function globalSetup() {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
-  const api = await request.newContext({ baseURL: API_URL });
+  const api = await request.newContext({ baseURL: APP_URL });
   try {
     await waitForApi(api);
 
