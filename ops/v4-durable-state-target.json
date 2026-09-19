@@ -1,3 +1,5 @@
 {
-  "mode": "prepare"
+  "mode": "verify",
+  "email": "v4-durable-35460315127-1@example.com",
+  "dataset_id": "ed416bdb709f4026bd9def7d83d6fa2f"
 }
