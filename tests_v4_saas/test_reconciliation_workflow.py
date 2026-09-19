@@ -67,13 +67,14 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "v4-development-ci.yml" in workflow
     assert "browser-qa.yml" in workflow
     assert "v4-production-probe.yml" in workflow
-    assert "listRepoWorkflows" in workflow
-    assert "workflowIdsByPath" in workflow
-    assert "workflow_id: workflowId" in workflow
+    assert "run.name === workflowName" in workflow
+    assert "V4 Development CI" in workflow
+    assert "Browser Acceptance QA" in workflow
+    assert "V4 Production Probe" in workflow
     assert "response.data.workflow_runs" in workflow
-    assert "observationWorkflowId" in workflow
-    assert "workflow_id: observationWorkflowId" in workflow
-    assert "workflow_id: workflowFile" not in workflow
+    assert "V4 Production Observation Window" in workflow
+    assert "run.name === 'V4 Production Observation Window'" in workflow
+    assert "workflow_id:" not in workflow
     assert "release_ready" in workflow
     assert "run.head_sha === targetSha" in workflow
     assert "actions: read" in workflow
