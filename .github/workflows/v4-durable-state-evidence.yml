@@ -64,6 +64,12 @@ jobs:
             "$API_URL/api/v1/datasets/$dataset_id/overview")"
           test "$code" = "200"
 
+          jq -n \
+            --arg email "$email" \
+            --arg dataset_id "$dataset_id" \
+            '{mode:"verify",email:$email,dataset_id:$dataset_id}' \
+            > prepared_target.json
+
           {
             echo "## V4 durable-state preparation"
             echo
