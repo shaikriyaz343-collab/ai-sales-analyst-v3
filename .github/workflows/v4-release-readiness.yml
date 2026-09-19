@@ -89,7 +89,7 @@ jobs:
               response => response.data,
             );
             const observationForTarget = observationRuns
-              .filter(run => run.head_sha === targetSha || !releaseSha)
+              .filter(run => run.head_sha === targetSha)
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
 
             const evidence = {
@@ -146,7 +146,7 @@ jobs:
               .addRaw('Exact CI/browser/probe checks: ' + exactChecksPass + '\n')
               .addRaw('Topology/security gates (#13/#14): ' + topologyAndSecurityClosed + '\n')
               .addRaw('Production evidence gates (#11/#12) still open: ' + productionEvidenceOpen + '\n')
-              .addRaw('Observation-window evidence present: ' + Boolean(observationForTarget) + '\n')
+              .addRaw('Exact-SHA observation-window evidence present: ' + Boolean(observationForTarget) + '\n')
               .addRaw('Release ready: ' + evidence.release_ready + '\n')
               .write();
 

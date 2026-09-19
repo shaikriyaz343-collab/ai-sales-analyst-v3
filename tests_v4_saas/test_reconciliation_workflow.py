@@ -63,6 +63,7 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "browser-qa.yml" in workflow
     assert "v4-production-probe.yml" in workflow
     assert "release_ready" in workflow
+    assert "run.head_sha === targetSha" in workflow
     assert "actions: read" in workflow
     assert "issues: read" in workflow
     assert "state: 'closed'" not in workflow
