@@ -1,0 +1,108 @@
+name: V4 Durable State Evidence
+
+on:
+  push:
+    paths:
+      - .github/workflows/v4-durable-state-evidence.yml
+      - ops/v4-durable-state-target.json
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_URL: https://ai-sales-analyst-v3-production.up.railway.app
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build deterministic test credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(printf '%s' 'ai-sales-analyst-v4-durable-rehearsal' | sha256sum | cut -d' ' -f1)"
+          echo "DURABILITY_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Determine mode
+        id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="$(jq -r '.mode // "prepare"' ops/v4-durable-state-target.json)"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare durable state
+        if: steps.mode.outputs.mode == 'prepare'
+        shell: bash
+        run: |
+          set -euo pipefail
+          stamp="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          email="v4-durable-$stamp@example.com"
+
+          code="$(curl -sS -o signup.json -w '%{http_code}' \
+            -c cookies.txt \
+            -H 'Content-Type: application/json' \
+            -X POST "$API_URL/api/v1/auth/signup" \
+            --data "{\"email\":\"$email\",\"password\":\"$DURABILITY_PASSWORD\",\"name\":\"V4 Durable State\",\"organization_name\":\"V4 Durable Rehearsal $stamp\"}")"
+          test "$code" = "200"
+
+          code="$(curl -sS -o upload.json -w '%{http_code}' \
+            -b cookies.txt -c cookies.txt \
+            -F 'file=@ops/v4-durable-rehearsal.csv;type=text/csv' \
+            "$API_URL/api/v1/onboarding/profile")"
+          test "$code" = "200"
+
+          dataset_id="$(jq -r '.dataset.dataset_id' upload.json)"
+          test -n "$dataset_id"
+          test "$dataset_id" != "null"
+
+          code="$(curl -sS -o overview.json -w '%{http_code}' \
+            -b cookies.txt \
+            "$API_URL/api/v1/datasets/$dataset_id/overview")"
+          test "$code" = "200"
+
+          {
+            echo "## V4 durable-state preparation"
+            echo
+            echo "Disposable account: \`$email\`"
+            echo "Dataset ID: \`$dataset_id\`"
+            echo
+            echo "Preparation passed before restart. Update ops/v4-durable-state-target.json to mode=verify with this email and dataset_id, then perform the release-linked API restart."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify durable state after restart
+        if: steps.mode.outputs.mode == 'verify'
+        shell: bash
+        run: |
+          set -euo pipefail
+          email="$(jq -r '.email' ops/v4-durable-state-target.json)"
+          dataset_id="$(jq -r '.dataset_id' ops/v4-durable-state-target.json)"
+
+          code="$(curl -sS -o login.json -w '%{http_code}' \
+            -c cookies.txt \
+            -H 'Content-Type: application/json' \
+            -X POST "$API_URL/api/v1/auth/login" \
+            --data "{\"email\":\"$email\",\"password\":\"$DURABILITY_PASSWORD\"}")"
+          test "$code" = "200"
+
+          code="$(curl -sS -o me.json -w '%{http_code}' \
+            -b cookies.txt \
+            "$API_URL/api/v1/auth/me")"
+          test "$code" = "200"
+
+          code="$(curl -sS -o overview.json -w '%{http_code}' \
+            -b cookies.txt \
+            "$API_URL/api/v1/datasets/$dataset_id/overview")"
+          test "$code" = "200"
+
+          returned_id="$(jq -r '.dataset_id' overview.json)"
+          test "$returned_id" = "$dataset_id"
+
+          echo "## V4 durable-state verification" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Login after restart: **HTTP 200**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dataset overview after restart: **HTTP 200**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dataset ID preserved: \`$dataset_id\`" >> "$GITHUB_STEP_SUMMARY"
