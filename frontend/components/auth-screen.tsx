@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../lib/auth";
 
@@ -9,6 +9,10 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
   const { signIn, signUp } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");

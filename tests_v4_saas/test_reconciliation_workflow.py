@@ -119,3 +119,16 @@ def test_metered_product_routes_use_hard_quota_slots() -> None:
         section = main[start:] if next_route == -1 else main[start:next_route]
         assert "with _commercial_usage_slot" in section, function_name
         assert metric in section, f"{function_name} metric mapping"
+
+
+def test_auth_screen_syncs_query_selected_signup_mode() -> None:
+    auth = (
+        Path(__file__).parents[1]
+        / "frontend"
+        / "components"
+        / "auth-screen.tsx"
+    ).read_text(encoding="utf-8")
+
+    assert "useEffect" in auth
+    assert "setMode(initialMode)" in auth
+    assert "[initialMode]" in auth
