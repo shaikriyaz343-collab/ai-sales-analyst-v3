@@ -929,6 +929,7 @@ def commercial_portal(principal: Principal = Depends(require_user)) -> dict[str,
         url = provider.get_customer_portal_url(
             subscription.provider_customer_id,
             f"{settings.frontend_origins[0].rstrip('/')}/dashboard/billing",
+            subscription_id=subscription.provider_subscription_id,
         )
     except PaymentProviderError as exc:
         logger.warning("Customer portal unavailable: %s", _sanitize_log(str(exc)))
