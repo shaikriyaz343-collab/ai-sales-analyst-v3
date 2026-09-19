@@ -13,19 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      V4_BILLING_RECONCILIATION_URL: \${{ vars.V4_BILLING_RECONCILIATION_URL || 'https://ai-sales-analyst-v3-production.up.railway.app/api/v1/internal/commercial/reconcile' }}
-      V4_BILLING_RECONCILIATION_TOKEN: \${{ secrets.V4_BILLING_RECONCILIATION_TOKEN }}
+      V4_BILLING_RECONCILIATION_URL: ${{ vars.V4_BILLING_RECONCILIATION_URL || 'https://ai-sales-analyst-v3-production.up.railway.app/api/v1/internal/commercial/reconcile' }}
+      V4_BILLING_RECONCILIATION_TOKEN: ${{ secrets.V4_BILLING_RECONCILIATION_TOKEN }}
 
     steps:
       - name: Validate reconciliation configuration
         shell: bash
         run: |
           set -euo pipefail
-          case "\${V4_BILLING_RECONCILIATION_URL}" in
+          case "${V4_BILLING_RECONCILIATION_URL}" in
             http://*|https://*) ;;
             *) echo "::error::V4_BILLING_RECONCILIATION_URL must be an absolute HTTP(S) URL."; exit 1 ;;
           esac
-          if [[ -z "\${V4_BILLING_RECONCILIATION_TOKEN}" ]]; then
+          if [[ -z "${V4_BILLING_RECONCILIATION_TOKEN}" ]]; then
             echo "::error::V4_BILLING_RECONCILIATION_TOKEN is not configured."
             exit 1
           fi
@@ -38,19 +38,12 @@ jobs:
           trap 'rm -f "$body"' EXIT
 
           status="$(
-            curl -sS \
-              --connect-timeout 10 \
-              --max-time 60 \
-              -o "$body" \
-              -w '%{http_code}' \
-              -X POST \
-              -H "X-V4-Reconciliation-Token: \${V4_BILLING_RECONCILIATION_TOKEN}" \
-              "\${V4_BILLING_RECONCILIATION_URL}"
+            curl -sS               --connect-timeout 10               --max-time 60               -o "$body"               -w '%{http_code}'               -X POST               -H "X-V4-Reconciliation-Token: ${V4_BILLING_RECONCILIATION_TOKEN}"               "${V4_BILLING_RECONCILIATION_URL}"
           )"
 
           cat "$body"
 
           if [[ "$status" != "200" ]]; then
-            echo "::error::Commercial reconciliation failed with HTTP \$status."
+            echo "::error::Commercial reconciliation failed with HTTP $status."
             exit 1
           fi
