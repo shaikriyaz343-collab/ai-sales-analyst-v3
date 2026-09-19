@@ -9,6 +9,16 @@ on:
         description: "Optional exact V4 release SHA; defaults to current V4 branch head"
         required: false
         default: ""
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/v4-production-observation-window.yml
+    inputs:
+      release_sha:
+        description: "Optional exact V4 release SHA; defaults to current V4 branch head"
+        required: false
+        default: ""
 
 permissions:
   actions: write
