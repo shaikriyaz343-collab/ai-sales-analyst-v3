@@ -1,8 +1,10 @@
 # AI Sales Analyst V4 — Engineering Handoff
 
+> **Control-plane rule (2026-09-19): this file is durable engineering history, not a hard-coded pointer to the moving `v4/saas-foundation` branch head.** Do not infer the current release SHA from this document. For the current candidate, use `V4_RELEASE_CONTROL_PLANE.md`, the latest successful release-readiness artifact, and exact deployment/check artifacts. Historical commit SHAs below remain provenance and must not be rewritten merely because the branch moves.
+
 ## Current branch
 
-`v4/saas-foundation`
+`v4/saas-foundation` (moving branch; current SHA is resolved from live GitHub state)
 
 ## Current checkpoint
 
@@ -10,7 +12,7 @@ The latest application behavior checkpoint remains:
 
 `371aa5caf00308b98faeba58bf4c5736bb995b39`
 
-The current branch head is `d7cbe68de3cb18c8226cb99d514b6a6624935574`. PR #28 is merged into the foundation branch and adds repository-side security review/test coverage only; it does not change analytical behavior. The latest application-behavior checkpoint therefore remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
+The branch contains later release-QA, commercial, monitoring, acquisition, and evidence-hardening changes. The exact SHA used for a release decision is determined by the immutable candidate/release evidence package, not by the historical SHA references in this handoff.
 
 ## Durable project documents
 
