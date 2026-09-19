@@ -12,8 +12,10 @@ A human/operator statement that an external exercise was performed is **not evid
 
 ## Release identity
 
+> **Historical matrix note (2026-09-19):** this document is a dated checkpoint and evidence matrix. It deliberately does not act as a live pointer to the moving `v4/saas-foundation` branch head. Resolve the current candidate SHA from the live branch plus the latest successful exact-SHA release-readiness evidence. Historical SHAs in this file remain provenance.
+
 - Production-oriented branch: `v4/saas-foundation`
-- Current branch head: `403764a2801aca7b406059e95d5baedfa1eea466`
+- Current branch head: **resolve live from GitHub; do not use the historical value from this 2026-09-17 snapshot**
 - Latest application-behavior checkpoint: `371aa5caf00308b98faeba58bf4c5736bb995b39`
 - PR #29 remains a documentation-only merge, so the application-behavior checkpoint remains `371aa5caf00308b98faeba58bf4c5736bb995b39`.
 - PR #28 security review is merged as `d7cbe68de3cb18c8226cb99d514b6a6624935574`; its changes are repository-side security review/tests and do not alter analytical behavior.
