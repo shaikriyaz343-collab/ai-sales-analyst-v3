@@ -854,8 +854,6 @@ def commercial_checkout(
                 plan_id=plan_id,
                 customer_email=principal.email,
                 customer_name=principal.name,
-                success_url=f"{frontend_origin}/dashboard/billing?checkout=success",
-                cancel_url=f"{frontend_origin}/dashboard/billing?checkout=cancelled",
             )
         )
     except PaymentProviderError as exc:
