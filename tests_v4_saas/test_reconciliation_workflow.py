@@ -64,6 +64,12 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "v4-development-ci.yml" in workflow
     assert "browser-qa.yml" in workflow
     assert "v4-production-probe.yml" in workflow
+    assert "listRepoWorkflows" in workflow
+    assert "item.path === '.github/workflows/' + workflowFile" in workflow
+    assert "return workflow.id" in workflow
+    assert "workflow_id: workflowId" in workflow
+    assert "const observationWorkflowId = await workflowIdFor" in workflow
+    assert "workflow_id: observationWorkflowId" in workflow
     assert "release_ready" in workflow
     assert "run.head_sha === targetSha" in workflow
     assert "actions: read" in workflow
