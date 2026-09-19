@@ -853,6 +853,7 @@ def commercial_checkout(
                 organization_id=principal.organization_id,
                 plan_id=plan_id,
                 customer_email=principal.email,
+                customer_name=principal.name,
                 success_url=f"{frontend_origin}/dashboard/billing?checkout=success",
                 cancel_url=f"{frontend_origin}/dashboard/billing?checkout=cancelled",
             )
