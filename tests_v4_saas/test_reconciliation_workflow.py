@@ -55,6 +55,8 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
         / "v4-release-readiness.yml"
     ).read_text(encoding="utf-8")
 
+    assert "push:" in workflow
+    assert "v4/saas-foundation" in workflow
     assert "workflow_dispatch:" in workflow
     assert "RELEASE_SHA:" in workflow
     assert "currentSha" in workflow

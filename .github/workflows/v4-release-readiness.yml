@@ -1,6 +1,9 @@
 name: V4 Release Readiness
 
 on:
+  push:
+    branches:
+      - v4/saas-foundation
   schedule:
     - cron: "47 3 * * *"
   workflow_dispatch:
