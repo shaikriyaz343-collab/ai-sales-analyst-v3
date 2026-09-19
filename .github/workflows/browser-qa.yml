@@ -111,12 +111,12 @@ jobs:
             fi
 
             if curl -fsS "${V4_APP_URL}/" >/tmp/v4-home.html 2>/dev/null && \
-               grep -Fq "Start your 14-day trial" /tmp/v4-home.html; then
+               grep -Fq "<title>AI Sales Analyst | AI Revenue Analyst</title>" /tmp/v4-home.html; then
               frontend_ok=1
             fi
 
             if [ "${api_ok}" = "1" ] && [ "${frontend_ok}" = "1" ]; then
-              echo "V4 frontend/API are reachable and the public acquisition release marker is live."
+              echo "V4 frontend/API are reachable and the public application marker is live."
               cat /tmp/v4-api-health.json
               exit 0
             fi
@@ -124,7 +124,7 @@ jobs:
             echo "Waiting for V4 deployment release marker (attempt ${attempt}/30, api_ok=${api_ok}, frontend_ok=${frontend_ok})..."
             sleep 10
           done
-          echo "::error::V4 frontend/API did not expose the expected release marker within the wait window."
+          echo "::error::V4 frontend/API did not expose the expected public application marker within the wait window."
           exit 1
 
       - name: Checkout
