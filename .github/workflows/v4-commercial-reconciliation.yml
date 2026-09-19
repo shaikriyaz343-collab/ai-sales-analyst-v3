@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: v4-commercial-reconciliation
+  cancel-in-progress: false
+
 jobs:
   reconcile:
     runs-on: ubuntu-latest
@@ -25,11 +29,6 @@ jobs:
             http://*|https://*) ;;
             *) echo "::error::V4_BILLING_RECONCILIATION_URL must be an absolute HTTP(S) URL."; exit 1 ;;
           esac
-          if [[ -z "${V4_BILLING_RECONCILIATION_TOKEN}" ]]; then
-            echo "::error::V4_BILLING_RECONCILIATION_TOKEN is not configured."
-            exit 1
-          fi
-
       - name: Reconcile Paddle subscriptions
         shell: bash
         run: |
