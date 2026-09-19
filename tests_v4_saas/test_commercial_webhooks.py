@@ -74,3 +74,30 @@ def test_older_provider_event_cannot_roll_back_newer_state() -> None:
     assert subscription is not None
     assert subscription.plan_id == "growth"
     assert subscription.provider_price_id == "pri_growth"
+
+
+def test_reconcile_subscription_applies_provider_state() -> None:
+    store = MemoryStore()
+    repo = CommercialRepository(store)
+
+    changed = repo.reconcile_subscription(
+        {
+            "id": "sub_123",
+            "status": "active",
+            "customer_id": "ctm_123",
+            "custom_data": {"organization_id": "org-1", "plan_id": "starter"},
+            "items": [{"price": {"id": "pri_starter"}}],
+            "current_billing_period": {
+                "starts_at": "2026-09-18T12:00:00Z",
+                "ends_at": "2026-10-18T12:00:00Z",
+            },
+            "updated_at": "2026-09-18T12:05:00Z",
+        },
+        plan_for_price=price_to_plan,
+    )
+
+    assert changed is True
+    subscription = repo.find_subscription("org-1")
+    assert subscription is not None
+    assert subscription.status == "active"
+    assert subscription.provider_subscription_id == "sub_123"
