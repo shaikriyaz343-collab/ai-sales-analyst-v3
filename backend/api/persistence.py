@@ -90,6 +90,16 @@ class LocalJsonDocumentStore:
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
 
+    def list_prefix(self, prefix: str) -> list[tuple[str, Any]]:
+        normalized = prefix.rstrip("/")
+        results: list[tuple[str, Any]] = []
+        for path in self.root.glob("**/*.json"):
+            relative = path.relative_to(self.root).as_posix()
+            key = relative[:-5] if relative.endswith(".json") else relative
+            if key.startswith(normalized):
+                results.append((key, json.loads(path.read_text(encoding="utf-8"))))
+        return sorted(results)
+
 
 @dataclass(frozen=True)
 class PersistenceContext:
@@ -131,6 +141,14 @@ class PostgresJsonDocumentStore:
         with self._connect() as conn: return conn.execute(f"SELECT 1 FROM {self._TABLE} WHERE namespace=%s AND document_key=%s LIMIT 1",(self.namespace,key)).fetchone() is not None
     def delete(self,key:str)->None:
         with self._connect() as conn: conn.execute(f"DELETE FROM {self._TABLE} WHERE namespace=%s AND document_key=%s",(self.namespace,key)); conn.commit()
+    def list_prefix(self,prefix:str)->list[tuple[str,Any]]:
+        normalized=prefix.rstrip("/") + "%"
+        with self._connect() as conn:
+            rows=conn.execute(
+                f"SELECT document_key,payload FROM {self._TABLE} WHERE namespace=%s AND document_key LIKE %s ORDER BY document_key",
+                (self.namespace,normalized),
+            ).fetchall()
+        return [(str(key), payload) for key,payload in rows]
 
 class S3ObjectStore:
     def __init__(self,bucket:str,region:str,endpoint_url:str|None=None,access_key:str|None=None,secret_key:str|None=None,prefix:str="",temp_root:Path|None=None,client:Any|None=None)->None:
