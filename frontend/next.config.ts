@@ -9,6 +9,18 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    const apiUpstream =
+      process.env.V4_API_UPSTREAM_URL ||
+      process.env.NEXT_PUBLIC_API_PROXY_TARGET ||
+      "http://127.0.0.1:8000";
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiUpstream}/api/:path*`,
+      },
+    ];
+  },
   turbopack: {
     root: __dirname,
   },
