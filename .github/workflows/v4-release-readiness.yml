@@ -43,36 +43,29 @@ jobs:
             const currentSha = branchRef.data.commit.sha;
             const targetSha = releaseSha || currentSha;
 
-            const workflowResponse = await github.rest.actions.listRepoWorkflows({
+            const response = await github.rest.actions.listWorkflowRunsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
+              branch: 'v4/saas-foundation',
               per_page: 100,
             });
-            const workflowIdsByPath = new Map(
-              (workflowResponse.data.workflows || []).map(workflow => [workflow.path, workflow.id]),
-            );
+            const runs = response.data.workflow_runs || [];
 
-            async function latestSuccessfulRun(workflowFile) {
-              const workflowId = workflowIdsByPath.get('.github/workflows/' + workflowFile);
-              if (!workflowId) {
-                throw new Error('Workflow not found: ' + workflowFile);
-              }
-              const response = await github.rest.actions.listWorkflowRunsForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: workflowId,
-                branch: 'v4/saas-foundation',
-                per_page: 100,
-              });
-              const runs = response.data.workflow_runs || [];
+            function latestSuccessfulRun(workflowName) {
               return runs
-                .filter(run => run && run.head_sha === targetSha)
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                .find(run => run.status === 'completed' && run.conclusion === 'success') || null;
+                .filter(run =>
+                  run &&
+                  run.name === workflowName &&
+                  run.head_sha === targetSha &&
+                  run.status === 'completed' &&
+                  run.conclusion === 'success'
+                )
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
             }
-            const ci = await latestSuccessfulRun('v4-development-ci.yml');
-            const browser = await latestSuccessfulRun('browser-qa.yml');
-            const probe = await latestSuccessfulRun('v4-production-probe.yml');
+
+            const ci = latestSuccessfulRun('V4 Development CI');
+            const browser = latestSuccessfulRun('Browser Acceptance QA');
+            const probe = latestSuccessfulRun('V4 Production Probe');
 
             const issues = {};
             for (const issueNumber of [11, 12, 13, 14]) {
@@ -89,21 +82,14 @@ jobs:
               };
             }
 
-            const observationWorkflowId = workflowIdsByPath.get('.github/workflows/v4-production-observation-window.yml');
-            if (!observationWorkflowId) {
-              throw new Error('Workflow not found: v4-production-observation-window.yml');
-            }
-            const observationResponse = await github.rest.actions.listWorkflowRunsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: observationWorkflowId,
-              branch: 'v4/saas-foundation',
-              per_page: 100,
-            });
-            const observationRuns = observationResponse.data.workflow_runs || [];
-            const observationForTarget = observationRuns
-              .filter(run => run && run.head_sha === targetSha)
-              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
+            const observationRuns = runs
+              .filter(run =>
+                run &&
+                run.name === 'V4 Production Observation Window' &&
+                run.head_sha === targetSha
+              )
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const observationForTarget = observationRuns[0] || null;
 
             const evidence = {
               evidence_version: 1,
