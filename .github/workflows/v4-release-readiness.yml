@@ -1,0 +1,159 @@
+name: V4 Release Readiness
+
+on:
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Optional exact V4 release SHA to certify"
+        required: false
+        default: ""
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Build release-readiness evidence
+        uses: actions/github-script@v7
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            const releaseSha = process.env.RELEASE_SHA.trim();
+
+            const branchRef = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'v4/saas-foundation',
+            });
+            const currentSha = branchRef.data.commit.sha;
+            const targetSha = releaseSha || currentSha;
+
+            async function latestSuccessfulRun(workflowFile) {
+              const runs = await github.paginate(
+                github.rest.actions.listWorkflowRunsForRepo,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflowFile,
+                  branch: 'v4/saas-foundation',
+                  per_page: 100,
+                },
+                response => response.data,
+              );
+              return runs
+                .filter(run => run.head_sha === targetSha)
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .find(run => run.status === 'completed' && run.conclusion === 'success') || null;
+            }
+
+            const ci = await latestSuccessfulRun('v4-development-ci.yml');
+            const browser = await latestSuccessfulRun('browser-qa.yml');
+            const probe = await latestSuccessfulRun('v4-production-probe.yml');
+
+            const issues = {};
+            for (const issueNumber of [11, 12, 13, 14]) {
+              const issue = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+              issues[issueNumber] = {
+                title: issue.data.title,
+                state: issue.data.state,
+                state_reason: issue.data.state_reason,
+                html_url: issue.data.html_url,
+              };
+            }
+
+            const observationRuns = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'v4-production-observation-window.yml',
+                branch: 'v4/saas-foundation',
+                per_page: 50,
+              },
+              response => response.data,
+            );
+            const observationForTarget = observationRuns
+              .filter(run => run.head_sha === targetSha || !releaseSha)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
+
+            const evidence = {
+              evidence_version: 1,
+              generated_at_utc: new Date().toISOString(),
+              branch: 'v4/saas-foundation',
+              current_branch_sha: currentSha,
+              target_release_sha: targetSha,
+              exact_release_validation: {
+                development_ci: ci ? { id: ci.id, conclusion: ci.conclusion, html_url: ci.html_url } : null,
+                browser_acceptance: browser ? { id: browser.id, conclusion: browser.conclusion, html_url: browser.html_url } : null,
+                production_probe: probe ? { id: probe.id, conclusion: probe.conclusion, html_url: probe.html_url } : null,
+              },
+              release_gates: issues,
+              latest_observation_window: observationForTarget
+                ? {
+                    id: observationForTarget.id,
+                    status: observationForTarget.status,
+                    conclusion: observationForTarget.conclusion,
+                    head_sha: observationForTarget.head_sha,
+                    html_url: observationForTarget.html_url,
+                  }
+                : null,
+            };
+
+            const exactChecksPass = Boolean(ci && browser && probe);
+            const topologyAndSecurityClosed =
+              issues[13].state === 'closed' &&
+              issues[14].state === 'closed';
+            const productionEvidenceOpen =
+              issues[11].state === 'open' ||
+              issues[12].state === 'open';
+
+            evidence.code_and_deployed_checks_pass = exactChecksPass;
+            evidence.topology_and_security_gates_closed = topologyAndSecurityClosed;
+            evidence.production_evidence_still_open = productionEvidenceOpen;
+            evidence.release_ready =
+              exactChecksPass &&
+              topologyAndSecurityClosed &&
+              !productionEvidenceOpen &&
+              observationForTarget?.conclusion === 'success';
+
+            fs.mkdirSync('release-readiness', { recursive: true });
+            fs.writeFileSync(
+              'release-readiness/v4-release-readiness.json',
+              JSON.stringify(evidence, null, 2) + '\n',
+              'utf8',
+            );
+
+            core.summary
+              .addHeading('V4 Release Readiness')
+              .addRaw('Target release SHA: ' + targetSha + '\n')
+              .addRaw('Current branch SHA: ' + currentSha + '\n')
+              .addRaw('Exact CI/browser/probe checks: ' + exactChecksPass + '\n')
+              .addRaw('Topology/security gates (#13/#14): ' + topologyAndSecurityClosed + '\n')
+              .addRaw('Production evidence gates (#11/#12) still open: ' + productionEvidenceOpen + '\n')
+              .addRaw('Observation-window evidence present: ' + Boolean(observationForTarget) + '\n')
+              .addRaw('Release ready: ' + evidence.release_ready + '\n')
+              .write();
+
+      - name: Upload release-readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-release-readiness
+          path: release-readiness/v4-release-readiness.json
+          retention-days: 180

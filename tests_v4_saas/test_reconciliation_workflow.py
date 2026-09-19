@@ -31,3 +31,38 @@ def test_production_probe_owns_failure_alert_lifecycle() -> None:
     assert "Create or update production probe incident" in probe
     assert "Close recovered production probe incident" in probe
     assert "Automated V4 production probe failure" in probe
+
+def test_production_observation_window_counts_completed_runs_only() -> None:
+    workflow = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-production-observation-window.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "const completedRuns = eligibleRuns.filter" in workflow
+    assert "run.status === 'completed' && run.conclusion" in workflow
+    assert "failed_completed_run_count" in workflow
+    assert "incomplete_run_count" in workflow
+    assert "pass: completedRuns.length >= minCompletedRuns" in workflow
+
+
+def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> None:
+    workflow = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-release-readiness.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in workflow
+    assert "RELEASE_SHA:" in workflow
+    assert "currentSha" in workflow
+    assert "targetSha" in workflow
+    assert "v4-development-ci.yml" in workflow
+    assert "browser-qa.yml" in workflow
+    assert "v4-production-probe.yml" in workflow
+    assert "release_ready" in workflow
+    assert "actions: read" in workflow
+    assert "issues: read" in workflow
+    assert "state: 'closed'" not in workflow

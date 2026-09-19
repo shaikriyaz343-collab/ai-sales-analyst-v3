@@ -75,8 +75,12 @@ jobs:
               ? windowRuns.filter(run => run.head_sha === releaseSha)
               : windowRuns;
 
-            const successfulRuns = eligibleRuns.filter(run => run.conclusion === 'success');
-            const failedRuns = eligibleRuns.filter(run => run.conclusion !== 'success');
+            const completedRuns = eligibleRuns.filter(run =>
+              run.status === 'completed' && run.conclusion,
+            );
+            const successfulRuns = completedRuns.filter(run => run.conclusion === 'success');
+            const failedRuns = completedRuns.filter(run => run.conclusion !== 'success');
+            const incompleteRuns = eligibleRuns.filter(run => run.status !== 'completed');
 
             const evidence = {
               evidence_version: 1,
@@ -88,10 +92,12 @@ jobs:
               window_end_utc: new Date(now).toISOString(),
               release_sha: releaseSha || null,
               observed_run_count: eligibleRuns.length,
+              completed_run_count: completedRuns.length,
               successful_run_count: successfulRuns.length,
-              failed_or_non_success_run_count: failedRuns.length,
+              failed_completed_run_count: failedRuns.length,
+              incomplete_run_count: incompleteRuns.length,
               minimum_completed_runs: minCompletedRuns,
-              pass: eligibleRuns.length >= minCompletedRuns && failedRuns.length === 0,
+              pass: completedRuns.length >= minCompletedRuns && failedRuns.length === 0,
               runs: eligibleRuns.map(run => ({
                 id: run.id,
                 run_number: run.run_number,
@@ -116,16 +122,18 @@ jobs:
               .addHeading('V4 Production Observation Window')
               .addRaw(`Window: ${evidence.window_start_utc} → ${evidence.window_end_utc}\n`)
               .addRaw(`Release SHA filter: ${evidence.release_sha || 'none'}\n`)
-              .addRaw(`Completed probe runs observed: ${evidence.observed_run_count}\n`)
-              .addRaw(`Successful probe runs: ${evidence.successful_run_count}\n`)
-              .addRaw(`Failed/non-success probe runs: ${evidence.failed_or_non_success_run_count}\n`)
+              .addRaw(`Eligible probe runs observed: ${evidence.observed_run_count}\n`)
+              .addRaw(`Completed probe runs observed: ${evidence.completed_run_count}\n`)
+              .addRaw(`Successful completed probes: ${evidence.successful_run_count}\n`)
+              .addRaw(`Failed completed probes: ${evidence.failed_completed_run_count}\n`)
+              .addRaw(`Incomplete probes: ${evidence.incomplete_run_count}\n`)
               .addRaw(`Minimum completed runs required: ${evidence.minimum_completed_runs}\n`)
               .addRaw(`Window pass: ${evidence.pass}\n`)
               .write();
 
             if (!evidence.pass) {
               core.setFailed(
-                `Observation window did not pass: ${eligibleRuns.length} completed, ${successfulRuns.length} successful, ${failedRuns.length} non-success.`,
+                `Observation window did not pass: ${completedRuns.length} completed, ${successfulRuns.length} successful, ${failedRuns.length} failed, ${incompleteRuns.length} incomplete.`,
               );
             }
 
