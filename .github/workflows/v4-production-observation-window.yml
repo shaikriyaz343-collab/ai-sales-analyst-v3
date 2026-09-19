@@ -56,30 +56,22 @@ jobs:
             const now = Date.now();
             const cutoff = now - windowHours * 60 * 60 * 1000;
 
-            const workflowResponse = await github.rest.actions.listRepoWorkflows({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100,
-            });
-            const productionProbeWorkflow = (workflowResponse.data.workflows || []).find(
-              workflow => workflow.path === '.github/workflows/v4-production-probe.yml',
-            );
-            if (!productionProbeWorkflow) {
-              throw new Error('Workflow not found: v4-production-probe.yml');
-            }
-
             const response = await github.rest.actions.listWorkflowRunsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: productionProbeWorkflow.id,
               branch: 'v4/saas-foundation',
               per_page: 100,
             });
             const runs = response.data.workflow_runs || [];
 
             const windowRuns = runs
-              .filter(run => new Date(run.created_at).getTime() >= cutoff)
+              .filter(run =>
+                run &&
+                run.name === 'V4 Production Probe' &&
+                new Date(run.created_at).getTime() >= cutoff
+              )
               .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
 
             const eligibleRuns = releaseSha
               ? windowRuns.filter(run => run.head_sha === releaseSha)
