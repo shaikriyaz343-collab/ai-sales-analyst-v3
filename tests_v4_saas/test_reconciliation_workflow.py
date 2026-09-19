@@ -67,6 +67,8 @@ def test_release_readiness_workflow_is_non_destructive_and_exact_sha_aware() -> 
     assert "workflowPath = '.github/workflows/' + workflowFile" in workflow
     assert "run.path === workflowPath" in workflow
     assert "response.data.workflow_runs" in workflow
+    assert "github.rest.actions.listWorkflowRunsForRepo" in workflow
+    assert "run && run.path === workflowPath" in workflow
     assert "observationWorkflowPath" in workflow
     assert "run.path === observationWorkflowPath" in workflow
     assert "workflow_id: workflowFile" not in workflow
