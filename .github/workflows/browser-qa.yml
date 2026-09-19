@@ -96,23 +96,35 @@ jobs:
           echo "Testing deployed V4 frontend: ${V4_APP_URL}"
           echo "Testing deployed V4 API: ${V4_E2E_API_URL}"
 
-      - name: Wait for deployed V4 services
+      - name: Wait for deployed V4 release markers
         env:
           V4_APP_URL: ${{ vars.V4_APP_URL || 'https://peaceful-mindfulness-production-51b6.up.railway.app' }}
           V4_E2E_API_URL: ${{ vars.V4_E2E_API_URL || 'https://ai-sales-analyst-v3-production.up.railway.app' }}
         run: |
           set -eu
           for attempt in $(seq 1 30); do
-            if curl -fsS "${V4_E2E_API_URL}/api/v1/health" >/tmp/v4-api-health.json 2>/dev/null && \
-               curl -fsS "${V4_APP_URL}/" >/dev/null 2>&1; then
-              echo "V4 frontend/API are reachable."
+            api_ok=0
+            frontend_ok=0
+
+            if curl -fsS "${V4_E2E_API_URL}/api/v1/health" >/tmp/v4-api-health.json 2>/dev/null; then
+              api_ok=1
+            fi
+
+            if curl -fsS "${V4_APP_URL}/" >/tmp/v4-home.html 2>/dev/null && \
+               grep -Fq "Start your 14-day trial" /tmp/v4-home.html; then
+              frontend_ok=1
+            fi
+
+            if [ "${api_ok}" = "1" ] && [ "${frontend_ok}" = "1" ]; then
+              echo "V4 frontend/API are reachable and the public acquisition release marker is live."
               cat /tmp/v4-api-health.json
               exit 0
             fi
-            echo "Waiting for V4 deployment (attempt ${attempt}/30)..."
+
+            echo "Waiting for V4 deployment release marker (attempt ${attempt}/30, api_ok=${api_ok}, frontend_ok=${frontend_ok})..."
             sleep 10
           done
-          echo "::error::V4 frontend/API did not become reachable within the wait window."
+          echo "::error::V4 frontend/API did not expose the expected release marker within the wait window."
           exit 1
 
       - name: Checkout
