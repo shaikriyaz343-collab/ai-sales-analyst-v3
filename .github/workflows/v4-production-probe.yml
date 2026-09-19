@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: v4-production-probe
@@ -138,6 +139,74 @@ jobs:
               )
           PY
 
+
+      - name: Create or update production probe incident
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = 'Automated V4 production probe failure';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runsUrl = 'https://github.com/' + owner + '/' + repo + '/actions/runs/' + context.runId;
+            const openIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              { owner, repo, state: 'open', per_page: 100 },
+              response => response.data,
+            );
+            const incident = openIssues.find(issue =>
+              !issue.pull_request && issue.title === title,
+            );
+            const message = 'Production hard-invariant probe failed for commit ' + context.sha + '.\n\nRun: ' + runsUrl;
+            if (incident) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: incident.number,
+                body: message,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body: message + '\n\nThis issue is owned by the repository operator. Close only after a successful recovery observation.',
+              });
+            }
+
+      - name: Close recovered production probe incident
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = 'Automated V4 production probe failure';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const openIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              { owner, repo, state: 'open', per_page: 100 },
+              response => response.data,
+            );
+            const incident = openIssues.find(issue =>
+              !issue.pull_request && issue.title === title,
+            );
+            if (incident) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: incident.number,
+                body: 'Production hard-invariant probe recovered successfully on commit ' + context.sha + '. Closing this incident.',
+              });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: incident.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+            }
       - name: Publish observation summary
         if: always()
         shell: bash
