@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 import enum
 import hmac
@@ -91,7 +91,7 @@ from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
 from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
 from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
-from .services.commercial import plan_catalog
+from .services.commercial import UsageMetric, plan_catalog
 from .services.commercial_store import runtime_commercial_repository, reset_runtime_commercial_repository
 from .services.payment_provider import PaddleProvider, PaymentProviderError, CheckoutRequest
 
@@ -228,16 +228,71 @@ def _payment_provider() -> PaddleProvider | None:
     )
 
 
-def _record_commercial_usage(organization_id: str, metric: str) -> None:
-    """Record non-blocking commercial usage telemetry on successful user actions."""
-    try:
-        runtime_commercial_repository().record_usage(
-            organization_id,
-            metric,
-            now=datetime.now(timezone.utc),
+@contextmanager
+def _commercial_usage_slot(organization_id: str, metric: UsageMetric):
+    """Reserve one commercial usage unit and release it when the operation fails."""
+    repository = runtime_commercial_repository()
+    now = datetime.now(timezone.utc)
+    subscription = repository.get_subscription(organization_id, now=now)
+    entitlements = repository.get_entitlements(organization_id, now=now)
+
+    if not entitlements.access_active:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "commercial_access_required",
+                "reason": entitlements.access_reason,
+                "message": "Your trial or subscription is no longer active. Choose a paid plan to continue.",
+            },
         )
-    except Exception as exc:
-        logger.warning("Commercial usage meter unavailable for %s: %s", metric, _sanitize_log(str(exc)))
+
+    if not entitlements.allows_usage(metric, additional=1):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "usage_limit_reached",
+                "metric": metric,
+                "plan_id": subscription.plan_id,
+                "remaining": entitlements.remaining.get(metric),
+                "message": "This plan limit has been reached. Upgrade to continue.",
+            },
+        )
+
+    consumption = repository.consume_usage(
+        organization_id,
+        metric,
+        amount=1,
+        now=now,
+    )
+    if not consumption.allowed:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "usage_limit_reached",
+                "metric": metric,
+                "plan_id": subscription.plan_id,
+                "remaining": consumption.remaining,
+                "message": "This plan limit has been reached. Upgrade to continue.",
+            },
+        )
+
+    try:
+        yield
+    except Exception:
+        try:
+            repository.release_usage(
+                organization_id,
+                metric,
+                amount=1,
+                now=now,
+            )
+        except Exception as release_exc:
+            logger.error(
+                "Commercial usage reservation release failed for %s: %s",
+                metric,
+                _sanitize_log(str(release_exc)),
+            )
+        raise
 
 
 def _sanitize_log(text: str) -> str:
@@ -535,12 +590,12 @@ async def profile_upload(
     principal: Principal = Depends(require_user),
 ) -> OnboardingResponse:
     selected_workspace = _workspace(principal, workspace_id)
-    try:
-        summary = onboard(file.filename or "upload", file.file, organization_id=principal.organization_id, workspace_id=selected_workspace)
-        session = create_session(summary.dataset_id, organization_id=principal.organization_id, workspace_id=selected_workspace)
-        _record_commercial_usage(principal.organization_id, "dataset_uploads")
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    with _commercial_usage_slot(principal.organization_id, "dataset_uploads"):
+        try:
+            summary = onboard(file.filename or "upload", file.file, organization_id=principal.organization_id, workspace_id=selected_workspace)
+            session = create_session(summary.dataset_id, organization_id=principal.organization_id, workspace_id=selected_workspace)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     return OnboardingResponse(dataset=summary, message="Your dataset is ready for analysis.", session_id=session.session_id)
 
 @app.get("/api/v1/datasets/{dataset_id}")
@@ -590,14 +645,14 @@ def insights(dataset_id: str, session_id: str | None = None, principal: Principa
 
 @app.post("/api/v1/datasets/{dataset_id}/ask", response_model=AskResponse)
 def ask(dataset_id: str, question: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> AskResponse:
-    try:
-        result = answer_question(dataset_id, question, scope=_scope_for(principal, dataset_id, session_id))
-        _record_commercial_usage(principal.organization_id, "analyst_questions")
-        return result
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    with _commercial_usage_slot(principal.organization_id, "analyst_questions"):
+        try:
+            result = answer_question(dataset_id, question, scope=_scope_for(principal, dataset_id, session_id))
+            return result
+        except HTTPException:
+            raise
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/actions", response_model=ActionsResponse)
@@ -632,14 +687,14 @@ def update_dataset_action_status(
 
 @app.get("/api/v1/datasets/{dataset_id}/report", response_model=ReportResponse)
 def report(dataset_id: str, session_id: str | None = None, principal: Principal = Depends(require_user), _cap: None = Depends(require_analysis_capacity)) -> ReportResponse:
-    try:
-        result = build_report(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
-        _record_commercial_usage(principal.organization_id, "reports")
-        return result
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    with _commercial_usage_slot(principal.organization_id, "reports"):
+        try:
+            result = build_report(dataset_id, scope=_scope_for(principal, dataset_id, session_id))
+            return result
+        except HTTPException:
+            raise
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/api/v1/datasets/{dataset_id}/alerts", response_model=AlertsResponse)
@@ -658,12 +713,12 @@ def create_alert(dataset_id: str, request: AlertRuleCreate, session_id: str | No
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required for monitoring.")
     _session_for(principal, session_id, dataset_id)
-    try:
-        result = create_rule(dataset_id, session_id, request)
-        _record_commercial_usage(principal.organization_id, "monitoring_rules")
-        return result
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    with _commercial_usage_slot(principal.organization_id, "monitoring_rules"):
+        try:
+            result = create_rule(dataset_id, session_id, request)
+            return result
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.delete("/api/v1/datasets/{dataset_id}/alerts/{rule_id}")
@@ -766,12 +821,12 @@ def save(dataset_id: str, request: SavedIntelligenceCreate, session_id: str | No
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required for saved intelligence.")
     _session_for(principal, session_id, dataset_id)
-    try:
-        result = save_intelligence(dataset_id, session_id, request)
-        _record_commercial_usage(principal.organization_id, "saved_intelligence")
-        return result
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    with _commercial_usage_slot(principal.organization_id, "saved_intelligence"):
+        try:
+            result = save_intelligence(dataset_id, session_id, request)
+            return result
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.delete("/api/v1/datasets/{dataset_id}/saved/{item_id}")

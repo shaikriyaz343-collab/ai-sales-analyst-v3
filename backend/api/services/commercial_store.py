@@ -45,6 +45,13 @@ class UsageMeter(Protocol):
         amount: int,
         limit: int | None,
     ) -> tuple[bool, int]: ...
+    def release(
+        self,
+        organization_id: str,
+        period_start: datetime,
+        metric: UsageMetric,
+        amount: int,
+    ) -> int: ...
 
 
 def _iso(value: datetime) -> str:
@@ -124,6 +131,26 @@ class DocumentUsageMeter:
             counts[metric] = current + amount
             self._write_counts(organization_id, period_start, counts)
             return True, counts[metric]
+
+    def release(
+        self,
+        organization_id: str,
+        period_start: datetime,
+        metric: UsageMetric,
+        amount: int,
+    ) -> int:
+        if amount <= 0:
+            raise ValueError("Usage release must be greater than zero.")
+        with self._lock:
+            counts = self.get_counts(organization_id, period_start)
+            current = counts.get(metric, 0)
+            new_count = max(0, current - amount)
+            if new_count == 0:
+                counts.pop(metric, None)
+            else:
+                counts[metric] = new_count
+            self._write_counts(organization_id, period_start, counts)
+            return new_count
 
 
 class PostgresUsageMeter:
@@ -249,6 +276,29 @@ class PostgresUsageMeter:
 
             conn.commit()
             return True, int(new_count)
+
+    def release(
+        self,
+        organization_id: str,
+        period_start: datetime,
+        metric: UsageMetric,
+        amount: int,
+    ) -> int:
+        if amount <= 0:
+            raise ValueError("Usage release must be greater than zero.")
+        with self.provider.connection() as conn:
+            row = conn.execute(
+                f"""
+                UPDATE {self.TABLE}
+                SET usage_count = GREATEST(0, usage_count - %s),
+                    updated_at = NOW()
+                WHERE organization_id = %s AND period_start = %s AND metric = %s
+                RETURNING usage_count
+                """,
+                (amount, organization_id, period_start, metric),
+            ).fetchone()
+            conn.commit()
+        return int(row[0]) if row else 0
 
 
 class CommercialRepository:
@@ -530,6 +580,31 @@ class CommercialRepository:
             period_start=usage.period_start,
         )
         return UsageConsumption(allowed=allowed, usage=new_usage, remaining=remaining)
+
+    def release_usage(
+        self,
+        organization_id: str,
+        metric: UsageMetric,
+        *,
+        amount: int = 1,
+        now: datetime,
+    ) -> UsageSnapshot:
+        validate_usage_metric(metric)
+        if amount <= 0:
+            raise ValueError("Usage release must be greater than zero.")
+
+        subscription = self.get_subscription(organization_id, now=now)
+        period_start = usage_period_start(subscription, now)
+        self.usage_meter.release(
+            organization_id,
+            period_start,
+            metric,
+            amount,
+        )
+        return UsageSnapshot(
+            counts=self.usage_meter.get_counts(organization_id, period_start),
+            period_start=period_start,
+        )
 
     def get_entitlements(self, organization_id: str, *, now: datetime) -> EntitlementSnapshot:
         # A GET entitlement lookup is intentionally read-only.

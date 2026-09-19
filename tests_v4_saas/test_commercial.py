@@ -9,9 +9,21 @@ from backend.api.services.commercial import (
     get_plan,
     plan_catalog,
 )
+from backend.api.services.commercial_store import CommercialRepository
 
 
 NOW = datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc)
+
+
+class MemoryStore:
+    def __init__(self) -> None:
+        self.items = {}
+
+    def read(self, key):
+        return self.items.get(key)
+
+    def write(self, key, value):
+        self.items[key] = value
 
 
 def test_catalog_has_trial_and_two_paid_plans() -> None:
@@ -154,3 +166,65 @@ def test_negative_usage_and_negative_increment_do_not_grant_capacity() -> None:
     assert entitlements.usage.used("dataset_uploads") == 0
     assert entitlements.remaining["dataset_uploads"] == 25
     assert entitlements.allows_usage("dataset_uploads", additional=-1) is False
+
+def test_usage_consumption_enforces_trial_limit() -> None:
+    repo = CommercialRepository(MemoryStore())
+
+    for _ in range(3):
+        result = repo.consume_usage(
+            "org-1",
+            "dataset_uploads",
+            now=NOW,
+        )
+        assert result.allowed is True
+
+    blocked = repo.consume_usage(
+        "org-1",
+        "dataset_uploads",
+        now=NOW,
+    )
+    assert blocked.allowed is False
+    assert blocked.remaining == 0
+    assert blocked.usage.used("dataset_uploads") == 3
+
+
+def test_usage_consumption_rejects_expired_trial() -> None:
+    store = MemoryStore()
+    repo = CommercialRepository(store)
+    repo.save_subscription(
+        SubscriptionSnapshot(
+            organization_id="org-1",
+            plan_id="trial",
+            status="trialing",
+            trial_started_at=NOW - timedelta(days=15),
+            trial_ends_at=NOW - timedelta(days=1),
+        )
+    )
+
+    result = repo.consume_usage(
+        "org-1",
+        "analyst_questions",
+        now=NOW,
+    )
+    assert result.allowed is False
+    assert result.remaining == 0
+    assert repo.get_usage("org-1", now=NOW).counts == {}
+
+
+def test_usage_release_restores_reserved_capacity() -> None:
+    repo = CommercialRepository(MemoryStore())
+
+    reserved = repo.consume_usage(
+        "org-1",
+        "analyst_questions",
+        now=NOW,
+    )
+    assert reserved.allowed is True
+    assert reserved.usage.used("analyst_questions") == 1
+
+    released = repo.release_usage(
+        "org-1",
+        "analyst_questions",
+        now=NOW,
+    )
+    assert released.used("analyst_questions") == 0
