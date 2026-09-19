@@ -31,3 +31,17 @@ def test_production_probe_owns_failure_alert_lifecycle() -> None:
     assert "Create or update production probe incident" in probe
     assert "Close recovered production probe incident" in probe
     assert "Automated V4 production probe failure" in probe
+
+def test_production_observation_window_counts_completed_runs_only() -> None:
+    workflow = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "v4-production-observation-window.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "const completedRuns = eligibleRuns.filter" in workflow
+    assert "run.status === 'completed' && run.conclusion" in workflow
+    assert "failed_completed_run_count" in workflow
+    assert "incomplete_run_count" in workflow
+    assert "pass: completedRuns.length >= minCompletedRuns" in workflow
