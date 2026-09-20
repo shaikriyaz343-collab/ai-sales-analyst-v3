@@ -16,7 +16,8 @@ This checklist is intentionally external/provider-facing. Repository code cannot
 - [ ] Create the webhook/notification destination secret.
 - [ ] Configure the notification destination as:
   `https://ai-sales-analyst-v3-production.up.railway.app/api/v1/commercial/webhook`
-- [ ] Enable the subscription lifecycle notifications documented in the integration runbook.
+- [ ] Enable `subscription.created` and `subscription.updated` notifications for subscription access provisioning.
+- [ ] Optionally enable `customer.created` / `customer.updated` or `transaction.completed` if later workflows require them.
 - [ ] Put sandbox credentials/price IDs into Railway without committing them.
 
 ## Application verification
