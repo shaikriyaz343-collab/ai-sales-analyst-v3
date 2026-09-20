@@ -63,15 +63,11 @@ Configure Paddle to POST subscription lifecycle events to:
 
 https://ai-sales-analyst-v3-production.up.railway.app/api/v1/commercial/webhook
 
-At minimum configure:
+For subscription billing, configure at minimum:
 - subscription.created
 - subscription.updated
-- subscription.trialing
-- subscription.activated
-- subscription.past_due
-- subscription.paused
-- subscription.resumed
-- subscription.canceled
+
+Paddle's current provisioning guidance says subscription.updated covers changes to subscription status, items, scheduled changes, and billing period; separate trialing/activated/past_due/paused/resumed/canceled notification types are not required for the normal subscription lifecycle. Optional customer.created/customer.updated and transaction.completed notifications can be added for customer-data or one-off-charge workflows.
 
 The endpoint verifies the raw request body before parsing the JSON. Paddle documents the Paddle-Signature scheme as a timestamp plus the raw body, HMAC-SHA256, with a five-second timestamp tolerance in its SDK verification guidance. Paddle also recommends using webhooks as the subscription source of truth, deduplicating on event ID, and handling out-of-order events with occurred_at.
 
@@ -105,7 +101,7 @@ Current telemetry remains separate from quota enforcement. Do not turn on produc
 
 ## Recovery
 
-Paddle webhook delivery is at-least-once. The application deduplicates event IDs and ignores older provider events based on occurred_at.
+Paddle webhook delivery is retryable/at-least-once in practice. The application deduplicates event IDs and ignores older provider events based on occurred_at. Paddle's current webhook guidance recommends responding with HTTP 200 within five seconds and handling retries.
 
 For payment recovery, the application keeps access while status is `past_due`, surfaces the customer portal, and returns to normal active state when Paddle reports `active`. Access is revoked when Paddle reports `paused` or `canceled`.
 
