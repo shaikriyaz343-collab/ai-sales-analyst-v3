@@ -48,15 +48,35 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
+  const [paddleInitialized, setPaddleInitialized] = useState(false);
 
   const paddleClientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "";
+
+  function initializePaddle() {
+    if (paddleInitialized || !paddleClientToken || !window.Paddle) return;
+
+    window.Paddle.Environment.set("sandbox");
+    window.Paddle.Initialize({
+      token: paddleClientToken,
+      eventCallback: (event) => {
+        if (event?.name === "checkout.completed") {
+          window.location.assign("/dashboard/billing");
+        }
+      },
+    });
+    setPaddleInitialized(true);
+  }
 
   async function startCheckout(planId: string) {
     setBusyPlan(planId);
     setCheckoutError(null);
     try {
       const session = await createCommercialCheckout(planId);
-      window.location.assign(session.checkout_url);
+      if (!window.Paddle || !paddleInitialized) {
+        setCheckoutError("Paddle Sandbox checkout is still loading. Please try again.");
+        return;
+      }
+      window.Paddle.Checkout.open({ transactionId: session.provider_session_id });
     } catch (err) {
       setCheckoutError(err instanceof Error ? err.message : "Checkout could not be started.");
     } finally {
@@ -94,42 +114,8 @@ export default function BillingPage() {
   }, []);
 
   useEffect(() => {
-    const transactionId = new URLSearchParams(window.location.search).get("_ptxn");
-    if (!transactionId) return;
-
-    let opened = false;
-
-    const openTransactionCheckout = () => {
-      if (opened) return;
-      if (!paddleClientToken) {
-        setCheckoutError("Paddle Sandbox checkout is not configured on this frontend.");
-        return;
-      }
-      if (!window.Paddle) return;
-
-      opened = true;
-      window.Paddle.Environment.set("sandbox");
-      window.Paddle.Initialize({
-        token: paddleClientToken,
-        eventCallback: (event) => {
-          if (event?.name === "checkout.completed") {
-            window.location.assign("/dashboard/billing");
-          }
-        },
-      });
-      window.Paddle.Checkout.open({ transactionId });
-    };
-
-    if (window.Paddle) {
-      openTransactionCheckout();
-      return;
-    }
-
-    window.addEventListener("paddle-ready", openTransactionCheckout);
-    return () => {
-      window.removeEventListener("paddle-ready", openTransactionCheckout);
-    };
-  }, [paddleClientToken]);
+    initializePaddle();
+  }, [paddleClientToken, paddleInitialized]);
 
   const currentPlan = useMemo(
     () => data?.catalog.find((plan) => plan.plan_id === data.subscription.plan_id),
@@ -140,9 +126,7 @@ export default function BillingPage() {
     <Script
       src="https://cdn.paddle.com/paddle/v2/paddle.js"
       strategy="afterInteractive"
-      onLoad={() => {
-        window.dispatchEvent(new Event("paddle-ready"));
-      }}
+      onReady={initializePaddle}
     />
   );
 
