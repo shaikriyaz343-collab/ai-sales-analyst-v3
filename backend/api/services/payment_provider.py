@@ -189,7 +189,6 @@ class PaddleProvider:
                 "customer_id": customer_id,
                 "items": [{"price_id": price_id, "quantity": 1}],
                 "collection_mode": "automatic",
-                "enable_checkout": True,
                 "custom_data": {
                     "organization_id": request.organization_id,
                     "plan_id": request.plan_id,
