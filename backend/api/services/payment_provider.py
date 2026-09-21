@@ -97,7 +97,34 @@ class PaddleProvider:
         except httpx.HTTPError as exc:
             raise PaymentProviderError("Paddle request could not be completed.") from exc
         if response.status_code >= 400:
-            raise PaymentProviderError("Paddle rejected the billing request.")
+            code = None
+            detail = None
+            request_id = None
+            try:
+                body = response.json()
+                errors = body.get("errors") if isinstance(body, dict) else None
+                if isinstance(errors, list) and errors:
+                    first = errors[0] if isinstance(errors[0], dict) else {}
+                    code = first.get("code")
+                    detail = first.get("detail") or first.get("message")
+                error = body.get("error") if isinstance(body, dict) else None
+                if isinstance(error, dict):
+                    code = code or error.get("code")
+                    detail = detail or error.get("detail") or error.get("message")
+                meta = body.get("meta") if isinstance(body, dict) else None
+                if isinstance(meta, dict):
+                    request_id = meta.get("request_id")
+            except ValueError:
+                pass
+
+            parts = [f"HTTP {response.status_code}"]
+            if code:
+                parts.append(f"code={code}")
+            if request_id:
+                parts.append(f"request_id={request_id}")
+            if detail:
+                parts.append(f"detail={' '.join(str(detail).split())[:300]}")
+            raise PaymentProviderError("Paddle request rejected: " + ", ".join(parts))
         try:
             return response.json()
         except ValueError as exc:
@@ -162,6 +189,7 @@ class PaddleProvider:
                 "customer_id": customer_id,
                 "items": [{"price_id": price_id, "quantity": 1}],
                 "collection_mode": "automatic",
+                "enable_checkout": True,
                 "custom_data": {
                     "organization_id": request.organization_id,
                     "plan_id": request.plan_id,
