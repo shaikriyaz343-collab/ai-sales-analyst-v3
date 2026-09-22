@@ -1,0 +1,31 @@
+OpportunityID,CreatedDate,AccountName,Salesperson,Stage,Amount,Probability,ExpectedClose
+UAE001,2026-08-04,Gulf Horizon Logistics,Rep1,Negotiation,85000,0.7,2026-10-05
+UAE002,2026-08-06,Desert Star Distribution,Rep2,Proposal,62000,0.6,2026-10-12
+UAE003,2026-08-08,Marina Tech Services,Rep3,Qualified,48000,0.3,2026-10-18
+UAE004,2026-08-09,Blue Dune Recruitment,Rep1,Closed Won,54000,1.0,2026-09-15
+UAE005,2026-08-11,Emirates Field Solutions,Rep4,Negotiation,73000,0.7,2026-10-22
+UAE006,2026-08-13,Palm Gate Properties,Rep2,Proposal,91000,0.6,2026-10-28
+UAE007,2026-08-14,Northstar Managed IT,Rep3,Qualified,39000,0.3,2026-11-03
+UAE008,2026-08-15,Crescent Advisory,Rep4,Negotiation,68000,0.7,2026-10-30
+UAE009,2026-08-17,Harborline Trading,Rep1,Proposal,51000,0.6,2026-11-06
+UAE010,2026-08-18,Atlas Workforce,Rep2,Closed Lost,47000,0.0,2026-09-20
+UAE011,2026-08-19,Silver Palm Technologies,Rep3,Negotiation,112000,0.7,2026-10-16
+UAE012,2026-08-21,Red Sand Consulting,Rep4,Qualified,35000,0.3,2026-11-10
+UAE013,2026-08-22,Al Noor Commercial Services,Rep1,Proposal,76000,0.6,2026-11-14
+UAE014,2026-08-24,Seaport Wholesale,Rep2,Negotiation,64000,0.7,2026-10-25
+UAE015,2026-08-25,Falcon Edge Systems,Rep3,Closed Won,98000,1.0,2026-09-28
+UAE016,2026-08-27,Creekside Property Group,Rep4,Qualified,57000,0.3,2026-11-18
+UAE017,2026-08-28,Vertex HR Solutions,Rep1,Proposal,44000,0.6,2026-11-08
+UAE018,2026-08-29,Sunrise Process Services,Rep2,Negotiation,89000,0.7,2026-10-19
+UAE019,2026-08-30,MetroLink Distribution,Rep3,Proposal,67000,0.6,2026-11-21
+UAE020,2026-09-01,Oasis Digital Partners,Rep4,Qualified,42000,0.3,2026-11-25
+UAE021,2026-09-02,Gulf Crest Security Services,Rep1,Negotiation,58000,0.7,2026-10-14
+UAE022,2026-09-03,Coastal Energy Support,Rep2,Proposal,103000,0.6,2026-11-02
+UAE023,2026-09-04,Urban Reach Media,Rep3,Closed Won,61000,1.0,2026-09-26
+UAE024,2026-09-05,Capital Bridge Advisory,Rep4,Qualified,74000,0.3,2026-12-01
+UAE025,2026-09-06,Dubai Business Systems,Rep1,Negotiation,125000,0.7,2026-10-09
+UAE026,2026-09-07,Golden Route Logistics,Rep2,Proposal,55000,0.6,2026-11-12
+UAE027,2026-09-08,Meadow HR Technology,Rep3,Negotiation,81000,0.7,2026-10-31
+UAE028,2026-09-09,Prime Gulf Facilities,Rep4,Qualified,46000,0.3,2026-12-05
+UAE029,2026-09-10,Cedar Lane Consulting,Rep1,Proposal,69000,0.6,2026-11-19
+UAE030,2026-09-11,West Bay Commercial,Rep2,Closed Lost,52000,0.0,2026-09-23
