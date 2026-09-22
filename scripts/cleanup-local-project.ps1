@@ -10,7 +10,7 @@ Write-Host "AI Sales Analyst local cleanup"
 Write-Host "Repo root: $RepoRoot"
 Write-Host ""
 
-# These are generated dependency/build/test artifacts and are safe to recreate.
+# Generated dependency/build/test artifacts. These can be recreated.
 $SafeDirectories = @(
     "node_modules",
     "frontend/node_modules",
@@ -51,7 +51,10 @@ foreach ($item in $targets) {
         $stats = Get-ChildItem -LiteralPath $item.FullName -File -Force -Recurse -ErrorAction SilentlyContinue |
             Measure-Object -Property Length -Sum
         $count = [int]$stats.Count
-        $bytes = [int64]($stats.Sum ?? 0)
+        $bytes = 0
+        if ($null -ne $stats.Sum) {
+            $bytes = [int64]$stats.Sum
+        }
         $targetFileCount += $count
         $targetBytes += $bytes
         Write-Host ("DIR  {0}  ({1:N0} files, {2:N2} MB)" -f $item.FullName, $count, ($bytes / 1MB))
