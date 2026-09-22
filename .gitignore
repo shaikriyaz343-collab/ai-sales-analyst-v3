@@ -33,3 +33,7 @@ runtime_saas/
 
 # V4 Playwright output at repository root
 /test-results/
+
+# Next.js generated agent instruction files
+frontend/AGENTS.md
+frontend/CLAUDE.md
