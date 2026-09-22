@@ -2,7 +2,7 @@ name: V4 Production Probe Scheduler
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
     inputs:
       release_sha:
@@ -107,4 +107,4 @@ jobs:
               .addRaw('Dispatched v4-production-probe.yml on v4/saas-foundation.\n')
               .write();
 
-# Deliberate operational touch: permits immediate validation of the scheduled probe path.
+# Deliberate operational touch: permits immediate validation of the scheduled probe path.\n# Two runs per hour provide headroom for GitHub schedule delays while the 24h evidence window accumulates.
