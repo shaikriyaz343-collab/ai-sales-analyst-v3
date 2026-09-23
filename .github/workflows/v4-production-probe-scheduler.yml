@@ -55,7 +55,7 @@ jobs:
               return;
             }
 
-            async function latestSuccessfulProbe() {
+            async function latestProbeRun() {
               const response = await github.rest.actions.listWorkflowRunsForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -67,9 +67,7 @@ jobs:
                 .filter(run =>
                   run &&
                   run.name === 'V4 Production Probe' &&
-                  run.head_sha === targetSha &&
-                  run.status === 'completed' &&
-                  run.conclusion === 'success'
+                  run.head_sha === targetSha
                 )
                 .sort(
                   (a, b) =>
@@ -79,26 +77,45 @@ jobs:
             }
 
             const minimumProbeSpacingMs = 25 * 60 * 1000;
-            const latestProbe = await latestSuccessfulProbe();
+            const latestProbe = await latestProbeRun();
 
             if (latestProbe) {
               const ageMs = Date.now() - new Date(latestProbe.created_at).getTime();
+
               if (ageMs < minimumProbeSpacingMs) {
                 const remainingMs = minimumProbeSpacingMs - ageMs;
-                const remainingMinutes = (remainingMs / 60000).toFixed(1);
                 core.info(
-                  'Latest successful exact-SHA probe is ' +
-                  (ageMs / 60000).toFixed(1) +
-                  ' minutes old. Waiting ' +
-                  remainingMinutes +
+                  'Latest exact-SHA probe #' + latestProbe.run_number +
+                  ' is ' + (ageMs / 60000).toFixed(1) +
+                  ' minutes old with status ' + latestProbe.status +
+                  '. Waiting ' + (remainingMs / 60000).toFixed(1) +
                   ' minutes before the next probe.',
                 );
                 await new Promise(resolve => setTimeout(resolve, remainingMs));
               }
             }
 
-            // Re-check the release branch after the delay so a new V4 commit
-            // can never be mistaken for evidence of the frozen candidate.
+            // Re-read after the delay to avoid races with another scheduler
+            // cycle that may have dispatched a newer probe while this run slept.
+            const latestAfterWait = await latestProbeRun();
+            if (latestAfterWait) {
+              const ageAfterWaitMs =
+                Date.now() - new Date(latestAfterWait.created_at).getTime();
+
+              if (
+                latestAfterWait.status !== 'completed' &&
+                ageAfterWaitMs < minimumProbeSpacingMs
+              ) {
+                core.info(
+                  'A newer exact-SHA probe #' + latestAfterWait.run_number +
+                  ' is already ' + (ageAfterWaitMs / 60000).toFixed(1) +
+                  ' minutes old and still ' + latestAfterWait.status +
+                  '. Skipping duplicate dispatch.',
+                );
+                return;
+              }
+            }
+
             const branchAfterWait = await github.rest.repos.getBranch({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -151,8 +168,7 @@ jobs:
 
               throw new Error(
                 'Timed out waiting for Railway deployment success for ' +
-                ref +
-                '.',
+                ref + '.',
               );
             }
 
@@ -173,28 +189,12 @@ jobs:
               .addRaw('Trigger: ' + eventName + '\n')
               .addRaw('Target release SHA: ' + targetSha + '\n')
               .addRaw('Railway API/frontend statuses: success\n')
-              .addRaw('Next exact-SHA probe dispatched.\n')
-              .addRaw('Next scheduler cycle: this run will self-bootstrap via the hourly backstop if needed.\n')
+              .addRaw('Next exact-SHA production probe dispatched.\n')
+              .addRaw('Self-chain: dispatching the next scheduler cycle now; the next cycle enforces the 25-minute spacing guard.\n')
               .write();
 
-            // Self-schedule another cycle through the explicitly permitted
-            // workflow_dispatch event. The 25-minute wait above prevents a
-            // burst while making the probe cadence independent of cron drops.
-            await new Promise(resolve => setTimeout(resolve, 25 * 60 * 1000));
-
-            const branchBeforeChaining = await github.rest.repos.getBranch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              branch: 'v4/saas-foundation',
-            });
-
-            if (branchBeforeChaining.data.commit.sha !== targetSha) {
-              core.warning(
-                'V4 branch head changed before self-chaining. No further cycle will be dispatched.',
-              );
-              return;
-            }
-
+            // workflow_dispatch is explicitly allowed to create a new
+            // workflow run even when initiated with GITHUB_TOKEN.
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -205,13 +205,13 @@ jobs:
               },
             });
 
-            core.info(
-              'Self-chained the scheduler for the next exact-SHA production probe.',
-            );
+            core.info('Self-chained the scheduler for the next exact-SHA production probe.');
 
 # Deliberate operational design:
 # - hourly cron is only a recovery backstop
-# - each scheduler run waits for the minimum spacing, dispatches one probe,
-#   then self-dispatches the scheduler 25 minutes later
+# - each scheduler cycle enforces a 25-minute minimum spacing
+# - each cycle dispatches one exact-SHA probe, then immediately self-dispatches
+# - the next cycle performs the spacing wait, so no long post-dispatch sleep is needed
+# - any queued/in-progress exact-SHA probe is detected to prevent duplicate bursts
 # - every cycle re-validates the exact V4 branch SHA
 # - the 20-run/24h/0-failure observation gate is unchanged
