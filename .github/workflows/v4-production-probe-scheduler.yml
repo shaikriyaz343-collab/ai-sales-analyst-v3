@@ -55,15 +55,18 @@ jobs:
               return;
             }
 
-            async function latestProbeRun() {
+            async function listRuns() {
               const response = await github.rest.actions.listWorkflowRunsForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 branch: 'v4/saas-foundation',
                 per_page: 100,
               });
+              return response.data.workflow_runs || [];
+            }
 
-              return (response.data.workflow_runs || [])
+            async function latestProbeRun() {
+              return (await listRuns())
                 .filter(run =>
                   run &&
                   run.name === 'V4 Production Probe' &&
@@ -71,65 +74,76 @@ jobs:
                 )
                 .sort(
                   (a, b) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime(),
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
                 )[0] || null;
             }
 
-            const minimumProbeSpacingMs = 25 * 60 * 1000;
-            const latestProbe = await latestProbeRun();
-
-            if (latestProbe) {
-              const ageMs = Date.now() - new Date(latestProbe.created_at).getTime();
-
-              if (ageMs < minimumProbeSpacingMs) {
-                const remainingMs = minimumProbeSpacingMs - ageMs;
-                core.info(
-                  'Latest exact-SHA probe #' + latestProbe.run_number +
-                  ' is ' + (ageMs / 60000).toFixed(1) +
-                  ' minutes old with status ' + latestProbe.status +
-                  '. Waiting ' + (remainingMs / 60000).toFixed(1) +
-                  ' minutes before the next probe.',
-                );
-                await new Promise(resolve => setTimeout(resolve, remainingMs));
-              }
+            async function latestSuccessfulObservation() {
+              return (await listRuns())
+                .filter(run =>
+                  run &&
+                  run.name === 'V4 Production Observation Window' &&
+                  run.head_sha === targetSha &&
+                  run.status === 'completed' &&
+                  run.conclusion === 'success'
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+                )[0] || null;
             }
 
-            // Re-read after the delay to avoid races with another scheduler
-            // cycle that may have dispatched a newer probe while this run slept.
-            const latestAfterWait = await latestProbeRun();
-            if (latestAfterWait) {
-              const ageAfterWaitMs =
-                Date.now() - new Date(latestAfterWait.created_at).getTime();
-
-              if (
-                latestAfterWait.status !== 'completed' &&
-                ageAfterWaitMs < minimumProbeSpacingMs
-              ) {
-                core.info(
-                  'A newer exact-SHA probe #' + latestAfterWait.run_number +
-                  ' is already ' + (ageAfterWaitMs / 60000).toFixed(1) +
-                  ' minutes old and still ' + latestAfterWait.status +
-                  '. Skipping duplicate dispatch.',
-                );
-                return;
-              }
+            async function latestReadinessRun() {
+              return (await listRuns())
+                .filter(run =>
+                  run &&
+                  run.name === 'V4 Release Readiness' &&
+                  run.head_sha === targetSha
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+                )[0] || null;
             }
 
-            const branchAfterWait = await github.rest.repos.getBranch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              branch: 'v4/saas-foundation',
-            });
-            const currentShaAfterWait = branchAfterWait.data.commit.sha;
+            const observation = await latestSuccessfulObservation();
+            if (observation) {
+              const readiness = await latestReadinessRun();
+              const readinessActive =
+                readiness &&
+                (readiness.status === 'queued' ||
+                  readiness.status === 'in_progress');
 
-            if (currentShaAfterWait !== targetSha) {
-              core.setFailed(
-                'V4 branch head changed during scheduling from ' +
-                targetSha + ' to ' + currentShaAfterWait +
-                '. Stopping rather than probing a different release.',
-              );
-              return;
+              if (!readinessActive) {
+                core.info(
+                  'Successful exact-SHA observation window detected: #' +
+                  observation.id +
+                  '. Dispatching exact-SHA V4 Release Readiness.',
+                );
+
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'v4-release-readiness.yml',
+                  ref: 'v4/saas-foundation',
+                  inputs: {
+                    release_sha: targetSha,
+                  },
+                });
+
+                core.summary
+                  .addHeading('V4 Release Readiness Trigger')
+                  .addRaw('Target release SHA: ' + targetSha + '\n')
+                  .addRaw('Successful observation window: ' + observation.html_url + '\n')
+                  .addRaw('Dispatched exact-SHA V4 Release Readiness.\n')
+                  .write();
+              } else {
+                core.info(
+                  'V4 Release Readiness is already ' +
+                  readiness.status +
+                  '; no duplicate dispatch.',
+                );
+              }
             }
 
             async function waitForRailwaySuccess(ref) {
@@ -168,8 +182,64 @@ jobs:
 
               throw new Error(
                 'Timed out waiting for Railway deployment success for ' +
-                ref + '.',
+                ref +
+                '.',
               );
+            }
+
+            const minimumProbeSpacingMs = 25 * 60 * 1000;
+            const latestProbe = await latestProbeRun();
+
+            if (latestProbe) {
+              const ageMs =
+                Date.now() - new Date(latestProbe.created_at).getTime();
+
+              if (ageMs < minimumProbeSpacingMs) {
+                const remainingMs = minimumProbeSpacingMs - ageMs;
+                core.info(
+                  'Latest exact-SHA probe #' + latestProbe.run_number +
+                  ' is ' + (ageMs / 60000).toFixed(1) +
+                  ' minutes old. Waiting ' + (remainingMs / 60000).toFixed(1) +
+                  ' minutes.',
+                );
+                await new Promise(resolve => setTimeout(resolve, remainingMs));
+              }
+            }
+
+            const latestAfterWait = await latestProbeRun();
+            if (latestAfterWait) {
+              const ageAfterWaitMs =
+                Date.now() - new Date(latestAfterWait.created_at).getTime();
+
+              if (
+                latestAfterWait.status !== 'completed' &&
+                ageAfterWaitMs < minimumProbeSpacingMs
+              ) {
+                core.info(
+                  'A newer exact-SHA probe #' + latestAfterWait.run_number +
+                  ' is already ' + (ageAfterWaitMs / 60000).toFixed(1) +
+                  ' minutes old and still ' + latestAfterWait.status +
+                  '. Skipping duplicate dispatch.',
+                );
+                return;
+              }
+            }
+
+            const branchAfterWait = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: 'v4/saas-foundation',
+            });
+            const currentShaAfterWait = branchAfterWait.data.commit.sha;
+
+            if (currentShaAfterWait !== targetSha) {
+              core.setFailed(
+                'V4 branch head changed during scheduling from ' +
+                targetSha +
+                ' to ' +
+                currentShaAfterWait +
+                '. Stopping rather than probing a different release.',
+              );
+              return;
             }
 
             await waitForRailwaySuccess(targetSha);
@@ -190,11 +260,8 @@ jobs:
               .addRaw('Target release SHA: ' + targetSha + '\n')
               .addRaw('Railway API/frontend statuses: success\n')
               .addRaw('Next exact-SHA production probe dispatched.\n')
-              .addRaw('Self-chain: dispatching the next scheduler cycle now; the next cycle enforces the 25-minute spacing guard.\n')
               .write();
 
-            // workflow_dispatch is explicitly allowed to create a new
-            // workflow run even when initiated with GITHUB_TOKEN.
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -208,10 +275,8 @@ jobs:
             core.info('Self-chained the scheduler for the next exact-SHA production probe.');
 
 # Deliberate operational design:
-# - hourly cron is only a recovery backstop
-# - each scheduler cycle enforces a 25-minute minimum spacing
-# - each cycle dispatches one exact-SHA probe, then immediately self-dispatches
-# - the next cycle performs the spacing wait, so no long post-dispatch sleep is needed
-# - any queued/in-progress exact-SHA probe is detected to prevent duplicate bursts
-# - every cycle re-validates the exact V4 branch SHA
+# - hourly cron is a recovery backstop
+# - each cycle enforces a 25-minute minimum probe spacing
+# - successful observation evidence automatically triggers exact-SHA release readiness
+# - every cycle re-validates the frozen V4 branch SHA
 # - the 20-run/24h/0-failure observation gate is unchanged
