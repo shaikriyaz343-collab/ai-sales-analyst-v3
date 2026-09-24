@@ -227,7 +227,8 @@ jobs:
 
             const branchAfterWait = await github.rest.repos.getBranch({
               owner: context.repo.owner,
-              repo: 'v4/saas-foundation',
+              repo: context.repo.repo,
+              branch: 'v4/saas-foundation',
             });
             const currentShaAfterWait = branchAfterWait.data.commit.sha;
 
