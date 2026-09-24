@@ -1,0 +1,99 @@
+name: Exact V4 Linux Capacity Rehearsal
+
+on:
+  push:
+    branches:
+      - ops/fed2db9-capacity-v1
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_SHA: fed2db9a7e949205288fb6e7525de96aaa14bae5
+      API_URL: https://ai-sales-analyst-v3-production.up.railway.app
+      TEST_EMAIL: v4-durable-35460324124-1@example.com
+      TEST_DATASET_ID: aab367e64ad944bb933d07a3b124d5d6
+      CONCURRENCY: 4
+      REQUESTS_PER_WORKER: 25
+    steps:
+      - name: Verify checked-out release SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$RELEASE_SHA"
+
+      - name: Build deterministic test credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(printf '%s' 'ai-sales-analyst-v4-durable-rehearsal' | sha256sum | cut -d' ' -f1)"
+          echo "DURABILITY_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Authenticate disposable account
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o login.json -w '%{http_code}'             -c cookies.txt             -H 'Content-Type: application/json'             -X POST "$API_URL/api/v1/auth/login"             --data "{"email":"$TEST_EMAIL","password":"$DURABILITY_PASSWORD"}")"
+          test "$code" = "200"
+
+      - name: Verify baseline dataset access
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o baseline.json -w '%{http_code}'             -b cookies.txt             "$API_URL/api/v1/datasets/$TEST_DATASET_ID/overview")"
+          test "$code" = "200"
+          returned="$(jq -r '.dataset_id' baseline.json)"
+          test "$returned" = "$TEST_DATASET_ID"
+
+      - name: Run controlled read-only concurrency test
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > results.txt
+
+          seq "$CONCURRENCY" | xargs -P"$CONCURRENCY" -I{} bash -c '
+            for i in $(seq 1 "$REQUESTS_PER_WORKER"); do
+              curl -sS -o /dev/null -b cookies.txt                 -w "%{http_code} %{time_total}\n"                 "$API_URL/api/v1/datasets/$TEST_DATASET_ID/overview" || true
+            done
+          ' >> results.txt
+
+          total="$(wc -l < results.txt)"
+          failures="$(awk '$1 != 200 {count++} END {print count+0}' results.txt)"
+          max_seconds="$(awk 'BEGIN{max=0} {if ($2>max) max=$2} END{printf "%.4f",max}' results.txt)"
+          avg_seconds="$(awk 'BEGIN{sum=0} {sum+=$2} END{if(NR) printf "%.4f",sum/NR; else print "0"}' results.txt)"
+
+          {
+            echo "release_sha=$RELEASE_SHA"
+            echo "configured_analysis_concurrency=4"
+            echo "concurrency_test=$CONCURRENCY"
+            echo "requests_per_worker=$REQUESTS_PER_WORKER"
+            echo "total_requests=$total"
+            echo "failed_requests=$failures"
+            echo "avg_latency_seconds=$avg_seconds"
+            echo "max_latency_seconds=$max_seconds"
+          } > capacity-evidence.txt
+
+          cat capacity-evidence.txt >> "$GITHUB_STEP_SUMMARY"
+
+          test "$total" -eq "$((CONCURRENCY * REQUESTS_PER_WORKER))"
+          test "$failures" -eq 0
+
+      - name: Verify production release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o ready.json -w '%{http_code}' "$API_URL/api/v1/ready")"
+          test "$code" = "200"
+          jq -e '.status == "ready" or .status == "READY"' ready.json >/dev/null
+
+      - name: Upload capacity evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-v4-linux-capacity-rehearsal
+          path: capacity-evidence.txt
+          retention-days: 180
