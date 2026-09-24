@@ -1,0 +1,79 @@
+name: Exact V4 R2 Recovery Verification
+
+on:
+  push:
+    branches:
+      - ops/fed2db9-r2-verify-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: https://ai-sales-analyst-v3-production.up.railway.app
+      EXPECTED_DATASET_ID: a7694b34b4d64d3893e8d32490ce6770
+
+    steps:
+      - name: Build deterministic rehearsal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=35982807686
+          attempt=1
+          prefix='V4Cap'
+          email="v4-capacity-$run_id-$attempt@example.com"
+          password="$prefix-$run_id-$attempt-x9"
+          echo "TEST_EMAIL=$email" >> "$GITHUB_ENV"
+          echo "TEST_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Verify production health
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o ready.json -w '%{http_code}' "$API_URL/api/v1/ready")"
+          echo "ready_http=$code"
+          test "$code" = "200"
+          jq -e '.status == "ready" or .status == "READY"' ready.json >/dev/null
+
+      - name: Authenticate disposable account
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -nc --arg email "$TEST_EMAIL" --arg password "$TEST_PASSWORD" '{email:$email,password:$password}')"
+          code="$(curl -sS -o login.json -w '%{http_code}' -c cookies.txt -H 'Content-Type: application/json' -X POST "$API_URL/api/v1/auth/login" --data "$payload")"
+          echo "login_http=$code"
+          test "$code" = "200"
+
+      - name: Verify R2-backed dataset recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o overview.json -w '%{http_code}' -b cookies.txt "$API_URL/api/v1/datasets/$EXPECTED_DATASET_ID/overview")"
+          returned="$(jq -r '.dataset_id // empty' overview.json || true)"
+          echo "overview_http=$code"
+          echo "dataset_id_matches=$([[ "$returned" == "$EXPECTED_DATASET_ID" ]] && echo true || echo false)"
+          test "$code" = "200"
+          test "$returned" = "$EXPECTED_DATASET_ID"
+
+      - name: Publish sanitized evidence
+        shell: bash
+        run: |
+          {
+            echo "r2_recovery_verify=true"
+            echo "ready_http=200"
+            echo "login_http=200"
+            echo "overview_http=200"
+            echo "dataset_id_matches=true"
+          } > r2-recovery-verify.txt
+          cat r2-recovery-verify.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-v4-r2-recovery-verify
+          path: r2-recovery-verify.txt
+          retention-days: 90
