@@ -1,0 +1,177 @@
+name: V4 Release Certification Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/v4-release-certification-audit.yml
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact V4 release SHA to audit"
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit exact V4 release evidence
+        uses: actions/github-script@v7
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha || '' }}
+          CAPACITY_RUN_ID: "35982807686"
+          R2_RECOVERY_RUN_ID: "35983529334"
+          ROLLBACK_DEPLOYMENT_ID: "4d660538-e452-4df0-b302-a7d86cb883a6"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            const releaseSha = process.env.RELEASE_SHA.trim();
+            const capacityRunId = Number(process.env.CAPACITY_RUN_ID);
+            const r2RecoveryRunId = Number(process.env.R2_RECOVERY_RUN_ID);
+            const rollbackDeploymentId = process.env.ROLLBACK_DEPLOYMENT_ID;
+
+            const branchRef = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'v4/saas-foundation',
+            });
+            const currentBranchSha = branchRef.data.commit.sha;
+            const targetSha = releaseSha || currentBranchSha;
+
+            if (targetSha !== currentBranchSha) {
+              core.setFailed(
+                'Audit target SHA ' + targetSha +
+                ' does not match current v4/saas-foundation head ' + currentBranchSha + '.',
+              );
+              return;
+            }
+
+            async function latestSuccessfulWorkflowRun(workflowFile) {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowFile,
+                per_page: 100,
+              });
+              return (response.data.workflow_runs || [])
+                .filter(run =>
+                  run &&
+                  run.head_sha === targetSha &&
+                  run.status === 'completed' &&
+                  run.conclusion === 'success'
+                )
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
+            }
+
+            const ci = await latestSuccessfulWorkflowRun('v4-development-ci.yml');
+            const browser = await latestSuccessfulWorkflowRun('browser-qa.yml');
+            const probe = await latestSuccessfulWorkflowRun('v4-production-probe.yml');
+            const observation = await latestSuccessfulWorkflowRun('v4-production-observation-window.yml');
+
+            const [capacity, r2Recovery] = await Promise.all([
+              github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: capacityRunId,
+              }),
+              github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: r2RecoveryRunId,
+              }),
+            ]);
+
+            if (capacity.data.head_sha !== targetSha || capacity.data.conclusion !== 'success') {
+              core.setFailed('Current-SHA Linux capacity rehearsal evidence is missing or not successful.');
+              return;
+            }
+            if (r2Recovery.data.head_sha !== targetSha && r2Recovery.data.conclusion !== 'success') {
+              core.setFailed('Current-SHA R2 recovery evidence is missing or not successful.');
+              return;
+            }
+
+            const issues = {};
+            for (const issueNumber of [11, 12, 13, 14]) {
+              const issue = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+              issues[issueNumber] = {
+                title: issue.data.title,
+                state: issue.data.state,
+                state_reason: issue.data.state_reason,
+                html_url: issue.data.html_url,
+              };
+            }
+
+            const exactChecksPass = Boolean(ci && browser && probe && observation);
+            const productionGatesClosed =
+              [11, 12, 13, 14].every(number => issues[number].state === 'closed');
+            const capacityPass =
+              capacity.data.head_sha === targetSha &&
+              capacity.data.conclusion === 'success';
+            const r2RecoveryPass =
+              r2Recovery.data.head_sha === targetSha &&
+              r2Recovery.data.conclusion === 'success';
+
+            const evidence = {
+              evidence_version: 1,
+              audit_workflow_run_id: String(context.runId),
+              generated_at_utc: new Date().toISOString(),
+              target_release_sha: targetSha,
+              current_v4_branch_sha: currentBranchSha,
+              exact_checks: {
+                development_ci: ci ? { id: ci.id, run_number: ci.run_number, conclusion: ci.conclusion, html_url: ci.html_url } : null,
+                browser_acceptance: browser ? { id: browser.id, run_number: browser.run_number, conclusion: browser.conclusion, html_url: browser.html_url } : null,
+                production_probe: probe ? { id: probe.id, run_number: probe.run_number, conclusion: probe.conclusion, html_url: probe.html_url } : null,
+                observation_window: observation ? { id: observation.id, run_number: observation.run_number, conclusion: observation.conclusion, html_url: observation.html_url } : null,
+              },
+              infrastructure_evidence: {
+                linux_capacity: { id: capacity.data.id, run_number: capacity.data.run_number, head_sha: capacity.data.head_sha, conclusion: capacity.data.conclusion, html_url: capacity.data.html_url },
+                r2_recovery: { id: r2Recovery.data.id, run_number: r2Recovery.data.run_number, head_sha: r2Recovery.data.head_sha, conclusion: r2Recovery.data.conclusion, html_url: r2Recovery.data.html_url },
+                rollback_deployment_id: rollbackDeploymentId,
+              },
+              release_gates: issues,
+              code_and_observation_checks_pass: exactChecksPass,
+              infrastructure_checks_pass: capacityPass && r2RecoveryPass,
+              production_gates_closed: productionGatesClosed,
+              release_ready: exactChecksPass && capacityPass && r2RecoveryPass && productionGatesClosed,
+            };
+
+            fs.mkdirSync('release-certification', { recursive: true });
+            fs.writeFileSync(
+              'release-certification/v4-release-certification.json',
+              JSON.stringify(evidence, null, 2) + '\n',
+              'utf8',
+            );
+
+            core.summary
+              .addHeading('V4 Release Certification Audit')
+              .addRaw('Target release SHA: ' + targetSha + '\n')
+              .addRaw('Exact CI/browser/probe/observation: ' + exactChecksPass + '\n')
+              .addRaw('Linux capacity + R2 recovery: ' + (capacityPass && r2RecoveryPass) + '\n')
+              .addRaw('Production release gates #11-#14 closed: ' + productionGatesClosed + '\n')
+              .addRaw('Release ready: ' + evidence.release_ready + '\n')
+              .write();
+
+            if (!evidence.release_ready) {
+              core.setFailed('V4 release certification audit did not pass.');
+            }
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-release-certification
+          path: release-certification/v4-release-certification.json
+          retention-days: 90
