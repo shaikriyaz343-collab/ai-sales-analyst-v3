@@ -167,17 +167,17 @@ test("billing page starts a configured checkout", async ({ page }) => {
     });
   });
 
-  await page.route("http://127.0.0.1:3000/mock-checkout?txn=txn_test_123", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/html",
-      body: "<title>Mock Checkout</title><p>Checkout</p>",
-    });
-  });
-
   await page.goto("/dashboard/billing");
+  await page.evaluate(() => {
+    window.Paddle = {
+      Checkout: {
+        open: ({ transactionId }) => {
+          document.body.dataset.testPaddleTransaction = transactionId;
+        },
+      },
+    };
+  });
   await page.getByRole("button", { name: "Upgrade" }).first().click();
-  await page.waitForLoadState("domcontentloaded");
-  await expect(page.getByText("Checkout", { exact: true })).toBeVisible();
+  await expect.poll(async () => page.locator("body").getAttribute("data-test-paddle-transaction")).toBe("txn_test_123");
   expect(checkoutCalls).toEqual([{ plan_id: "starter" }]);
 });
