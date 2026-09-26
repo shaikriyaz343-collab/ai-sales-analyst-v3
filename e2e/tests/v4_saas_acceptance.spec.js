@@ -50,7 +50,7 @@ test.describe("V4 public acquisition entrypoint", () => {
   test("public landing explains the value proposition and routes to signup", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /Know what changed in your pipeline before the meeting starts/i })).toBeVisible();
-    await expect(page.getByText("Avelyntics", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Avenlytics", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Evidence-first analysis", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Start with a sales team. Expand when the workflow sticks/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Numbers come from your data\. Unsupported answers stop there/i })).toBeVisible();

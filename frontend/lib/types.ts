@@ -45,6 +45,8 @@ export type DatasetSummary = {
   business_model: string | null;
   business_model_label: string | null;
   business_model_confidence: number;
+  analysis_status?: "ready" | "needs_review" | string;
+  analysis_status_reason?: string | null;
   quality_issues: number;
   quality?: DataQualitySummary | null;
   capabilities: CapabilitySet;

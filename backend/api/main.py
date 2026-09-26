@@ -134,7 +134,7 @@ async def lifespan(app: FastAPI):
             reset_runtime_persistence()
             app.state.analytics_limiter = None
 
-app = FastAPI(title="AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan)
+app = FastAPI(title="Avenlytics · AI Sales Analyst API", version="4.1.0-alpha.1", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.frontend_origins),
@@ -476,7 +476,7 @@ def _scope_for(principal: Principal, dataset_id: str, session_id: str | None):
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok", product="AI Sales Analyst", version="4.1.0-alpha.1")
+    return HealthResponse(status="ok", product="Avenlytics · AI Sales Analyst", version="4.1.0-alpha.1")
 
 
 @app.get("/api/v1/ready", response_model=ReadyResponse)

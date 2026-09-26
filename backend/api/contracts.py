@@ -80,6 +80,8 @@ class DatasetSummary(BaseModel):
     business_model: str | None
     business_model_label: str | None
     business_model_confidence: float
+    analysis_status: str = "ready"
+    analysis_status_reason: str | None = None
     quality_issues: int
     quality: DataQualitySummary = Field(default_factory=DataQualitySummary)
     semantic: SemanticSummary = Field(default_factory=SemanticSummary)

@@ -216,10 +216,11 @@ def _derive_revenue_available(
     if "revenue" in present:
         return True
 
-    return (
-        "quantity" in present
-        and "price" in present
-    )
+    if "quantity" not in present or "price" not in present:
+        return False
+
+    adjustments = {"discount_pct", "discount_amount", "tax_amount", "shipping_amount"}
+    return not any(field in present for field in adjustments)
 
 
 def _derive_aov_available(
@@ -232,6 +233,7 @@ def _derive_aov_available(
         "quantity" in present
         and "price" in present
         and "order_id" in present
+        and _derive_revenue_available(None, present)
     )
 
 

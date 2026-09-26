@@ -139,9 +139,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   return (
     <div className="app-frame" data-v4-readiness={readiness}>
       <aside className="sidebar">
-        <Link href="/" className="brand" aria-label="AI Sales Analyst home">
-          <div className="brand-mark">AI</div>
-          <div><strong>Sales Analyst</strong><span>Decision Intelligence</span></div>
+        <Link href="/" className="brand" aria-label="Avenlytics home">
+          <div className="brand-mark">A</div>
+          <div><strong>Avenlytics</strong><span>AI Sales Analyst</span></div>
         </Link>
         <nav className="nav-list" aria-label="Primary navigation">
           {nav.filter((item) => item.id === "decisions" || item.id === "forecast" || item.id === "billing" || allowed.has(item.id)).map((item) => {
