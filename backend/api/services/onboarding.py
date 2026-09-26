@@ -120,6 +120,8 @@ def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: 
         business_model=business_type.get("primary_type"),
         business_model_label=business_type.get("primary_label"),
         business_model_confidence=float(business_type.get("confidence") or 0.0),
+        analysis_status=str(business_type.get("status") or "ready"),
+        analysis_status_reason=business_type.get("reason") or None,
         quality_issues=quality_summary.issue_count,
         quality=quality_summary,
         semantic=_semantic_summary(profile, semantic, data),
