@@ -12,7 +12,7 @@ LABELS = {
 
 REQUIRED_EVIDENCE = {
     "transactional_sales": (
-        {"date", "order_id", "customer", "product", "quantity", "revenue"},
+        {"date", "customer", "product", "quantity", "revenue"},
     ),
     "sales_pipeline": (
         {"stage"},
