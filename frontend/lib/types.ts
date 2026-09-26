@@ -286,5 +286,6 @@ export type CommercialEntitlements = {
     provider: string;
     checkout_ready: boolean;
     customer_portal_available: boolean;
+    paddle_environment: "sandbox" | "live" | null;
   };
 };

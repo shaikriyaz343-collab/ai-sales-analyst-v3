@@ -40,6 +40,7 @@ const entitlements = {
     provider: "disabled",
     checkout_ready: false,
     customer_portal_available: false,
+    paddle_environment: null,
   },
   usage: {
     dataset_uploads: 1,
@@ -137,6 +138,7 @@ test("billing page starts a configured checkout", async ({ page }) => {
       provider: "paddle",
       checkout_ready: true,
       customer_portal_available: false,
+      paddle_environment: "sandbox",
     },
   };
 

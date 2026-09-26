@@ -53,9 +53,11 @@ export default function BillingPage() {
   const paddleClientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "";
 
   function initializePaddle() {
-    if (paddleInitialized || !paddleClientToken || !window.Paddle) return;
+    const configuredEnvironment = data?.billing.paddle_environment;
+    if (paddleInitialized || !paddleClientToken || !window.Paddle || !configuredEnvironment) return;
 
-    window.Paddle.Environment.set("sandbox");
+    const paddleEnvironment = configuredEnvironment === "live" ? "production" : "sandbox";
+    window.Paddle.Environment.set(paddleEnvironment);
     window.Paddle.Initialize({
       token: paddleClientToken,
       eventCallback: (event) => {
@@ -73,7 +75,7 @@ export default function BillingPage() {
     try {
       const session = await createCommercialCheckout(planId);
       if (!window.Paddle || !paddleInitialized) {
-        setCheckoutError("Paddle Sandbox checkout is still loading. Please try again.");
+        setCheckoutError("Paddle checkout is still loading. Please try again.");
         return;
       }
       window.Paddle.Checkout.open({ transactionId: session.provider_session_id });
@@ -115,7 +117,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     initializePaddle();
-  }, [paddleClientToken, paddleInitialized]);
+  }, [paddleClientToken, data?.billing.paddle_environment, paddleInitialized]);
 
   const currentPlan = useMemo(
     () => data?.catalog.find((plan) => plan.plan_id === data.subscription.plan_id),
