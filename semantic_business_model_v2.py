@@ -216,10 +216,13 @@ def _derive_revenue_available(
     if "revenue" in present:
         return True
 
-    return (
-        "quantity" in present
-        and "price" in present
-    )
+    # Quantity × unit price is only treated as revenue when the source does not
+    # also contain adjustments (discounts, tax, shipping) that make the intended
+    # revenue basis ambiguous. Explicit revenue from the file always wins.
+    if "quantity" not in present or "price" not in present:
+        return False
+    adjustments = {"discount_pct", "discount_amount", "tax_amount", "shipping_amount"}
+    return not any(field in present for field in adjustments)
 
 
 def _derive_aov_available(
