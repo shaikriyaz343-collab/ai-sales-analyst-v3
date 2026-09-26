@@ -49,11 +49,11 @@ export default function MarketingHome() {
   return (
     <main className="landing-v2-page">
       <header className="landing-v2-nav">
-        <Link href="/" className="landing-v2-brand" aria-label="AI Sales Analyst home">
-          <span className="landing-v2-mark">AI</span>
+        <Link href="/" className="landing-v2-brand" aria-label="Avelyntics — AI Sales Analyst home">
+          <span className="landing-v2-mark">A</span>
           <span>
-            <strong>AI Sales Analyst</strong>
-            <small>Your AI Revenue Analyst</small>
+            <strong>Avelyntics</strong>
+            <small>AI Sales Analyst · Revenue intelligence</small>
           </span>
         </Link>
 
@@ -91,13 +91,13 @@ export default function MarketingHome() {
           <div className="landing-v2-product-window">
             <div className="landing-v2-window-top">
               <div className="landing-v2-window-dots"><i /><i /><i /></div>
-              <span>AI SALES ANALYST</span>
+              <span>AVELYNTICS · AI SALES ANALYST</span>
               <span className="landing-v2-live-badge">ANALYSIS READY</span>
             </div>
 
             <div className="landing-v2-window-body">
               <aside className="landing-v2-mini-sidebar">
-                <div className="landing-v2-mini-brand">AI</div>
+                <div className="landing-v2-mini-brand">A</div>
                 <span className="active">Decisions</span>
                 <span>Forecast</span>
                 <span>Ask Analyst</span>
@@ -214,6 +214,39 @@ export default function MarketingHome() {
         </div>
       </section>
 
+      <section className="landing-v2-section landing-v2-trust">
+        <div className="landing-v2-section-intro">
+          <span className="landing-v2-kicker">HOW AVELYNTICS KEEPS ANALYSIS GROUNDED</span>
+          <h2>Numbers come from your data. Unsupported answers stop there.</h2>
+          <p>
+            Avelyntics is built so the uploaded dataset remains the source of truth. Metrics are calculated from validated fields,
+            and the insight layer reuses those same evidence objects instead of inventing a second set of numbers.
+          </p>
+        </div>
+
+        <div className="landing-v2-trust-grid">
+          <article>
+            <span>01 · SOURCE OF TRUTH</span>
+            <h3>Your uploaded data</h3>
+            <p>We calculate from the dataset and its validated fields. We do not fill missing fields with outside assumptions.</p>
+          </article>
+          <article>
+            <span>02 · CALCULATION FIRST</span>
+            <h3>Evidence behind the number</h3>
+            <p>Metrics carry their calculation, scope, and source fields so a customer can inspect where an insight came from.</p>
+          </article>
+          <article>
+            <span>03 · BOUNDED ANSWERS</span>
+            <h3>No guessing when the data is silent</h3>
+            <p>When a question cannot be mapped to a validated metric or analysis, the product returns an unsupported response instead of guessing.</p>
+          </article>
+        </div>
+
+        <div className="landing-v2-trust-note">
+          <strong>Important:</strong> analysis can only be as accurate as the data supplied. Avelyntics does not claim to know facts that are absent from the uploaded dataset.
+        </div>
+      </section>
+
       <section className="landing-v2-section landing-v2-pricing-section" id="pricing">
         <div className="landing-v2-section-intro">
           <span className="landing-v2-kicker">PRICING</span>
@@ -272,8 +305,8 @@ export default function MarketingHome() {
       </section>
 
       <footer className="landing-v2-footer">
-        <span>AI Sales Analyst</span>
-        <span>Decision intelligence for sales teams</span>
+        <span>Avelyntics</span>
+        <span>AI Sales Analyst · Decision intelligence for sales teams</span>
       </footer>
     </main>
   );
