@@ -178,6 +178,6 @@ test("billing page starts a configured checkout", async ({ page }) => {
   await page.goto("/dashboard/billing");
   await page.getByRole("button", { name: "Upgrade" }).first().click();
   await page.waitForLoadState("domcontentloaded");
-  await expect(page).toHaveTitle("Mock Checkout");
+  await expect(page.getByText("Checkout", { exact: true })).toBeVisible();
   expect(checkoutCalls).toEqual([{ plan_id: "starter" }]);
 });
