@@ -42,7 +42,9 @@ def _canonicalize(data: pd.DataFrame, profile: dict[str, Any]) -> pd.DataFrame:
         if source in out.columns and semantic_name not in out.columns:
             out[semantic_name] = out[source]
     if "revenue" not in out.columns and {"quantity", "price"}.issubset(out.columns):
-        out["revenue"] = _num(out["quantity"]) * _num(out["price"])
+        adjustments = {"discount_pct", "discount_amount", "tax_amount", "shipping_amount"}
+        if not adjustments.intersection(profile.get("recognized", {})):
+            out["revenue"] = _num(out["quantity"]) * _num(out["price"])
     return out
 
 
@@ -128,12 +130,19 @@ def build_overview(dataset_id: str, scope=None) -> OverviewResponse:
         discounts = analyze_discounts(canonical)
         pm = perf.get("metrics", {})
         revenue, orders, aov = pm.get("revenue"), pm.get("orders"), pm.get("aov")
-        return_rate = returns.get("metrics", {}).get("return_rate_pct")
+        return_metrics = returns.get("metrics", {})
+        return_rate = return_metrics.get("returned_order_rate_pct")
+        if return_rate is None:
+            return_rate = return_metrics.get("return_rate_pct")
 
+        revenue_derived = "revenue" not in profile.get("recognized", {}) and "revenue" in semantic.get("available_concepts", [])
+        revenue_label = "Gross sales (derived)" if revenue_derived else "Revenue"
+        revenue_calc = "sum(quantity × unit price)" if revenue_derived else "sum(revenue)"
+        revenue_fields = ["quantity", "price"] if revenue_derived else ["revenue"]
         metrics = [
-            _metric("revenue", "Revenue", revenue, _money(revenue), "sum(revenue)", ["revenue"]),
+            _metric("revenue", revenue_label, revenue, _money(revenue), revenue_calc, revenue_fields),
             _metric("orders", "Orders", orders, _count(orders), "distinct order_id count", ["order_id"]),
-            _metric("aov", "AOV", aov, _money(aov), "revenue / distinct orders", ["revenue", "order_id"]),
+            _metric("aov", "AOV", aov, _money(aov), "revenue / distinct orders", revenue_fields + ["order_id"]),
         ]
         if return_rate is not None:
             metrics.append(_metric("return_rate", "Return rate", return_rate, _pct(return_rate), "returned orders / total orders × 100", ["return_status", "order_id"], tone="risk" if return_rate >= 10 else "neutral"))
