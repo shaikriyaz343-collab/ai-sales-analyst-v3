@@ -49,11 +49,11 @@ export default function MarketingHome() {
   return (
     <main className="landing-v2-page">
       <header className="landing-v2-nav">
-        <Link href="/" className="landing-v2-brand" aria-label="AI Sales Analyst home">
-          <span className="landing-v2-mark">AI</span>
+        <Link href="/" className="landing-v2-brand" aria-label="Avelyntics AI Sales Analyst home">
+          <span className="landing-v2-mark">A</span>
           <span>
-            <strong>AI Sales Analyst</strong>
-            <small>Your AI Revenue Analyst</small>
+            <strong>Avelyntics</strong>
+            <small>AI Sales Analyst · AI Revenue Analyst</small>
           </span>
         </Link>
 
@@ -67,11 +67,11 @@ export default function MarketingHome() {
 
       <section className="landing-v2-hero">
         <div className="landing-v2-hero-copy">
-          <span className="landing-v2-kicker">AI REVENUE ANALYST · BUILT FOR SALES TEAMS</span>
+          <span className="landing-v2-kicker">AVELYNTICS · AI REVENUE ANALYST · BUILT FOR SALES TEAMS</span>
           <h1>Know what changed in your pipeline before the meeting starts.</h1>
           <p className="landing-v2-lede">
-            Upload the sales data you already have. Get a grounded revenue view of what changed,
-            why it matters, what the current data supports, and where to focus next.
+            <strong>Avelyntics AI Sales Analyst</strong> turns the sales data you already have into a grounded revenue view:
+            what changed, why it matters, what the current data supports, and where to focus next.
           </p>
 
           <div className="landing-v2-actions">
@@ -81,9 +81,9 @@ export default function MarketingHome() {
 
           <div className="landing-v2-proof-row">
             <span>CSV / Excel / CRM exports</span>
-            <span>Evidence-first analysis</span>
+            <span>Every number tied to source data</span>
+            <span>Unsupported questions are not guessed</span>
             <span>No CRM replacement</span>
-            <span>No implementation project</span>
           </div>
         </div>
 
@@ -144,11 +144,15 @@ export default function MarketingHome() {
               </div>
             </div>
           </div>
-          <div className="landing-v2-product-note">Illustrative workspace · actual answers use your validated data</div>
+          <div className="landing-v2-product-note">Illustrative workspace · Avelyntics uses your validated dataset and will not invent unsupported numbers</div>
         </div>
       </section>
 
       <section className="landing-v2-proof-band">
+        <div className="landing-v2-trust-strip">
+          <span>DATA-GROUNDED BY DESIGN</span>
+          <strong>Numbers come from the uploaded dataset. Unsupported answers are surfaced instead of guessed.</strong>
+        </div>
         <div>
           <span>BUILT FOR THE WEEKLY REVENUE RHYTHM</span>
           <strong>Less spreadsheet archaeology. More time deciding.</strong>
@@ -272,8 +276,8 @@ export default function MarketingHome() {
       </section>
 
       <footer className="landing-v2-footer">
-        <span>AI Sales Analyst</span>
-        <span>Decision intelligence for sales teams</span>
+        <span>Avelyntics · AI Sales Analyst</span>
+        <span>Decision intelligence for sales teams · Evidence-first by design</span>
       </footer>
     </main>
   );
