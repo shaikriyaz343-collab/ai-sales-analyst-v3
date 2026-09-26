@@ -52,8 +52,8 @@ export default function MarketingHome() {
         <Link href="/" className="landing-v2-brand" aria-label="AI Sales Analyst home">
           <span className="landing-v2-mark">AI</span>
           <span>
-            <strong>AI Sales Analyst</strong>
-            <small>Your AI Revenue Analyst</small>
+            <strong>Avenlytics</strong>
+            <small>AI Sales Analyst</small>
           </span>
         </Link>
 
@@ -82,7 +82,7 @@ export default function MarketingHome() {
           <div className="landing-v2-proof-row">
             <span>CSV / Excel / CRM exports</span>
             <span>Evidence-first analysis</span>
-            <span>No CRM replacement</span>
+            <span>No fabricated numbers</span>
             <span>No implementation project</span>
           </div>
         </div>
@@ -157,6 +157,19 @@ export default function MarketingHome() {
           <span><b>Upload</b> your latest export</span>
           <span><b>Understand</b> the current signal</span>
           <span><b>Act</b> on what the evidence supports</span>
+        </div>
+      </section>
+
+      <section className="landing-v2-trust">
+        <div className="landing-v2-trust-head">
+          <span className="landing-v2-kicker">TRUST BY DESIGN</span>
+          <h2>The answer is constrained by the data.</h2>
+          <p>Every number comes from a validated analytical calculation. When the file does not support an answer, the analyst says so instead of filling the gap.</p>
+        </div>
+        <div className="landing-v2-trust-grid">
+          <article><b>Validated fields</b><span>Only recognized, supported data concepts are used for analysis.</span></article>
+          <article><b>Evidence on every signal</b><span>Metrics and insights expose the calculation, scope, and source fields behind them.</span></article>
+          <article><b>No guessing</b><span>Unsupported questions and ambiguous data models are explicitly declined.</span></article>
         </div>
       </section>
 
@@ -272,8 +285,8 @@ export default function MarketingHome() {
       </section>
 
       <footer className="landing-v2-footer">
-        <span>AI Sales Analyst</span>
-        <span>Decision intelligence for sales teams</span>
+        <span>Avenlytics</span>
+        <span>AI Sales Analyst · Decision intelligence for sales teams</span>
       </footer>
     </main>
   );
