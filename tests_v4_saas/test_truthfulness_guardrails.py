@@ -56,7 +56,8 @@ def test_transactional_file_without_adjustments_can_use_derived_gross_value() ->
     overview = build_overview(summary.dataset_id)
     revenue = next(item for item in overview.metrics if item.id == "revenue")
     assert revenue.value == 800
-    assert "sum(revenue)" in revenue.evidence.calculation
+    assert revenue.label == "Gross sales (derived)"
+    assert revenue.evidence.calculation == "sum(quantity × unit price)"
 
 
 def test_return_rate_uses_orders_not_rows_when_order_has_multiple_lines() -> None:
