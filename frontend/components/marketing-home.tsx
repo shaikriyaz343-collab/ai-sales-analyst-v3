@@ -49,10 +49,10 @@ export default function MarketingHome() {
   return (
     <main className="landing-v2-page">
       <header className="landing-v2-nav">
-        <Link href="/" className="landing-v2-brand" aria-label="Avelyntics — AI Sales Analyst home">
+        <Link href="/" className="landing-v2-brand" aria-label="Avenlytics — AI Sales Analyst home">
           <span className="landing-v2-mark">A</span>
           <span>
-            <strong>Avelyntics</strong>
+            <strong>Avenlytics</strong>
             <small>AI Sales Analyst · Revenue intelligence</small>
           </span>
         </Link>
@@ -219,7 +219,7 @@ export default function MarketingHome() {
           <span className="landing-v2-kicker">HOW AVELYNTICS KEEPS ANALYSIS GROUNDED</span>
           <h2>Numbers come from your data. Unsupported answers stop there.</h2>
           <p>
-            Avelyntics is built so the uploaded dataset remains the source of truth. Metrics are calculated from validated fields,
+            Avenlytics is built so the uploaded dataset remains the source of truth. Metrics are calculated from validated fields,
             and the insight layer reuses those same evidence objects instead of inventing a second set of numbers.
           </p>
         </div>
@@ -243,7 +243,7 @@ export default function MarketingHome() {
         </div>
 
         <div className="landing-v2-trust-note">
-          <strong>Important:</strong> analysis can only be as accurate as the data supplied. Avelyntics does not claim to know facts that are absent from the uploaded dataset.
+          <strong>Important:</strong> analysis can only be as accurate as the data supplied. Avenlytics does not claim to know facts that are absent from the uploaded dataset.
         </div>
       </section>
 
@@ -305,7 +305,7 @@ export default function MarketingHome() {
       </section>
 
       <footer className="landing-v2-footer">
-        <span>Avelyntics</span>
+        <span>Avenlytics</span>
         <span>AI Sales Analyst · Decision intelligence for sales teams</span>
       </footer>
     </main>
