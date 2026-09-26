@@ -38,15 +38,15 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
   return (
     <main className="auth-page">
       <div className="auth-shell">
-        <Link href="/" className="auth-back-link">← Back to AI Sales Analyst</Link>
+        <Link href="/" className="auth-back-link">← Back to Avelyntics</Link>
         <header className="onboarding-brand">
-          <div className="brand-mark">AI</div>
-          <div><strong>AI Sales Analyst</strong><span>Your AI Revenue Analyst · No CRM replacement</span></div>
+          <div className="brand-mark">A</div>
+          <div><strong>Avelyntics</strong><span>AI Sales Analyst · No CRM replacement</span></div>
         </header>
         <section className="auth-marketing" aria-labelledby="public-value-proposition">
-          <span className="eyebrow">AI REVENUE ANALYST</span>
+          <span className="eyebrow">AVELÝNTICS · AI REVENUE ANALYST</span>
           <h1 id="public-value-proposition">Know what changed in your pipeline before the meeting starts.</h1>
-          <p>Upload your sales export and get an evidence-backed revenue story: what changed, why it matters, what the forecast says, and what your team should do next.</p>
+          <p>Upload your sales export and Avelyntics will calculate an evidence-backed revenue story from the validated dataset: what changed, why it matters, what the forecast says, and what your team should do next.</p>
           <div className="auth-value-grid">
             <div><strong>What changed</strong><span>See the movements that matter.</span></div>
             <div><strong>Why it matters</strong><span>Trace each conclusion to source data.</span></div>
@@ -73,7 +73,7 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
             {error && <div className="onboarding-error" role="alert">{error}</div>}
             <button type="submit" className="primary-button" disabled={busy}>{busy ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}</button>
           </form>
-          <div className="auth-trust"><strong>Private by default.</strong><span>Your organization, users, datasets and saved intelligence are isolated by account.</span></div>
+          <div className="auth-trust"><strong>Private by default · Data-grounded by design.</strong><span>Your organization, users, datasets and saved intelligence are isolated by account. Unsupported questions are surfaced rather than guessed.</span></div>
         </section>
       </div>
     </main>
