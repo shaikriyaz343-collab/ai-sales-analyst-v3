@@ -167,25 +167,17 @@ test("billing page starts a configured checkout", async ({ page }) => {
     });
   });
 
-  await page.route("https://cdn.paddle.com/paddle/v2/paddle.js", async (route) => {
+  await page.route("http://127.0.0.1:3000/mock-checkout?txn=txn_test_123", async (route) => {
     await route.fulfill({
       status: 200,
-      contentType: "application/javascript",
-      body: "window.Paddle={Environment:{set:function(){}},Initialize:function(){},Checkout:{open:function(o){document.body.dataset.testPaddleTransaction=o.transactionId;}}};",
+      contentType: "text/html",
+      body: "<title>Mock Checkout</title><p>Checkout</p>",
     });
   });
 
   await page.goto("/dashboard/billing");
-  await page.evaluate(() => {
-    window.Paddle = {
-      Checkout: {
-        open: ({ transactionId }) => {
-          document.body.dataset.testPaddleTransaction = transactionId;
-        },
-      },
-    };
-  });
   await page.getByRole("button", { name: "Upgrade" }).first().click();
-  await expect.poll(async () => page.locator("body").getAttribute("data-test-paddle-transaction")).toBe("txn_test_123");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page).toHaveTitle("Mock Checkout");
   expect(checkoutCalls).toEqual([{ plan_id: "starter" }]);
 });
