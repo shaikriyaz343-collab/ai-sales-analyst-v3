@@ -131,7 +131,9 @@ def build_overview(dataset_id: str, scope=None) -> OverviewResponse:
         pm = perf.get("metrics", {})
         revenue, orders, aov = pm.get("revenue"), pm.get("orders"), pm.get("aov")
         return_metrics = returns.get("metrics", {})
-        return_rate = return_metrics.get("returned_order_rate_pct") or return_metrics.get("return_rate_pct")
+        return_rate = return_metrics.get("returned_order_rate_pct")
+        if return_rate is None:
+            return_rate = return_metrics.get("return_rate_pct")
 
         metrics = [
             _metric("revenue", "Revenue", revenue, _money(revenue), "sum(revenue)", ["revenue"]),
