@@ -93,6 +93,9 @@
 @media(max-width:560px){.landing-v2-nav{align-items:flex-start}.landing-v2-nav-links{flex-wrap:wrap;justify-content:flex-end}.landing-v2-nav-links a:nth-child(2){display:none}.landing-v2-hero h1{font-size:40px}.landing-v2-lede{font-size:15px}.landing-v2-product-note{position:static;margin-top:8px}.landing-v2-mini-sidebar{display:none}.landing-v2-window-body{grid-template-columns:1fr}.landing-v2-dashboard-head{flex-direction:column}.landing-v2-dashboard-head h2{font-size:21px}.landing-v2-final{margin-top:80px}}
 
 
-/* Avelyntics brand + trust layer */
+/* Avenlytics brand + trust layer */
 .landing-v2-brand strong{font-size:13px;letter-spacing:.01em}.landing-v2-brand small{font-size:9px}.landing-v2-brand:hover{text-decoration:none}.landing-v2-trust{margin-top:94px}.landing-v2-trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:30px}.landing-v2-trust-grid article{background:#fff;border:1px solid #dde6f0;border-radius:16px;padding:23px;min-height:195px}.landing-v2-trust-grid article>span{display:block;font-size:9px;font-weight:850;letter-spacing:.1em;color:#71849f}.landing-v2-trust-grid h3{font-size:20px;letter-spacing:-.03em;margin:27px 0 8px}.landing-v2-trust-grid p{font-size:11px;line-height:1.68;color:#718095;margin:0}.landing-v2-trust-note{margin-top:13px;padding:13px 16px;border:1px solid #dce5f0;border-radius:11px;background:#f8fafc;color:#65748a;font-size:10px;line-height:1.6}.landing-v2-trust-note strong{color:#223653}
 @media(max-width:850px){.landing-v2-trust-grid{grid-template-columns:1fr}.landing-v2-trust{margin-top:80px}}
+
+
+.data-review-state{max-width:880px;margin:70px auto;padding:34px;border:1px solid #dfe6f0;border-radius:18px;background:#fff}.data-review-state h1{font-size:38px;line-height:1.08;letter-spacing:-.04em;margin:10px 0 12px}.data-review-state p{font-size:13px;line-height:1.65;color:#6d7a8e;max-width:760px}.review-trust-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}.review-trust-row span{padding:8px 10px;border-radius:999px;background:#f5f7fb;border:1px solid #e2e8f0;color:#667489;font-size:10px;font-weight:750}
