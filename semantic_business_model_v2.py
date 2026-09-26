@@ -235,6 +235,7 @@ def _derive_aov_available(
         "quantity" in present
         and "price" in present
         and "order_id" in present
+        and _derive_revenue_available(None, present)
     )
 
 
