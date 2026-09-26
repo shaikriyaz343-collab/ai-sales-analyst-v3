@@ -870,6 +870,7 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
         "billing": {
             "provider": settings.billing_provider,
             "checkout_ready": settings.billing_provider == "paddle",
+            "paddle_environment": settings.paddle_environment if settings.billing_provider == "paddle" else None,
             "customer_portal_available": bool(
                 subscription and subscription.provider == "paddle" and subscription.provider_customer_id
             ),
