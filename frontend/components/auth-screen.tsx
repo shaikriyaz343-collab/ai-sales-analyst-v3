@@ -38,10 +38,10 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
   return (
     <main className="auth-page">
       <div className="auth-shell">
-        <Link href="/" className="auth-back-link">← Back to Avelyntics</Link>
+        <Link href="/" className="auth-back-link">← Back to Avenlytics</Link>
         <header className="onboarding-brand">
           <div className="brand-mark">A</div>
-          <div><strong>Avelyntics</strong><span>AI Sales Analyst · No CRM replacement</span></div>
+          <div><strong>Avenlytics</strong><span>AI Sales Analyst · No CRM replacement</span></div>
         </header>
         <section className="auth-marketing" aria-labelledby="public-value-proposition">
           <span className="eyebrow">AI REVENUE ANALYST</span>
