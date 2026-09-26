@@ -15,8 +15,7 @@ LABELS = {
 # the first zero-score model and receiving misleading business insights.
 REQUIRED_EVIDENCE = {
     "transactional_sales": (
-        {"date", "order_id", "customer", "product", "quantity"},
-        ({"revenue"}, {"quantity", "price"}),
+        {"date", "order_id", "customer", "product", "quantity", "revenue"},
     ),
     "sales_pipeline": (
         {"stage"},
