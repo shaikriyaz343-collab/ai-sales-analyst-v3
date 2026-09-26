@@ -67,7 +67,7 @@ export default function MarketingHome() {
 
       <section className="landing-v2-hero">
         <div className="landing-v2-hero-copy">
-          <span className="landing-v2-kicker">AVELÝNTICS · AI REVENUE ANALYST · BUILT FOR SALES TEAMS</span>
+          <span className="landing-v2-kicker">AVELyntics · AI REVENUE ANALYST · BUILT FOR SALES TEAMS</span>
           <h1>Know what changed in your pipeline before the meeting starts.</h1>
           <p className="landing-v2-lede">
             <strong>Avelyntics AI Sales Analyst</strong> turns the sales data you already have into a grounded revenue view:
