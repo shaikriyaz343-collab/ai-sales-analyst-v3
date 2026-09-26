@@ -44,7 +44,7 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
           <div><strong>Avelyntics</strong><span>AI Sales Analyst · No CRM replacement</span></div>
         </header>
         <section className="auth-marketing" aria-labelledby="public-value-proposition">
-          <span className="eyebrow">AVELyntics · AI REVENUE ANALYST</span>
+          <span className="eyebrow">AVELYNTICS · AI REVENUE ANALYST</span>
           <h1 id="public-value-proposition">Know what changed in your pipeline before the meeting starts.</h1>
           <p>Upload your sales export and Avelyntics will calculate an evidence-backed revenue story from the validated dataset: what changed, why it matters, what the forecast says, and what your team should do next.</p>
           <div className="auth-value-grid">
