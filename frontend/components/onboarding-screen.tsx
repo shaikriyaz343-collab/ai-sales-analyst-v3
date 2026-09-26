@@ -46,7 +46,7 @@ export default function OnboardingScreen() {
       <div className="onboarding-shell">
         <header className="onboarding-brand">
           <div className="brand-mark">AI</div>
-          <div><strong>AI Sales Analyst</strong><span>Decision intelligence for revenue teams</span></div>
+          <div><strong>Avenlytics</strong><span>AI Sales Analyst · Decision intelligence for revenue teams</span></div>
         </header>
 
         <section className="onboarding-account-bar"><span>{user?.organization_name ?? "Organization"}</span><span>{user?.workspace_name ?? "Workspace"}</span></section>
@@ -84,8 +84,8 @@ export default function OnboardingScreen() {
         </section>
 
         <footer className="onboarding-footer">
-          <span>No fabricated numbers. Deterministic metrics. Evidence-backed analysis.</span>
-          <span>Your existing data remains the source of truth.</span>
+          <span>Avenlytics does not invent metrics. Calculations are deterministic and evidence-backed.</span>
+          <span>Your uploaded data remains the source of truth; unsupported questions are declined.</span>
         </footer>
       </div>
     </main>
