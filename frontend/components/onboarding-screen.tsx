@@ -46,7 +46,7 @@ export default function OnboardingScreen() {
       <div className="onboarding-shell">
         <header className="onboarding-brand">
           <div className="brand-mark">A</div>
-          <div><strong>Avelyntics</strong><span>AI Sales Analyst · Decision intelligence</span></div>
+          <div><strong>Avenlytics</strong><span>AI Sales Analyst · Decision intelligence</span></div>
         </header>
 
         <section className="onboarding-account-bar"><span>{user?.organization_name ?? "Organization"}</span><span>{user?.workspace_name ?? "Workspace"}</span></section>
@@ -55,7 +55,7 @@ export default function OnboardingScreen() {
           <div className="hero-copy">
             <span className="eyebrow">FROM DATA TO DECISIONS</span>
             <h1>Turn your sales data into a clear business story.</h1>
-            <p>Upload a CSV or Excel file. Avelyntics will understand the business model, validate available signals, and prepare an analyst workspace grounded in your data.</p>
+            <p>Upload a CSV or Excel file. Avenlytics will understand the business model, validate available signals, and prepare an analyst workspace grounded in your data.</p>
           </div>
 
           <button
