@@ -25,7 +25,6 @@ module.exports = defineConfig({
     reuseExistingServer: false,
     env: {
       NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000",
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "test-client-token",
     },
   },
   reporter: [["list"], ["html", { outputFolder: path.join(e2eRoot, "commercial-playwright-report"), open: "never" }]],
