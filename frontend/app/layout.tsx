@@ -4,11 +4,11 @@ import { AppStateProvider } from "../lib/app-state";
 import { AuthProvider } from "../lib/auth";
 
 export const metadata: Metadata = {
-  title: "Avelyntics | AI Sales Analyst",
-  description: "Avelyntics AI Sales Analyst. Upload sales data, understand what changed, and act with evidence — without replacing your CRM.",
+  title: "Avenlytics | AI Sales Analyst",
+  description: "Avenlytics AI Sales Analyst. Upload sales data, understand what changed, and act with evidence — without replacing your CRM.",
   openGraph: {
-    title: "Avelyntics | AI Sales Analyst",
-    description: "Turn your sales data into an evidence-backed revenue story with Avelyntics, without replacing your CRM.",
+    title: "Avenlytics | AI Sales Analyst",
+    description: "Turn your sales data into an evidence-backed revenue story with Avenlytics, without replacing your CRM.",
   },
 };
 
