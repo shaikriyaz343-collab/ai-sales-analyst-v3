@@ -91,7 +91,7 @@ export default function MarketingHome() {
           <div className="landing-v2-product-window">
             <div className="landing-v2-window-top">
               <div className="landing-v2-window-dots"><i /><i /><i /></div>
-              <span>AVELYNTICS · AI SALES ANALYST</span>
+              <span>AVENLYTICS · AI SALES ANALYST</span>
               <span className="landing-v2-live-badge">ANALYSIS READY</span>
             </div>
 
