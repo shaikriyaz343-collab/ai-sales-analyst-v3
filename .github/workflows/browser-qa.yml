@@ -111,7 +111,7 @@ jobs:
             fi
 
             if curl -fsS "${V4_APP_URL}/" >/tmp/v4-home.html 2>/dev/null && \
-               grep -Fq "<title>Avelyntics | AI Sales Analyst</title>" /tmp/v4-home.html; then
+               grep -Fq "<title>Avenlytics | AI Sales Analyst</title>" /tmp/v4-home.html; then
               frontend_ok=1
             fi
 
