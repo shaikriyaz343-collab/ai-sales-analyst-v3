@@ -38,10 +38,10 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
   return (
     <main className="auth-page">
       <div className="auth-shell">
-        <Link href="/" className="auth-back-link">← Back to AI Sales Analyst</Link>
+        <Link href="/" className="auth-back-link">← Back to Avenlytics</Link>
         <header className="onboarding-brand">
           <div className="brand-mark">AI</div>
-          <div><strong>AI Sales Analyst</strong><span>Your AI Revenue Analyst · No CRM replacement</span></div>
+          <div><strong>Avenlytics</strong><span>AI Sales Analyst · Your AI Revenue Analyst</span></div>
         </header>
         <section className="auth-marketing" aria-labelledby="public-value-proposition">
           <span className="eyebrow">AI REVENUE ANALYST</span>
@@ -55,7 +55,7 @@ export default function AuthScreen({ initialMode = "signin" }: { initialMode?: "
         </section>
         <section className="auth-card panel">
           <div>
-            <span className="eyebrow">YOUR ANALYST WORKSPACE</span>
+            <span className="eyebrow">AVENLYTICS · ANALYST WORKSPACE</span>
             <h1>{mode === "signin" ? "Welcome back." : "Create your analyst workspace."}</h1>
             <p>{mode === "signin" ? "Sign in to continue to your organization and its business workspaces." : "Upload your sales data and get the revenue story, evidence-backed risks, forecast, and next actions — without replacing your CRM."}</p>
           </div>
