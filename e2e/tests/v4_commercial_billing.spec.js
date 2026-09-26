@@ -167,6 +167,14 @@ test("billing page starts a configured checkout", async ({ page }) => {
     });
   });
 
+  await page.route("https://cdn.paddle.com/paddle/v2/paddle.js", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: "window.Paddle={Environment:{set:function(){}},Initialize:function(){},Checkout:{open:function(o){document.body.dataset.testPaddleTransaction=o.transactionId;}}};",
+    });
+  });
+
   await page.goto("/dashboard/billing");
   await page.evaluate(() => {
     window.Paddle = {
