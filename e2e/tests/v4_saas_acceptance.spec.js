@@ -50,8 +50,9 @@ test.describe("V4 public acquisition entrypoint", () => {
   test("public landing explains the value proposition and routes to signup", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /Know what changed in your pipeline before the meeting starts/i })).toBeVisible();
-    await expect(page.getByText("No CRM replacement. No implementation project. No fabricated numbers.", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Start small. Upgrade when the analyst becomes part of the rhythm/i })).toBeVisible();
+    await expect(page.getByText("Evidence-first analysis", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Start with a sales team. Expand when the workflow sticks/i })).toBeVisible();
+    await expect(page.getByText("WHAT CHANGED", { exact: true }).first()).toBeVisible();
     await page.getByRole("link", { name: "Start your 14-day trial", exact: true }).click();
     await expect(page).toHaveURL(/\/login\?mode=signup$/);
     await expect(page.getByRole("tab", { name: "Create account", exact: true })).toHaveAttribute("aria-selected", "true");
