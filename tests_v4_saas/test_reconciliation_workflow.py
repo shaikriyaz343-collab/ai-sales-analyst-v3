@@ -102,7 +102,7 @@ def test_browser_qa_waits_for_the_current_public_release_marker() -> None:
 
     assert "Wait for deployed V4 release markers" in workflow
     assert "expected public application marker" in workflow
-    assert 'grep -Fq "<title>Avelyntics | AI Sales Analyst</title>" /tmp/v4-home.html' in workflow
+    assert 'grep -Fq "<title>Avenlytics | AI Sales Analyst</title>" /tmp/v4-home.html' in workflow
     assert "V4 frontend/API are reachable and the public application marker is live." in workflow
 
 def test_metered_product_routes_use_hard_quota_slots() -> None:
