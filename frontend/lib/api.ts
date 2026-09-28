@@ -205,6 +205,12 @@ export async function deleteSavedIntelligence(datasetId: string, sessionId: stri
 }
 
 
+export async function getPublicCommercialPricing(): Promise<import("./types").PublicCommercialPricing> {
+  const response = await apiFetch("/api/v1/commercial/public-pricing");
+  if (!response.ok) throw await errorFrom(response, "Pricing information could not be loaded.");
+  return response.json();
+}
+
 export async function getCommercialEntitlements(): Promise<import("./types").CommercialEntitlements> {
   const response = await apiFetch("/api/v1/commercial/entitlements");
   if (!response.ok) throw await errorFrom(response, "Billing information could not be loaded.");
