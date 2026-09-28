@@ -463,5 +463,6 @@ export default function MarketingHome() {
         <span>AI Sales Analyst · Decision intelligence for sales teams</span>
       </footer>
     </main>
+    </>
   );
 }
