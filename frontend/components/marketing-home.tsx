@@ -461,6 +461,12 @@ export default function MarketingHome() {
       <footer className="landing-v2-footer">
         <span>Avenlytics</span>
         <span>AI Sales Analyst · Decision intelligence for sales teams</span>
+        <nav aria-label="Legal">
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/refunds">Refunds</Link>
+          <a href="mailto:shaikriyaz343@gmail.com">Support</a>
+        </nav>
       </footer>
     </main>
     </>
