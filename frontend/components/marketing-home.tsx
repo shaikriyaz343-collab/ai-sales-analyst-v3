@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Script from "next/script";
+import { useEffect, useMemo, useState } from "react";
+import { getPublicCommercialPricing } from "../lib/api";
 
 const outcomes = [
   {
@@ -26,6 +29,40 @@ const workflow = [
   { label: "ACT", title: "Ask, investigate, act", text: "Move from a headline to the underlying evidence and next business action." },
 ];
 
+
+type PaddlePricingLineItem = {
+  price?: { id?: string };
+  formattedTotals?: { subtotal?: string };
+};
+
+type PaddlePricingPreview = {
+  data?: {
+    details?: {
+      lineItems?: PaddlePricingLineItem[];
+    };
+  };
+};
+
+declare global {
+  interface Window {
+    Paddle?: {
+      Environment: {
+        set: (environment: "sandbox" | "production") => void;
+      };
+      Initialize: (options: {
+        token: string;
+        eventCallback?: (event: { name?: string }) => void;
+      }) => void;
+      PricePreview: (request: {
+        items: Array<{ quantity: number; priceId: string }>;
+      }) => Promise<PaddlePricingPreview>;
+      Checkout: {
+        open: (options: { transactionId: string }) => void;
+      };
+    };
+  }
+}
+
 const faqs = [
   {
     question: "Do we need to replace our CRM?",
@@ -46,7 +83,119 @@ const faqs = [
 ];
 
 export default function MarketingHome() {
+  const [paddleConfig, setPaddleConfig] = useState<import("../lib/types").PublicCommercialPricing | null>(null);
+  const [paddleInitialized, setPaddleInitialized] = useState(false);
+  const [localizedPrices, setLocalizedPrices] = useState<Record<string, string>>({});
+  const [pricingStatus, setPricingStatus] = useState<"loading" | "ready" | "fallback">("loading");
+
+  const paddleClientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "";
+
+  const publicPriceIds = useMemo(
+    () =>
+      Object.fromEntries(
+        (paddleConfig?.plans ?? [])
+          .filter((plan) => plan.price_id)
+          .map((plan) => [plan.plan_id, plan.price_id as string]),
+      ),
+    [paddleConfig],
+  );
+
+  function initializePaddle() {
+    if (
+      paddleInitialized ||
+      !paddleClientToken ||
+      !paddleConfig?.paddle_environment ||
+      !window.Paddle
+    ) {
+      return;
+    }
+
+    window.Paddle.Environment.set(
+      paddleConfig.paddle_environment === "live" ? "production" : "sandbox",
+    );
+    window.Paddle.Initialize({ token: paddleClientToken });
+    setPaddleInitialized(true);
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    getPublicCommercialPricing()
+      .then((response) => {
+        if (!active) return;
+        setPaddleConfig(response);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPricingStatus("fallback");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    initializePaddle();
+  }, [paddleClientToken, paddleConfig?.paddle_environment, paddleInitialized]);
+
+  useEffect(() => {
+    if (!paddleInitialized || !window.Paddle || !Object.keys(publicPriceIds).length) {
+      return;
+    }
+
+    let active = true;
+    setPricingStatus("loading");
+
+    window.Paddle.PricePreview({
+      items: Object.values(publicPriceIds).map((priceId) => ({
+        quantity: 1,
+        priceId,
+      })),
+    })
+      .then((result) => {
+        if (!active) return;
+        const nextPrices: Record<string, string> = {};
+
+        for (const item of result.data?.details?.lineItems ?? []) {
+          const priceId = item.price?.id;
+          const formattedSubtotal = item.formattedTotals?.subtotal;
+          if (!priceId || !formattedSubtotal) continue;
+
+          const plan = Object.entries(publicPriceIds).find(([, id]) => id === priceId);
+          if (plan) {
+            nextPrices[plan[0]] = formattedSubtotal;
+          }
+        }
+
+        if (Object.keys(nextPrices).length > 0) {
+          setLocalizedPrices(nextPrices);
+          setPricingStatus("ready");
+        } else {
+          setPricingStatus("fallback");
+        }
+      })
+      .catch(() => {
+        if (active) setPricingStatus("fallback");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [paddleInitialized, publicPriceIds]);
+
+  const displayPrices = {
+    starter: localizedPrices.starter ?? "$49",
+    growth: localizedPrices.growth ?? "$149",
+  };
+
   return (
+    <>
+      <Script
+        src="https://cdn.paddle.com/paddle/v2/paddle.js"
+        strategy="afterInteractive"
+        onReady={initializePaddle}
+      />
     <main className="landing-v2-page">
       <header className="landing-v2-nav">
         <Link href="/" className="landing-v2-brand" aria-label="Avenlytics — AI Sales Analyst home">
@@ -260,7 +409,7 @@ export default function MarketingHome() {
               <span>STARTER</span>
               <span>For focused teams</span>
             </div>
-            <div className="landing-v2-price">$49 <small>/ month</small></div>
+            <div className="landing-v2-price">{displayPrices.starter} <small>/ month</small></div>
             <p>For a small revenue team building a repeatable analysis workflow.</p>
             <Link href="/login?mode=signup" className="landing-v2-price-button">Start free</Link>
           </article>
@@ -270,13 +419,18 @@ export default function MarketingHome() {
               <span>GROWTH</span>
               <span>For expanding teams</span>
             </div>
-            <div className="landing-v2-price">$149 <small>/ month</small></div>
+            <div className="landing-v2-price">{displayPrices.growth} <small>/ month</small></div>
             <p>For growing teams that need more analysis, monitoring, reporting, and saved intelligence.</p>
             <Link href="/login?mode=signup" className="landing-v2-price-button filled">Start free</Link>
           </article>
         </div>
 
-        <div className="landing-v2-trial-note">14-day trial · No CRM migration · No implementation project</div>
+        <div className="landing-v2-trial-note">
+          14-day trial · No CRM migration · No implementation project
+          <span className="landing-v2-paddle-price-meta" aria-live="polite">
+            {pricingStatus === "ready" ? " · Prices localized by Paddle" : pricingStatus === "loading" ? " · Loading localized pricing…" : " · Checkout confirms final pricing"}
+          </span>
+        </div>
       </section>
 
       <section className="landing-v2-section landing-v2-faq">
@@ -309,5 +463,6 @@ export default function MarketingHome() {
         <span>AI Sales Analyst · Decision intelligence for sales teams</span>
       </footer>
     </main>
+    </>
   );
 }

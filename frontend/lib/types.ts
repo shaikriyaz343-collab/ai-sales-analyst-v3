@@ -262,6 +262,15 @@ export type CommercialPlan = {
   features: string[];
 };
 
+export type PublicCommercialPricing = {
+  provider: string;
+  paddle_environment: "sandbox" | "live" | null;
+  plans: Array<{
+    plan_id: "starter" | "growth" | string;
+    price_id: string | null;
+  }>;
+};
+
 export type CommercialEntitlements = {
   organization_id: string;
   subscription: {

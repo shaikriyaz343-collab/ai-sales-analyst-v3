@@ -891,6 +891,26 @@ def commercial_entitlements(principal: Principal = Depends(require_user)) -> dic
     }
 
 
+@app.get("/api/v1/commercial/public-pricing")
+def commercial_public_pricing() -> dict[str, object]:
+    """Return public pricing metadata needed to render Paddle-localized prices."""
+    paddle_enabled = settings.billing_provider == "paddle"
+    return {
+        "provider": settings.billing_provider,
+        "paddle_environment": settings.paddle_environment if paddle_enabled else None,
+        "plans": [
+            {
+                "plan_id": "starter",
+                "price_id": settings.paddle_starter_price_id if paddle_enabled else None,
+            },
+            {
+                "plan_id": "growth",
+                "price_id": settings.paddle_growth_price_id if paddle_enabled else None,
+            },
+        ],
+    }
+
+
 @app.post("/api/v1/internal/commercial/reconcile")
 def commercial_reconcile(request: Request) -> dict[str, object]:
     if settings.billing_provider != "paddle":
