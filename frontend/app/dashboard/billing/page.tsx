@@ -15,6 +15,18 @@ declare global {
         token: string;
         eventCallback?: (event: { name?: string }) => void;
       }) => void;
+      PricePreview: (request: {
+        items: Array<{ quantity: number; priceId: string }>;
+      }) => Promise<{
+        data?: {
+          details?: {
+            lineItems?: Array<{
+              price?: { id?: string };
+              formattedTotals?: { subtotal?: string };
+            }>;
+          };
+        };
+      }>;
       Checkout: {
         open: (options: { transactionId: string }) => void;
       };
