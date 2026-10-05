@@ -15,16 +15,21 @@ export type AuthUser = {
 export type DatasetSummary = {
   dataset_id: string;
   created_at?: string | null;
+  organization_id?: string | null;
   workspace_id?: string | null;
   file_name: string;
   file_type: string;
   row_count: number;
   column_count: number;
+  columns?: string[];
   business_model: string | null;
   business_model_label: string | null;
   business_model_confidence: number;
   analysis_status?: string;
+  analysis_status_reason?: string | null;
   quality_issues: number;
+  capabilities?: unknown;
+  supported_concepts?: string[];
 };
 
 export type MobileContext = {
@@ -78,49 +83,96 @@ export type Overview = {
 
 export type ActionItem = {
   id: string;
-  title: string;
-  summary: string;
-  recommendation: string;
-  priority_score: number;
-  impact_score: number;
-  urgency_score: number;
-  evidence_score: number;
-  severity: string;
-  evidence: Evidence;
+  priority: string;
   status: string;
+  title: string;
+  action: string;
+  owner: string;
+  rationale: string;
+  expected_outcome: string;
+  metric: string;
+  display_value: string;
+  evidence: Evidence;
+  source_insight_id: string;
 };
 
 export type ActionsResponse = {
   dataset_id: string;
+  business_model: string | null;
   business_model_label: string | null;
-  scope_label: string;
+  headline: string;
+  summary: string;
   actions: ActionItem[];
+};
+
+export type InsightItem = {
+  id: string;
+  kind: string;
+  severity: string;
+  title: string;
+  what_changed: string;
+  why_it_matters: string;
+  recommendation: string;
+  metric: string;
+  value?: number | null;
+  display_value: string;
+  evidence: Evidence;
+  priority_score?: number | null;
+  impact_score?: number | null;
+  urgency_score?: number | null;
+  evidence_score?: number | null;
 };
 
 export type InsightsResponse = {
   dataset_id: string;
+  business_model: string | null;
   business_model_label: string | null;
   scope_label: string;
-  insights: OverviewInsight[];
+  headline: string;
+  summary: string;
+  insights: InsightItem[];
+};
+
+export type AskAnswer = {
+  status: string;
+  text: string;
+  confidence: string;
+  evidence?: Evidence | null;
+};
+
+export type AskFollowUp = {
+  label: string;
+  question: string;
 };
 
 export type AskResponse = {
-  status: string;
+  dataset_id: string;
   question: string;
-  answer: string;
-  evidence: Evidence[];
-  suggested_followups: string[];
+  business_model: string | null;
+  business_model_label: string | null;
+  answer: AskAnswer;
+  follow_ups: AskFollowUp[];
+  explore_metric?: string | null;
+  explore_dimension?: string | null;
+  supported_summary?: string | null;
+  analytical_plan?: Record<string, unknown> | null;
 };
 
 export type ReportResponse = {
   dataset_id: string;
+  file_name: string;
+  business_model: string | null;
   business_model_label: string | null;
   scope_label: string;
-  headline: string;
+  title: string;
   executive_summary: string;
+  generated_at: string;
   metrics: OverviewMetric[];
-  insights: OverviewInsight[];
+  what_changed: string[];
+  attention: OverviewInsight[];
+  opportunities: OverviewInsight[];
   actions: ActionItem[];
+  source_note: string;
 };
 
 export type AlertRule = {
@@ -135,6 +187,7 @@ export type AlertRule = {
   scope_label: string;
   active: boolean;
   created_at: string;
+  last_evaluated_at?: string | null;
   due: boolean;
   next_due_at?: string | null;
 };
@@ -158,6 +211,7 @@ export type AlertEvent = {
 
 export type AlertsResponse = {
   dataset_id: string;
+  business_model: string | null;
   business_model_label: string | null;
   scope_label: string;
   rules: AlertRule[];
@@ -165,19 +219,31 @@ export type AlertsResponse = {
 };
 
 export type SavedIntelligence = {
-  item_id: string;
+  id: string;
+  dataset_id: string;
+  session_id: string;
   name: string;
+  kind: string;
+  title: string;
+  summary: string;
+  metric: string;
+  metric_label: string;
+  dimension?: string | null;
+  dimension_label?: string | null;
+  value?: number | null;
+  display_value: string;
+  scope_label: string;
   source_workspace: string;
   source_id: string;
-  title?: string | null;
-  summary?: string | null;
-  metric?: string | null;
-  dimension?: string | null;
+  active: boolean;
   created_at: string;
+  updated_at: string;
 };
 
 export type SavedResponse = {
   dataset_id: string;
+  business_model: string | null;
+  business_model_label: string | null;
   scope_label: string;
   items: SavedIntelligence[];
 };
@@ -212,6 +278,7 @@ export type CommercialEntitlements = {
 export type AnalysisSession = {
   session_id: string;
   dataset_id: string;
-  workspace_id?: string | null;
   organization_id?: string | null;
+  workspace_id?: string | null;
+  scope?: { filters: Array<{ field: string; operator: string; values: string[] }> };
 };
