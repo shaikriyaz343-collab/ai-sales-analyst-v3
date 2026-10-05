@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Avenlytics",
+    "slug": "avenlytics",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "avenlytics",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "jsEngine": "hermes",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow Avenlytics to use Face ID to protect your sign-in."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "alerts",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      "expo-background-task"
+    ],
+    "android": {
+      "package": "com.avenlytics.salesanalyst",
+      "predictiveBackGestureEnabled": true,
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.avenlytics.salesanalyst",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "https://ai-sales-analyst-v3-production.up.railway.app"
+    }
+  }
+}

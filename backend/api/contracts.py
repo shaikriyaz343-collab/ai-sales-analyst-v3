@@ -68,8 +68,14 @@ class DataQualitySummary(BaseModel):
     issues: list[DataQualityIssue] = Field(default_factory=list)
 
 
+class MobilePushTokenRequest(BaseModel):
+    token: str
+    platform: str = "unknown"
+
+
 class DatasetSummary(BaseModel):
     dataset_id: str
+    created_at: str | None = None
     organization_id: str | None = None
     workspace_id: str | None = None
     file_name: str
@@ -123,6 +129,15 @@ class AuthUser(BaseModel):
 
 class AuthResponse(BaseModel):
     user: AuthUser
+
+class MobileAuthResponse(BaseModel):
+    user: AuthUser
+    access_token: str
+
+
+class MobileContextResponse(BaseModel):
+    user: AuthUser
+    latest_datasets: dict[str, DatasetSummary] = Field(default_factory=dict)
 
 
 class SignupRequest(BaseModel):
