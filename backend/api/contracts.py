@@ -43,6 +43,7 @@ class ScopeValuesResponse(BaseModel):
 class AnalysisSession(BaseModel):
     session_id: str
     dataset_id: str
+    created_at: str | None = None
     organization_id: str | None = None
     workspace_id: str | None = None
     scope: ScopeState = Field(default_factory=ScopeState)
@@ -66,6 +67,21 @@ class DataQualitySummary(BaseModel):
     info_count: int = 0
     quality_status: str = "unknown"
     issues: list[DataQualityIssue] = Field(default_factory=list)
+
+
+class MobileAuthResponse(BaseModel):
+    user: AuthUser
+    access_token: str
+
+
+class MobilePushTokenRequest(BaseModel):
+    token: str
+    platform: str = "unknown"
+
+
+class MobileContextResponse(BaseModel):
+    user: AuthUser
+    latest_datasets: dict[str, DatasetSummary] = Field(default_factory=dict)
 
 
 class DatasetSummary(BaseModel):
