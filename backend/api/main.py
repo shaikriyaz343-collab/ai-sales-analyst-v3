@@ -93,7 +93,7 @@ from .services.actions import build_actions
 from .services.action_workflow import update_action_status
 from .services.report import build_report
 from .services.session import create_session, get_session, replace_dataset, update_scope, reset_scope
-from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts
+from .services.monitoring import list_alerts, create_rule, delete_rule, evaluate_alerts, evaluate_due_alerts
 from .services.saved_intelligence import list_saved, save_intelligence, delete_saved
 from .services.commercial import UsageMetric, plan_catalog
 from .services.commercial_store import runtime_commercial_repository, reset_runtime_commercial_repository
@@ -1041,6 +1041,14 @@ def commercial_public_pricing() -> dict[str, object]:
     }
 
 
+@app.post("/api/v1/internal/mobile/monitoring-evaluate")
+def mobile_monitoring_evaluate(request: Request) -> dict[str, int | str]:
+    configured = settings.billing_reconciliation_token
+    provided = request.headers.get("X-V4-Reconciliation-Token", "")
+    if not configured or not hmac.compare_digest(provided, configured):
+        raise HTTPException(status_code=401, detail="Monitoring scheduler authentication required.")
+    result = evaluate_due_alerts()
+    return {"status": "ok", **result}
 @app.post("/api/v1/internal/commercial/reconcile")
 def commercial_reconcile(request: Request) -> dict[str, object]:
     if settings.billing_provider != "paddle":
