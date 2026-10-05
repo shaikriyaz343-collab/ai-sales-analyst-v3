@@ -29,7 +29,9 @@
     "android": {
       "package": "com.avenlytics.salesanalyst",
       "predictiveBackGestureEnabled": true,
-      "permissions": ["POST_NOTIFICATIONS"]
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.avenlytics.salesanalyst",
@@ -39,10 +41,7 @@
       }
     },
     "extra": {
-      "apiBaseUrl": "${EXPO_PUBLIC_API_BASE_URL}",
-      "eas": {
-        "projectId": "${EXPO_PUBLIC_EAS_PROJECT_ID}"
-      }
+      "apiBaseUrl": "https://ai-sales-analyst-v3-production.up.railway.app"
     }
   }
 }
