@@ -8,7 +8,7 @@ from typing import Annotated
 
 import anyio
 
-from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import Cookie, Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
 
 class LifecycleState(enum.Enum):
     STARTING = "STARTING"
@@ -55,6 +55,10 @@ from .contracts import (
     ScopeValuesResponse,
     SignupRequest,
     WorkspaceListResponse,
+    MobileAuthResponse,
+    MobilePushTokenRequest,
+    MobileContextResponse,
+
     WorkspaceSummary,
 )
 from .services.auth import (
@@ -421,9 +425,19 @@ def _set_session_cookie(response: Response, token: str) -> None:
     )
 
 
-def require_user(request: Request, token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None) -> Principal:
+def require_user(
+    request: Request,
+    token: Annotated[str | None, Cookie(alias=COOKIE_NAME)] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> Principal:
     route = request.scope.get("route")
     route_path = route.path if route and hasattr(route, "path") else "unmatched_route"
+    bearer = None
+    if authorization:
+        scheme, _, value = authorization.partition(" ")
+        if scheme.lower() == "bearer" and value.strip():
+            bearer = value.strip()
+    token = token or bearer
     if not token:
         from backend.api.telemetry import safe_emit_metric
         safe_emit_metric("auth_failures_total", 1, {"route": route_path, "reason": "missing_token"})
@@ -563,6 +577,122 @@ def logout(response: Response, token: Annotated[str | None, Cookie(alias=COOKIE_
 def revoke_all_auth_sessions(principal: Principal = Depends(require_user)):
     revoked = revoke_all_sessions(principal.user_id)
     return {"status": "ok", "revoked": revoked}
+
+
+
+@app.post("/api/v1/mobile/auth/login", response_model=MobileAuthResponse)
+def mobile_login(request: LoginRequest, http_request: Request) -> MobileAuthResponse:
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    email = request.email.strip().lower()
+    ip_allowed = consume_rate_limit("login", _rate_key("ip", client_ip), LOGIN_RATE_LIMIT_IP, LOGIN_RATE_LIMIT_WINDOW)
+    email_allowed = consume_rate_limit("login", _rate_key("email", email), LOGIN_RATE_LIMIT_EMAIL, LOGIN_RATE_LIMIT_WINDOW)
+    if not ip_allowed or not email_allowed:
+        safe_emit_metric = __import__("backend.api.telemetry", fromlist=["safe_emit_metric"]).safe_emit_metric
+        safe_emit_metric("rate_limit_hits_total", 1, {"route": "/api/v1/mobile/auth/login"})
+        record_security_event("login_rate_limited", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=429, detail="Too many login attempts. Please try again later.")
+    try:
+        principal = authenticate(request.email, request.password)
+        token, _ = issue_session(principal.user_id)
+        record_security_event("mobile_login_success", email=principal.email, client_ip=client_ip, user_id=principal.user_id)
+        return MobileAuthResponse(user=_auth_user(principal), access_token=token)
+    except ValueError as exc:
+        record_security_event("mobile_login_failed", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=401, detail="Email or password is incorrect.") from exc
+
+
+@app.post("/api/v1/mobile/auth/signup", response_model=MobileAuthResponse)
+def mobile_signup(request: SignupRequest, http_request: Request) -> MobileAuthResponse:
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    email = request.email.strip().lower()
+    ip_allowed = consume_rate_limit("signup", _rate_key("ip", client_ip), SIGNUP_RATE_LIMIT_IP, SIGNUP_RATE_LIMIT_WINDOW)
+    email_allowed = consume_rate_limit("signup", _rate_key("email", email), SIGNUP_RATE_LIMIT_EMAIL, SIGNUP_RATE_LIMIT_WINDOW)
+    if not ip_allowed or not email_allowed:
+        safe_emit_metric = __import__("backend.api.telemetry", fromlist=["safe_emit_metric"]).safe_emit_metric
+        safe_emit_metric("rate_limit_hits_total", 1, {"route": "/api/v1/mobile/auth/signup"})
+        record_security_event("signup_rate_limited", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=429, detail="Too many signup attempts. Please try again later.")
+    try:
+        principal = create_account(request.email, request.password, request.name, request.organization_name)
+        token, _ = issue_session(principal.user_id)
+        record_security_event("mobile_signup_success", email=principal.email, client_ip=client_ip, user_id=principal.user_id)
+        return MobileAuthResponse(user=_auth_user(principal), access_token=token)
+    except ValueError as exc:
+        if "already exists" in str(exc).lower():
+            record_security_event("mobile_signup_duplicate", email=email, client_ip=client_ip)
+            raise HTTPException(status_code=400, detail="Unable to create this account.") from exc
+        record_security_event("mobile_signup_rejected", email=email, client_ip=client_ip)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/mobile/auth/logout")
+def mobile_logout(
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+):
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
+        revoke_session(token.strip())
+    return {"status": "ok"}
+
+
+@app.get("/api/v1/mobile/context", response_model=MobileContextResponse)
+def mobile_context(principal: Principal = Depends(require_user)) -> MobileContextResponse:
+    datasets_store = runtime_document_store("datasets", local_root=settings.data_storage)
+    datasets: list[DatasetSummary] = []
+    list_prefix = getattr(datasets_store, "list_prefix", None)
+    if callable(list_prefix):
+        for _, raw in list_prefix(""):
+            try:
+                summary = DatasetSummary.model_validate(raw)
+            except Exception:
+                continue
+            if summary.organization_id == principal.organization_id:
+                datasets.append(summary)
+    # Prefer the newest dataset for each workspace; older legacy records may lack created_at.
+    latest_by_workspace: dict[str, DatasetSummary] = {}
+    for summary in datasets:
+        workspace = summary.workspace_id or principal.workspace_id
+        current = latest_by_workspace.get(workspace)
+        if current is None or (summary.created_at or "") >= (current.created_at or ""):
+            latest_by_workspace[workspace] = summary
+    return MobileContextResponse(
+        user=_auth_user(principal),
+        latest_datasets={workspace_id: summary for workspace_id, summary in latest_by_workspace.items()},
+    )
+
+
+@app.post("/api/v1/mobile/push-token")
+def register_mobile_push_token(
+    request: MobilePushTokenRequest,
+    principal: Principal = Depends(require_user),
+):
+    token = request.token.strip()
+    if not token or len(token) > 1024:
+        raise HTTPException(status_code=400, detail="Push token is invalid.")
+    store = runtime_document_store("mobile_push", local_root=settings.data_storage.parent / "runtime_mobile")
+    key = principal.organization_id
+    payload = store.read(key) or {"tokens": []}
+    tokens = [item for item in payload.get("tokens", []) if isinstance(item, dict) and item.get("token") != token]
+    tokens.append({
+        "token": token,
+        "platform": request.platform,
+        "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    })
+    store.write(key, {"tokens": tokens[-20:]})
+    return {"status": "registered"}
+
+
+@app.delete("/api/v1/mobile/push-token")
+def unregister_mobile_push_token(
+    request: MobilePushTokenRequest,
+    principal: Principal = Depends(require_user),
+):
+    store = runtime_document_store("mobile_push", local_root=settings.data_storage.parent / "runtime_mobile")
+    key = principal.organization_id
+    payload = store.read(key) or {"tokens": []}
+    tokens = [item for item in payload.get("tokens", []) if isinstance(item, dict) and item.get("token") != request.token.strip()]
+    store.write(key, {"tokens": tokens})
+    return {"status": "unregistered"}
 
 
 @app.get("/api/v1/workspaces", response_model=WorkspaceListResponse)
