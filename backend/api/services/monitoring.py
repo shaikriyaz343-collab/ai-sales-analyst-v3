@@ -140,7 +140,7 @@ def delete_rule(dataset_id: str, session_id: str, rule_id: str) -> None:
     _save(session_id, payload)
 
 
-def evaluate_alerts(dataset_id: str, session_id: str) -> AlertsResponse:
+def evaluate_alerts(dataset_id: str, session_id: str, due_only: bool = False) -> AlertsResponse:
     session = require_session(session_id)
     if session.dataset_id != dataset_id:
         raise ValueError("Analysis session does not match the dataset.")
@@ -151,6 +151,13 @@ def evaluate_alerts(dataset_id: str, session_id: str) -> AlertsResponse:
     for raw in payload.get("rules", []):
         if raw.get("dataset_id") != dataset_id or not raw.get("active", True):
             continue
+        if due_only:
+            cadence = raw.get("cadence", "manual")
+            if cadence == "manual":
+                continue
+            due, _ = _schedule_state(cadence, raw["created_at"], raw.get("last_evaluated_at"), datetime.now(timezone.utc))
+            if not due:
+                continue
         metric = metrics.get(raw["metric"])
         raw["last_evaluated_at"] = now
         if metric is None or metric.value is None:
