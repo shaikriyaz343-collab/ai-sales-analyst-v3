@@ -194,3 +194,75 @@ def evaluate_alerts(dataset_id: str, session_id: str, due_only: bool = False) ->
     payload.setdefault("events", []).extend(e.model_dump() for e in new_events)
     _save(session_id, payload)
     return list_alerts(dataset_id, session_id)
+
+
+def evaluate_due_alerts() -> dict[str, int]:
+    """Evaluate scheduled monitoring rules and notify registered mobile devices."""
+    from .mobile_notifications import send_mobile_alert_notifications
+
+    store = runtime_document_store("monitoring", local_root=MONITORING_STORAGE)
+    mobile_store = runtime_document_store("mobile_push", local_root=STORAGE.parent / "runtime_mobile")
+    sessions_processed = 0
+    triggered_events = 0
+    notifications_sent = 0
+    list_prefix = getattr(store, "list_prefix", None)
+    if not callable(list_prefix):
+        return {"sessions": 0, "triggered_events": 0, "notifications_sent": 0}
+
+    for session_id, payload in list_prefix(""):
+        if not isinstance(payload, dict):
+            continue
+        rules = payload.get("rules", [])
+        due_dataset_ids = set()
+        now = datetime.now(timezone.utc)
+        for rule in rules:
+            if not isinstance(rule, dict) or not rule.get("active", True):
+                continue
+            cadence = rule.get("cadence", "manual")
+            if cadence == "manual" or not rule.get("created_at") or not rule.get("dataset_id"):
+                continue
+            try:
+                due, _ = _schedule_state(cadence, rule["created_at"], rule.get("last_evaluated_at"), now)
+            except (KeyError, ValueError):
+                continue
+            if due:
+                due_dataset_ids.add(str(rule["dataset_id"]))
+
+        for dataset_id in due_dataset_ids:
+            current = store.read(session_id)
+            if not isinstance(current, dict):
+                continue
+            before_ids = {str(event.get("event_id")) for event in current.get("events", []) if isinstance(event, dict)}
+            try:
+                response = evaluate_alerts(dataset_id, session_id, due_only=True)
+            except (ValueError, KeyError):
+                continue
+            sessions_processed += 1
+            new_triggered = [event for event in response.events if event.event_id not in before_ids and event.status == "triggered"]
+            if not new_triggered:
+                continue
+
+            summary = get_dataset(dataset_id)
+            organization_id = summary.organization_id if summary else None
+            if not organization_id:
+                continue
+            token_payload = mobile_store.read(organization_id) or {"tokens": []}
+            tokens = [
+                str(item.get("token"))
+                for item in token_payload.get("tokens", [])
+                if isinstance(item, dict) and item.get("token")
+            ]
+            for event in new_triggered:
+                triggered_events += 1
+                notifications_sent += send_mobile_alert_notifications(
+                    tokens,
+                    title=event.title,
+                    body=event.message,
+                    data={"screen": "monitoring", "eventId": event.event_id},
+                )
+
+    return {
+        "sessions": sessions_processed,
+        "triggered_events": triggered_events,
+        "notifications_sent": notifications_sent,
+    }
