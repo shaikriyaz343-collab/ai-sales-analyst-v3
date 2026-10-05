@@ -42,6 +42,11 @@ def _semantic_summary(profile: dict, semantic: dict, data) -> SemanticSummary:
     return SemanticSummary(fields=fields, concepts=concepts, metrics=metrics, dimensions=dimensions)
 
 
+def _now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def _quality_summary(result: dict[str, Any]) -> DataQualitySummary:
     """Persist a bounded, deterministic summary of validated data-quality findings."""
     raw_issues = result.get("issues") or []
@@ -110,6 +115,7 @@ def _profile(file_path: Path, file_name: str, dataset_id: str, organization_id: 
 
     summary = DatasetSummary(
         dataset_id=dataset_id,
+        created_at=_now(),
         organization_id=organization_id,
         workspace_id=workspace_id,
         file_name=file_name,
