@@ -2,7 +2,7 @@
   "expo": {
     "name": "Avenlytics",
     "slug": "avenlytics",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "avenlytics",
     "userInterfaceStyle": "light",
@@ -31,7 +31,8 @@
       "predictiveBackGestureEnabled": true,
       "permissions": [
         "POST_NOTIFICATIONS"
-      ]
+      ],
+      "versionCode": 1
     },
     "ios": {
       "bundleIdentifier": "com.avenlytics.salesanalyst",
