@@ -8,14 +8,14 @@
 4. Test login, workspace selection, Overview, Decisions, Insights, Ask Analyst, Reports, Monitoring, Saved Intelligence, billing status, and notifications on a physical Android device.
 5. Run the same workflow with `production` to create the Google Play AAB.
 
-Expo documents that EAS CLI access tokens use the `EXPO_TOKEN` environment variable, and that a project must be linked before CI builds. The workflow uses `eas init --force --non-interactive` to establish that link on the build worker. citeturn344250search2turn344250search1
+EAS CLI access tokens use the `EXPO_TOKEN` environment variable, and CI builds require the Expo project to be linked before the build runs. The workflow establishes that link on the build worker.
 
 ## Push notifications
 
-Android remote notifications require Firebase/FCM credentials associated with the Expo/EAS project. Expo's current setup guide documents configuring Android credentials and testing on a physical device. citeturn476503search0turn476503search7
+Android remote notifications require Firebase/FCM credentials associated with the Expo/EAS project.
 
 ## Google Play
 
-The production Android build should be an AAB. Google Play release automation additionally requires a Google Play Developer account, and automated submissions require a Google service-account credential configured for the Expo project. citeturn476503search12turn476503search9
+The production Android build should be an AAB. Google Play release automation additionally requires a Google Play Developer account and a Google service-account credential configured for the Expo project.
 
 Never commit the Expo token, Firebase service-account JSON, or Google Play credentials to the repository.
