@@ -42,7 +42,12 @@
       }
     },
     "extra": {
-      "apiBaseUrl": "https://ai-sales-analyst-v3-production.up.railway.app"
-    }
+      "apiBaseUrl": "https://ai-sales-analyst-v3-production.up.railway.app",
+      "router": {},
+      "eas": {
+        "projectId": "2a0b7f1a-7c6d-45ca-b246-c6f6e8c0eaae"
+      }
+    },
+    "owner": "riyaz343"
   }
 }
